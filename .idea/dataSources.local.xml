@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="dataSourceStorageLocal" created-in="IU-221.5921.22">
+    <data-source name="webwallet@192.168.56.103" uuid="819473c5-7afe-4d7a-bb4c-ab81392c3862">
+      <database-info product="" version="" jdbc-version="" driver-name="" driver-version="" dbms="POSTGRES" exact-version="0" />
+      <secret-storage>master_key</secret-storage>
+      <user-name>Administrator</user-name>
+      <schema-mapping />
+    </data-source>
+  </component>
+</project>

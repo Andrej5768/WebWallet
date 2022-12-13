@@ -1,0 +1,60 @@
+<html>
+
+<head>
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
+	<title></title>
+</head>
+<body>
+<nav class="navbar navbar-default">
+	<div class="container-fluid">
+		<div class="navbar-header">
+			<a class="navbar-brand" th:href="@{/homepage.html}" th:utext="#{label.pages.home.title}">home</a>
+		</div>
+		<ul class="nav navbar-nav navbar-right">
+			<li><a th:href="@{/logout}" th:utext="#{label.pages.logout}">logout</a></li>
+		</ul>
+	</div>
+</nav>
+<div class="container">
+	<div class="row">
+		<div class="col-md-12">
+			<h1> Add accounts </h1>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-md-6">
+			<a class="btn btn-info" href="#" th:href="@{/accounts/all}"> Back to All accounts </a>
+			<form action="#" class="form-horizontal"
+				  th:action="@{/accounts/saveAll}"
+				  th:object="${form}"
+				  method="post">
+				<fieldset>
+					<span class="pull-right">
+						    <input type="submit" id="submitButton" class="btn btn-success" th:value="Save">
+						    <input type="reset" id="resetButton" class="btn btn-danger" th:value="Reset"/>
+					</span>
+					<table class="table">
+						<thead>
+						<tr>
+							<th></th>
+							<th> Name</th>
+							<th> Amount</th>
+						</tr>
+						</thead>
+						<tbody>
+						<tr th:each="account, itemStat : ${form.accounts}">
+							<td><input hidden th:name="|accounts[${itemStat.index}].id|" th:value="${account.getId()}"/></td>
+							<td><input th:placeholder="Name + ' ' + ${itemStat.count}" th:name="|accounts[${itemStat.index}].name|" th:value="${account.getName()}"
+									   required/></td>
+							<td><input th:placeholder="Amount + ' ' + ${itemStat.count}" th:name="|accounts[${itemStat.index}].amount|"
+									   th:value="${account.getAmount()}" required/></td>
+						</tr>
+						</tbody>
+					</table>
+				</fieldset>
+			</form>
+		</div>
+	</div>
+</div>
+</body>
+</html>
