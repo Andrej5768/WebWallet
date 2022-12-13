@@ -1,11 +1,15 @@
 package com.andrewCorp.webWallet.persistence.model;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
 import javax.persistence.*;
+import java.io.Serializable;
 import java.math.BigDecimal;
 
 @Entity
 @Table(name = "account")
-public class Account {
+@JsonSerialize
+public class Account implements Serializable {
 
     @Id
     @Column(unique = true, nullable = false)
