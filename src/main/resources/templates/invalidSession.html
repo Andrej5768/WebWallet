@@ -1,13 +1,14 @@
-<html>
-<head>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
-<title th:utext="#{label.pages.home.title}">home</title>
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="layout :: head(~{::title})">
+    <title th:utext="#{label.pages.home.title}">home</title>
 </head>
+<div th:replace="layout :: nav"></div>
 <body>
     <div class="container">
 	    <h1 class="alert alert-danger" th:utext="#{message.sessionExpired}">expired</h1>
 	    <a class="btn btn-primary" th:href="@{/login}" th:utext="#{label.form.loginLink}">login</a>
     </div>
 </body>
-
+<div th:replace="layout :: footer"></div>
 </html>
