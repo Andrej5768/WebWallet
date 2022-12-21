@@ -1,8 +1,9 @@
-<html>
-<head>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="layout :: head(~{::title})">
     <title th:utext="#{label.pages.home.title}">home</title>
 </head>
+<div th:replace="layout :: nav"></div>
 <body>
 <nav class="navbar navbar-default">
     <div class="container-fluid">
@@ -34,4 +35,5 @@
     <a class="btn btn-info" href="#" th:href="@{/accounts/all}"> Accounts List </a>
 </div>
 </body>
+<div th:replace="layout :: footer"></div>
 </html>
