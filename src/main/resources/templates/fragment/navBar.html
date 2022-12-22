@@ -1,0 +1,59 @@
+<div th:fragment="nav" class="container-fluid bg-dark ">
+    <div class="container container-lg">
+        <nav  class="navbar navbar-expand-sm navbar-dark ">
+            <div class="container-fluid">
+
+                <a class="navbar-brand" href="/"><img src="/img/logo.png" th:src="@{/img/logo.png}" class="img-fluid border rounded-3 shadow-lg" width="112" height="50" alt="Logo"></a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="navbar">
+                    <ul class="navbar-nav me-auto mb-2 mb-sm-0">
+                        <li class="nav-item">
+                            <a class="nav-link active" aria-current="page" href="#">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">Link</a>
+                        </li>
+
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">Language</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="?lang=en" th:utext="#{label.form.loginEnglish}">login</a></li>
+                                <li><a class="dropdown-item" href="?lang=uk_UA" th:utext="#{label.form.loginUkraine}">login</a></li>
+                                <li><a class="dropdown-item" href="?lang=es_ES" th:utext="#{label.form.loginSpanish}">login</a></li>
+                            </ul>
+                        </li>
+
+                        <div sec:authorize="isAuthenticated()" class="nav-item d-block d-sm-none">
+                            <ul class="nav-item">
+                                <li><hr></li>
+                                <li><a class="nav-link" href="#">Settings</a></li>
+                                <li><a class="nav-link" href="#">Profile</a></li>
+                                <li><hr></li>
+                                <li><a class="nav-link" th:href="@{/logout}" th:utext="#{label.pages.logout}">Log out</a></li>
+                            </ul>
+                        </div>
+                    </ul>
+
+                    <div sec:authorize="isAuthenticated()" class="d-none d-sm-block dropdown ">
+                        <a href="#" class="d-block link-dark text-decoration-none dropdown-toggle text-end" data-bs-toggle="dropdown" aria-expanded="false">
+                            <img src="/img/user.png" alt="mdo" width="32" height="32" class="rounded-circle">
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end text-small">
+                            <li><a class="dropdown-item" href="#">Settings</a></li>
+                            <li><a class="dropdown-item" href="#">Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" th:href="@{/logout}" th:utext="#{label.pages.logout}">Log out</a></li>
+                        </ul>
+                    </div>
+                    <div sec:authorize="!isAuthenticated()" class="d-flex flex-nowrap text-small">
+                        <a type="button" class="btn btn-outline-light me-2 text-nowrap" href="#" th:href="@{/login}" th:utex="#{label.form.loginBtn}">Login</a>
+                        <a type="button" class="btn btn-warning text-nowrap" href="#" th:href="@{/registration.html}" th:utex="#{label.form.signUpBtn}">Sign-up</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </div>
+</div>

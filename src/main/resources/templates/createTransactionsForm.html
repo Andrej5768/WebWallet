@@ -1,56 +1,49 @@
-<html>
-
-<head>
-	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
-	<title> Create transaction </title>
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" class="h-100">
+<head th:replace="fragment/head :: head(~{::title},~{})">
+    <title th:utext="#{label.pages.transactionCreate.title}">Create transaction</title>
 </head>
-<body>
-<nav class="navbar navbar-default">
-	<div class="container-fluid">
-		<div class="navbar-header">
-			<a class="navbar-brand" th:href="@{/homepage.html}" th:utext="#{label.pages.home.title}">home</a>
-		</div>
-		<ul class="nav navbar-nav navbar-right">
-			<li><a th:href="@{/logout}" th:utext="#{label.pages.logout}">logout</a></li>
-		</ul>
-	</div>
-</nav>
+<body class="d-flex flex-column h-100">
+<div th:replace="fragment/navBar :: nav"></div>
 <div class="container">
-	<div class="row">
-		<div class="col-md-12">
-			<h1> Add transaction </h1>
-		</div>
-	</div>
-	<div class="row">
-		<div class="col-md-6">
-			<a class="btn btn-info" href="#" th:href="@{/accounts/all}"> Back to All accounts </a>
-			<form action="#" class="form-horizontal"
-				  th:action="@{/accounts/transaction/save}"
-				  th:object="${formT}"
-				  method="post">
-				<fieldset>
-					<table class="table">
-						<tbody>
-						<tr >
-							<td><input th:placeholder="Account" type="hidden" name="accountId" th:value="${account.getId}"></td>
-							<td><input th:placeholder="Amount" name="amount" type="number"></td>
-							<td><input th:placeholder="Remark" name="remark"></td>
-							<td><input th:placeholder="Date" name="date" type="date"></td>
-							<td>
-								<select th:field="*{types}">
-									<option th:each="type : ${types}"
-											th:value="${type}"
-											th:text="#{${type}}">TransactionType</option>
-								</select>
-							</td>
-							<td><input type="submit" id="submitButton" class="btn btn-success" th:value="Save"></td>
-						</tr>
-						</tbody>
-					</table>
-				</fieldset>
-			</form>
-		</div>
-	</div>
+    <div class="row">
+        <div class="col-md-12">
+            <h1> Add transaction </h1>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <a class="btn btn-info" href="#" th:href="@{/accounts/all}"> Back to All accounts </a>
+            <form action="#" class="form-horizontal"
+                  th:action="@{/accounts/transaction/save}"
+                  th:object="${formT}"
+                  method="post">
+                <fieldset>
+                    <table class="table">
+                        <tbody>
+                        <tr>
+                            <td><input th:placeholder="Account" type="hidden" name="accountId"
+                                       th:value="${account.getId}"></td>
+                            <td><input th:placeholder="Amount" name="amount" type="number"></td>
+                            <td><input th:placeholder="Remark" name="remark"></td>
+                            <td><input th:placeholder="Date" name="date" type="date"></td>
+                            <td>
+                                <select th:field="*{types}">
+                                    <option th:each="type : ${types}"
+                                            th:value="${type}"
+                                            th:text="#{${type}}">TransactionType
+                                    </option>
+                                </select>
+                            </td>
+                            <td><input type="submit" id="submitButton" class="btn btn-success" th:value="Save"></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </fieldset>
+            </form>
+        </div>
+    </div>
 </div>
+<div th:replace="fragment/footer :: footer"></div>
 </body>
 </html>

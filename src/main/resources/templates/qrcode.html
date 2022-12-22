@@ -1,14 +1,13 @@
 <!DOCTYPE html>
-
-<html xmlns:th="http://www.thymeleaf.org" xmlns="http://www.w3.org/1999/xhtml">
-
-<head>
+<html xmlns:th="http://www.thymeleaf.org" class="h-100">
+<head th:replace="fragment/head :: head(~{::title},~{})">
 <title>QR code</title>
 
 <link type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" />
 
 </head>
-<body>
+<body class="d-flex flex-column h-100">
+<div th:replace="fragment/navBar :: nav"></div>
 	<div id="qr">
 	    <p>Scan this Barcode using Google Authenticator app on your phone to use it later in login
 	           <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2">Android</a> and 
@@ -20,5 +19,6 @@
        
         
     <a href="/login" class="btn btn-primary">Go to login page</a>
+<div th:replace="fragment/footer :: footer"></div>
 </body>
 </html>

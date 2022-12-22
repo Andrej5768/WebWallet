@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="layout :: head(~{::title})">
-    <title>Card and Accounts</title>
+<html xmlns:th="http://www.thymeleaf.org" class="h-100">
+<head th:replace="fragment/head :: head(~{::title},~{})">
+    <title th:utext="#{label.pages.allAccounts.title}">Card and Accounts</title>
 </head>
-<div th:replace="layout :: nav"></div>
-<body>
+<body class="d-flex flex-column h-100">
+<div th:replace="fragment/navBar :: nav"></div>
 <div class="container">
     <h3>Card and accounts</h3>
     <div class="row">
@@ -26,10 +26,13 @@
                     <td colspan="2"> No accounts or Card Available</td>
                 </tr>
                 <tr th:each="account : ${accounts}">
-                    <td><form action="#" class="form-horizontal"
+                    <td>
+                        <form action="#" class="form-horizontal"
                               th:action="@{/accounts/transaction/all}"
                               th:object="${account}"
-                              method="post"> <input type="submit" id="submit" class="btn btn-success" th:value="${account.name}"> </form></td>
+                              method="post"><input type="submit" id="submit" class="btn btn-success"
+                                                   th:value="${account.name}"></form>
+                    </td>
                     <td><span th:text="${account.amount}"> Amount </span></td>
                 </tr>
                 </tbody>
@@ -41,7 +44,7 @@
                 <fieldset>
                     <table class="table">
                         <tbody>
-                        <tr >
+                        <tr>
                             <td><input th:placeholder="Name" name="name"></td>
                             <td><input th:placeholder="Amount" name="amount"></td>
                             <td><input type="submit" id="submitButton" class="btn btn-success" th:value="Save"></td>
@@ -59,5 +62,5 @@
     </div>
 </div>
 </body>
-<div th:replace="layout :: footer"></div>
+<div th:replace="fragment/footer :: footer"></div>
 </html>

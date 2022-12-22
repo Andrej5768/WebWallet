@@ -1,56 +1,49 @@
-<html>
-
-<head>
-	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"/>
-	<title> Create accounts </title>
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" class="h-100">
+<head th:replace="fragment/head :: head(~{::title},~{})">
+    <title th:utext="#{label.pages.accountsCreate.title}">Create account</title>
 </head>
-<body>
-<nav class="navbar navbar-default">
-	<div class="container-fluid">
-		<div class="navbar-header">
-			<a class="navbar-brand" th:href="@{/homepage.html}" th:utext="#{label.pages.home.title}">home</a>
-		</div>
-		<ul class="nav navbar-nav navbar-right">
-			<li><a th:href="@{/logout}" th:utext="#{label.pages.logout}">logout</a></li>
-		</ul>
-	</div>
-</nav>
+<body class="d-flex flex-column h-100">
+<div th:replace="fragment/navBar :: nav"></div>
 <div class="container">
-	<div class="row">
-		<div class="col-md-12">
-			<h1> Add accounts </h1>
-		</div>
-	</div>
-	<div class="row">
-		<div class="col-md-6">
-			<a class="btn btn-info" href="#" th:href="@{/accounts/all}"> Back to All accounts </a>
-			<form action="#" class="form-horizontal"
-				  th:action="@{/accounts/save}"
-				  th:object="${form}"
-				  method="post">
-				<fieldset>
+    <div class="row">
+        <div class="col-md-12">
+            <h1> Add accounts </h1>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <a class="btn btn-info" href="#" th:href="@{/accounts/all}"> Back to All accounts </a>
+            <form action="#" class="form-horizontal"
+                  th:action="@{/accounts/save}"
+                  th:object="${form}"
+                  method="post">
+                <fieldset>
 					<span class="pull-right">
 						    <input type="submit" id="submitButton" class="btn btn-success" th:value="Save">
 						    <input type="reset" id="resetButton" class="btn btn-danger" th:value="Reset"/>
 					</span>
-					<table class="table">
-						<thead>
-						<tr>
-							<th> Name</th>
-							<th> Amount</th>
-						</tr>
-						</thead>
-						<tbody>
-						<tr th:each="account, itemStat : *{accounts}">
-							<td><input th:placeholder="Name + ' ' + ${itemStat.count}" th:field="*{accounts[__${itemStat.index}__].name}" required/></td>
-							<td><input th:placeholder="Amount + ' ' + ${itemStat.count}" th:field="*{accounts[__${itemStat.index}__].amount}" required/></td>
-						</tr>
-						</tbody>
-					</table>
-				</fieldset>
-			</form>
-		</div>
-	</div>
+                    <table class="table">
+                        <thead>
+                        <tr>
+                            <th> Name</th>
+                            <th> Amount</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="account, itemStat : *{accounts}">
+                            <td><input th:placeholder="Name + ' ' + ${itemStat.count}"
+                                       th:field="*{accounts[__${itemStat.index}__].name}" required/></td>
+                            <td><input th:placeholder="Amount + ' ' + ${itemStat.count}"
+                                       th:field="*{accounts[__${itemStat.index}__].amount}" required/></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </fieldset>
+            </form>
+        </div>
+    </div>
 </div>
+<div th:replace="fragment/footer :: footer"></div>
 </body>
 </html>
