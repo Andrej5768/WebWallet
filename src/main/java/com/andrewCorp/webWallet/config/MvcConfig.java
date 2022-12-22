@@ -2,8 +2,11 @@ package com.andrewCorp.webWallet.config;
 
 import com.andrewCorp.webWallet.validation.EmailValidator;
 import com.andrewCorp.webWallet.validation.PasswordMatchesValidator;
+import org.apache.tomcat.util.http.LegacyCookieProcessor;
+import org.apache.tomcat.util.http.SameSiteCookies;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
 import org.springframework.context.MessageSource;
@@ -31,9 +34,10 @@ public class MvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addViewControllers(final ViewControllerRegistry registry) {
-        registry.addViewController("/").setViewName("forward:/login");
+        registry.addViewController("/").setViewName("forward:/index");
 //        registry.addViewController("/login").setViewName("login");
 //        registry.addViewController("/wallet").setViewName("wallet");
+        registry.addViewController("/login");
         registry.addViewController("/loginRememberMe");
         registry.addViewController("/customLogin");
         registry.addViewController("/registration.html");
@@ -76,6 +80,15 @@ public class MvcConfig implements WebMvcConfigurer {
     }
 
     //Beans
+
+    @Bean
+    public WebServerFactoryCustomizer<TomcatServletWebServerFactory> cookieProcessorCustomizer() {
+        return (factory) -> factory.addContextCustomizers((context) -> {
+            LegacyCookieProcessor legacyCookieProcessor = new LegacyCookieProcessor();
+            legacyCookieProcessor.setSameSiteCookies(SameSiteCookies.STRICT.getValue());
+            context.setCookieProcessor(legacyCookieProcessor);
+        });
+    }
 
     @Bean
     public LocaleResolver localeResolver() {

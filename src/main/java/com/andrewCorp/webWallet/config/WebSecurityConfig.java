@@ -67,12 +67,12 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
         auth.authenticationProvider(authProvider());
     }
 
-    @Override
-    public void configure(final WebSecurity web) throws Exception {
-        web.ignoring()
-                .antMatchers("/resources/**")
-                .antMatchers("/h2/**");
-    }
+//    @Override
+//    public void configure(final WebSecurity web) throws Exception {
+//        web.ignoring()
+//                .antMatchers("/resources/**")
+//                .antMatchers("/h2/**");
+//    }
 
 
     protected void configure(final HttpSecurity http) throws Exception {
@@ -80,11 +80,11 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
         http
                 .csrf().disable()
                 .authorizeRequests()
-                .antMatchers("/login*", "/logout*", "/signin/**", "/signup/**", "/customLogin",
+                .antMatchers("/","/index*", "/login*", "/logout*", "/signin/**", "/signup/**", "/customLogin",
                         "/user/registration*", "/registrationConfirm*", "/expiredAccount*", "/registration*",
                         "/badUser*", "/user/resendRegistrationToken*" ,"/forgetPassword*", "/user/resetPassword*","/user/savePassword*","/updatePassword*",
                         "/user/changePassword*", "/emailError*", "/resources/**","/old/user/registration*","/successRegister*",
-                        "/qrcode*","/user/enableNewLoc*", "/accounts/*", "/accounts/**").permitAll()
+                        "/qrcode*","/user/enableNewLoc*", "/accounts/*", "/accounts/**", "/img/**").permitAll()
                 .antMatchers("/invalidSession*").anonymous()
                 .antMatchers("/user/updatePassword*").hasAuthority("CHANGE_PASSWORD_PRIVILEGE")
                 .anyRequest().hasAuthority("READ_PRIVILEGE")
