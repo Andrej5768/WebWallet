@@ -11,6 +11,23 @@
 <div class="container">
     <a class="btn btn-info" href="#" th:href="@{/accounts/all}"> Accounts List </a>
 </div>
+
+<div class="container">
+    <div sec:authorize="hasAuthority('WRITE_PRIVILEGE')" th:utext="#{label.pages.user.message}">user</div>
+
+    <div sec:authorize="hasAuthority('WRITE_PRIVILEGE')" th:utext="#{label.pages.admin.message}"></div>
+
+    <p th:if="${param.user} != null" th:text="${param.user[0]}">user</p>
+
+    <a class="btn btn-default" th:href="@{/admin.html}" th:utext="#{label.pages.admin}">admin</a>
+    <br/> <br/>
+    <a th:href="@{/loggedUsers}" th:utext="#{label.pages.users.message}">View logged in users</a>
+    <br/>
+    <a th:href="@{/loggedUsersFromSessionRegistry}" th:utext="#{label.pages.users.sessionregistry.message}">View logged
+        in users</a>
+
+</div>
+
 <div th:replace="fragment/footer :: footer"></div>
 </body>
 
