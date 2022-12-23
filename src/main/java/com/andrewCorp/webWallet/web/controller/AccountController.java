@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @Controller
-@RequestMapping("/accounts")
+@RequestMapping("/")
 public class AccountController {
 
     @Autowired
@@ -27,8 +27,8 @@ public class AccountController {
 
     @Autowired
     private IUserService userService;
-
-    @GetMapping("/account")
+//TODO
+    @GetMapping("/wallet")
     public String main(@RequestParam(required = false, defaultValue = "") String filter, Model model) {
         final User user = userService.findUserByEmail(((User) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getEmail());
         Iterable<Account> accounts = accountRepository.findAccountsByUserId(user.getId());
@@ -42,7 +42,7 @@ public class AccountController {
         model.addAttribute("accounts", accounts);
         model.addAttribute("filter", filter);
 
-        return "account";
+        return "wallet";
     }
 
     @PostMapping("/account")

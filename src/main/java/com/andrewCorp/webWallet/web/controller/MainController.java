@@ -17,7 +17,7 @@ public class MainController {
 
     @Autowired
     private MessageSource messages;
-
+// TODO add wallet maping
     @GetMapping("/index")
     public ModelAndView login(final HttpServletRequest request, final ModelMap model,
                               @RequestParam("messageKey" ) final Optional<String> messageKey,

@@ -60,6 +60,9 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addViewController("/allAccounts.html");
         registry.addViewController("/createAccountsForm.html");
         registry.addViewController("/editAccountsForm.html");
+        registry.addViewController("/invest.html");
+        registry.addViewController("/wallet.html");
+        registry.addViewController("/transactions.html");
     }
 
     @Override
