@@ -34,32 +34,42 @@
         error
     </div>
 
-    <div class="container">
+    <div class="container text-center mt-5" style="max-width: 400px">
         <div class="row wrapper">
             <h1 th:utext="#{label.form.loginTitle}">Header</h1>
-            <a href="?lang=en" th:utext="#{label.form.loginEnglish}">login</a> |
-            <a href="?lang=es_ES" th:utext="#{label.form.loginSpanish}">login</a>
+
             <br/><br/>
 
             <form name='f' action="login" method='POST' onsubmit="return validate();">
                 <span id="welcometext">&nbsp;</span>
 
                 <br/><br/>
-                <label class="col-sm-4" th:utext="#{label.form.loginEmail}">Email</label>
-                <span class="col-sm-8"><input class="form-control" type='text' name='username' value=''/></span>
+                <label class="col-sm-4 d-flex justify-content-left" th:utext="#{label.form.loginEmail}">Email</label>
+                <span class="col-sm-8"><input class="form-control" type='text' name='username' value='' placeholder="Type your email"/></span>
+                <span class="focus-input100" data-symbol="&#xf206;"></span>
 
-                <br/><br/>
-                <label class="col-sm-4" th:utext="#{label.form.loginPass}">password</label>
-                <span class="col-sm-8"><input class="form-control" type='password' name='password'/></span>
+                <br/>
+                <label class="col-sm-4 d-flex justify-content-left" th:utext="#{label.form.loginPass}">password</label>
+                <span class="col-sm-8 "><input class="form-control" type='password' name='password' placeholder="Type your password"/></span>
+                <div class="d-flex justify-content-end">
+                    <a class="btn btn-default" th:href="@{/forgetPassword.html}" th:utext="#{message.resetPassword}">reset</a>
+                </div>
 
-                <br/><br/>
-                <input class="btn btn-primary" name="submit" type="submit" th:value="#{label.form.submit}"/>
+                <br/>
+                <div class="d-grid gap-2">
+                    <input class="btn btn-primary d-grid gap-2" name="submit" type="submit" th:value="#{label.form.submit}"/>
+                </div>
+                <label th:utext="#{label.form.rememberMe}"> Remember Me</label>
+                <input type="checkbox" name="remember-me"/>
 
             </form>
-            <br/> Current Locale : <span th:utext="${#locale}"></span><br/><br/>
-            <a class="btn btn-default" th:href="@{/registration.html}" th:utext="#{label.form.loginSignUp}">signup</a>
+            <br/>
+            <br/>
+            <div class="mt-5 d-grid gap-2"> <span class="text-left">Dont have account?</span><br/>
+                <a class="btn btn-primary" th:href="@{/registration.html}" th:utext="#{label.form.loginSignUp}">signup</a></div>
+
             <br/><br/>
-            <a class="btn btn-default" th:href="@{/forgetPassword.html}" th:utext="#{message.resetPassword}">reset</a>
+
         </div>
     </div>
 </div>
