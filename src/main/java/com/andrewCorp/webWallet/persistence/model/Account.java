@@ -16,11 +16,13 @@ public class Account implements Serializable {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
-    private Long userId;
-
     private String name;
 
     private BigDecimal amount;
+
+    @ManyToOne
+    @JoinColumn(name = "wallet_id")
+    private Wallet wallet;
 
     public Account() {
     }
@@ -28,6 +30,15 @@ public class Account implements Serializable {
     public Account(String name) {
         this(name, BigDecimal.valueOf(0));
     }
+
+    public Wallet getWallet() {
+        return wallet;
+    }
+
+    public void setWallet(Wallet wallet) {
+        this.wallet = wallet;
+    }
+
 
     public Account(String name, BigDecimal amount) {
         this.name = name;
@@ -42,13 +53,6 @@ public class Account implements Serializable {
         this.id = id;
     }
 
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(final Long userId) {
-        this.userId = userId;
-    }
 
     public String getName() {
         return name;

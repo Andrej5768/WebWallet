@@ -31,21 +31,21 @@ public class AccountController {
     @GetMapping("/wallet")
     public String main(@RequestParam(required = false, defaultValue = "") String filter, Model model) {
         final User user = userService.findUserByEmail(((User) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getEmail());
-        Iterable<Account> accounts = accountRepository.findAccountsByUserId(user.getId());
+        Iterable<Account> accounts = user.getWallet().getAccounts();
 
 //        if (filter != null && !filter.isEmpty()) {
 //            messages = messageRepo.findByTag(filter);
 //        } else {
 //            accounts = accountRepository.findAll();
 //        }
-
+        model.addAttribute("long", ((User) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getId());
         model.addAttribute("accounts", accounts);
         model.addAttribute("filter", filter);
 
         return "wallet";
     }
 
-    @PostMapping("/account")
+    @PostMapping("/wallet")
     public String add(
             @AuthenticationPrincipal User user,
             @RequestParam String name,
@@ -59,7 +59,7 @@ public class AccountController {
 
         model.put("accounts", accounts);
 
-        return "account";
+        return "wallet";
     }
 
     @GetMapping(value = "/all")
@@ -110,5 +110,15 @@ public class AccountController {
         model.addAttribute("accounts", accountRepository.findAll());
 
         return "redirect:/accounts/all";
+    }
+
+    @RequestMapping(value = "/populateDropDownList", method = RequestMethod.GET)
+    public String populateList(Model model) {
+        List<String> options = new ArrayList<String>();
+        options.add("option 1");
+        options.add("option 2");
+        options.add("option 3");
+        model.addAttribute("options", options);
+        return "dropDownList/dropDownList.html";
     }
 }
