@@ -10,6 +10,8 @@ import java.util.Objects;
 @Entity
 @Table(name = "transaction")
 public class Transaction {
+
+    //TODO add category field
     @Id
     @Column(unique = true, nullable = false)
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -19,21 +21,21 @@ public class Transaction {
     private String remark;
     private Date date;
 
+    @Enumerated(EnumType.STRING)
+    private TransactionType type;
+
     @ManyToOne
     @JoinColumn(name = "wallet_id")
     private Wallet wallet;
 
-    private TransactionType transactionType;
-
     public Transaction() {
     }
 
-    public Transaction(Long accountId, BigDecimal amount, String remark, Date date, TransactionType transactionType) {
+    public Transaction(Long accountId, BigDecimal amount, String remark, Date date) {
         this.accountId = accountId;
         this.amount = amount;
         this.remark = remark;
         this.date = date;
-        this.transactionType = transactionType;
     }
 
     public Wallet getWallet() {
@@ -42,6 +44,14 @@ public class Transaction {
 
     public void setWallet(Wallet wallet) {
         this.wallet = wallet;
+    }
+
+    public TransactionType getType() {
+        return type;
+    }
+
+    public void setType(TransactionType type) {
+        this.type = type;
     }
 
     public Long getId() {
@@ -82,14 +92,6 @@ public class Transaction {
 
     public void setDate(Date date) {
         this.date = date;
-    }
-
-    public TransactionType getTransactionType() {
-        return transactionType;
-    }
-
-    public void setTransactionType(TransactionType transactionType) {
-        this.transactionType = transactionType;
     }
 
     @Override

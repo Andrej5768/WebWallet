@@ -27,8 +27,10 @@ public class Account implements Serializable {
     public Account() {
     }
 
-    public Account(String name) {
-        this(name, BigDecimal.valueOf(0));
+    public Account(String name, BigDecimal amount, Wallet wallet) {
+        this.name = name;
+        this.amount = amount;
+        this.wallet = wallet;
     }
 
     public Wallet getWallet() {
@@ -40,10 +42,7 @@ public class Account implements Serializable {
     }
 
 
-    public Account(String name, BigDecimal amount) {
-        this.name = name;
-        this.amount = amount;
-    }
+
 
     public Long getId() {
         return id;

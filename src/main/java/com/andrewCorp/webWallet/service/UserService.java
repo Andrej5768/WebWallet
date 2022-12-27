@@ -1,12 +1,7 @@
 package com.andrewCorp.webWallet.service;
 
-import com.andrewCorp.webWallet.persistence.dao.PasswordResetTokenRepository;
-import com.andrewCorp.webWallet.persistence.dao.RoleRepository;
-import com.andrewCorp.webWallet.persistence.dao.UserRepository;
-import com.andrewCorp.webWallet.persistence.dao.VerificationTokenRepository;
-import com.andrewCorp.webWallet.persistence.model.PasswordResetToken;
-import com.andrewCorp.webWallet.persistence.model.User;
-import com.andrewCorp.webWallet.persistence.model.VerificationToken;
+import com.andrewCorp.webWallet.persistence.dao.*;
+import com.andrewCorp.webWallet.persistence.model.*;
 import com.andrewCorp.webWallet.web.dto.UserDto;
 import com.andrewCorp.webWallet.web.error.UserAlreadyExistException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +39,12 @@ public class UserService implements IUserService {
     @Autowired
     private Environment env;
 
+    @Autowired
+    private WalletRepository walletRepository;
+
+    @Autowired
+    private CategoryRepository categoryRepository;
+
     public static final String TOKEN_INVALID = "invalidToken";
     public static final String TOKEN_EXPIRED = "expired";
     public static final String TOKEN_VALID = "valid";
@@ -65,6 +66,11 @@ public class UserService implements IUserService {
         user.setPassword(passwordEncoder.encode(accountDto.getPassword()));
         user.setEmail(accountDto.getEmail());
         user.setRoles(Arrays.asList(roleRepository.findByName("ROLE_USER")));
+
+        final Wallet wallet = getNewWallet(user);
+        user.setWallet(wallet);
+
+
         return userRepository.save(user);
     }
 
@@ -196,5 +202,36 @@ public class UserService implements IUserService {
             ;
                 }
             }).collect(Collectors.toList());
+    }
+
+    private final List<String> defaultCategory = new ArrayList<String>() {
+        {
+            add("Housing");
+            add("Transport");
+            add("Food");
+            add("Utilities");
+            add("Insurance");
+            add("Healthcare");
+            add("Saving");
+            add("Food");
+        }
+    };
+
+    public Wallet getNewWallet(User user) {
+        final Wallet wallet = walletRepository.save(new Wallet());
+        wallet.setCategories(generateDefaultCategoryList(wallet));
+        user.setWallet(wallet);
+        return wallet;
+    }
+
+    private List<Category> generateDefaultCategoryList(Wallet wallet) {
+        List<Category> categoryListDefault = new ArrayList<>();
+        for (String categoryName : defaultCategory) {
+            Category categoryFromDb = categoryRepository.save(new Category());
+            categoryFromDb.setName(categoryName);
+            categoryFromDb.setWallet(wallet);
+            categoryListDefault.add(categoryFromDb);
+        }
+        return categoryListDefault;
     }
 }

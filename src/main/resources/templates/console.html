@@ -23,14 +23,14 @@
     <br/>
     <br/>
 
-    <div th:if="${#authentication.principal.using2FA}">
-        You are using Two-step authentication <a href="#" class="btn btn-primary" onclick="disable2FA()">Disable 2FA</a>
-    </div>
+<!--    <div th:if="${#authentication.principal.using2FA}">-->
+<!--        You are using Two-step authentication <a href="#" class="btn btn-primary" onclick="disable2FA()">Disable 2FA</a>-->
+<!--    </div>-->
 
-    <div th:if="${! #authentication.principal.using2FA}">
-        You are not using Two-step authentication <a href="#" class="btn btn-primary" onclick="enable2FA()">Enable
-        2FA</a>
-    </div>
+<!--    <div th:if="${! #authentication.principal.using2FA}">-->
+<!--        You are not using Two-step authentication <a href="#" class="btn btn-primary" onclick="enable2FA()">Enable-->
+<!--        2FA</a>-->
+<!--    </div>-->
 
     <br/>
     <div id="qr" style="display:none;">

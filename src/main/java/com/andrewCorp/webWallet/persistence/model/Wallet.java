@@ -56,4 +56,9 @@ public class Wallet {
         this.id = id;
     }
 
+    public List<Account> setAccountsAndReturnAccounts(List<Account> accounts) {
+        this.accounts = accounts;
+        return this.accounts;
+    }
+
 }

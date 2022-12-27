@@ -6,20 +6,17 @@
 </head>
 <body class="d-flex flex-column h-100">
 <div th:replace="fragment/navBar :: nav"></div>
-
-<div class="container">
-    <a class="btn btn-info" href="#" th:href="@{/accounts/all}"> Accounts List </a>
-</div>
 <main>
     <div class="row my-3">
         <div class="col">
             <div class="d-grid gap-2">
-                <a class="btn btn-primary" th:href="@{/wallet.html}" th:utext="#{label.form.walletBtn}">link</a>
+                <a class="btn btn-primary" th:href="@{/accounts}" th:utext="#{label.form.walletBtn}">link</a>
             </div>
         </div>
         <div class="col">
             <div class="d-grid gap-2">
-                <a class="btn btn-primary" th:href="@{/transactions.html}" th:utext="#{label.form.transactionBtn}">link</a>
+                <a class="btn btn-primary" th:href="@{/transactions/all}"
+                   th:utext="#{label.form.transactionBtn}">link</a>
             </div>
             <!--    TODO-->
         </div>
@@ -31,18 +28,17 @@
     </div>
 
 
-    user id are <p th:utext="*{long}">th</p>
-
-
     <div class="row">
         <div class="col-3">
             <div class="position-sticky pt-3 sidebar-sticky">
                 <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <span data-feather="home" class="align-text-bottom"></span>
-                            Dashboard
-                        </a>
+                    <li th:each="account : ${accounts}"  class="nav-item row">
+                        <div class="col">
+                            <a class="nav-link" th:href="@{/account/{id}/transactions(id=${account.id})}">
+                                <span th:text="${account.name}" data-feather="home" class="align-text-bottom"></span>
+                            </a>
+                        </div>
+                        <div class="col"><span  th:text="${account.amount}">amount</span></div>
                     </li>
                 </ul>
 

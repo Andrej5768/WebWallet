@@ -10,6 +10,8 @@ public class Category {
     @Column(name = "id", nullable = false)
     private Long id;
 
+    private String name;
+
     @ManyToOne
     @JoinColumn(name = "wallet_id")
     private Wallet wallet;
@@ -23,6 +25,14 @@ public class Category {
 
     public void setWallet(Wallet wallet) {
         this.wallet = wallet;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public Long getId() {

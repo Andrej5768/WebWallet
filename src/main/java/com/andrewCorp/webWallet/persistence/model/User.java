@@ -1,5 +1,7 @@
 package com.andrewCorp.webWallet.persistence.model;
 
+import org.springframework.boot.autoconfigure.security.SecurityProperties;
+
 import javax.persistence.*;
 import java.util.Collection;
 
@@ -55,7 +57,7 @@ public class User {
 
     public User() {
         super();
-        this.enabled = false;
+        this.enabled = true;
     }
 
     public Long getId() {
