@@ -6,7 +6,6 @@
 <body class="d-flex flex-column h-100">
 <div th:replace="fragment/navBar :: nav"></div>
 <main>
-    <!--    TODO-->
     <div class="accordion" id="accordionExample">
         <div class="accordion-item">
             <h2 class="accordion-header list-group-item" id="headingOne">
@@ -147,119 +146,49 @@
                             C
                         </a>
 
-                        <button type="button" class="btn btn-danger btn-sm">X</button>
+                        <a type="button" class="btn btn-danger btn-sm" th:href="@{/transactions/delete/{id}(id=${transaction.id})}">X</a>
                     </td>
                 </tr>
                 <form action="#"
-                                                      class="form-horizontal"
-                                                      th:action="@{/transactions/update/{id}(id=${transaction.id})}"
-                                                      th:object="${transaction}"
-                                                      method="post">
-                <tr class="collapse" th:id="'accordion_'+${transaction.getId()}">
-<!--                    TODO reformat object -->
-<!--                    <td colspan="6" class="hiddenRow">-->
-<!--                        <div class="collapse" th:id="'accordion_'+${transaction.getId()}">-->
-<!--                            <form action="#"-->
-<!--                                  class="form-horizontal"-->
-<!--                                  th:action="@{/transactions/update}"-->
-<!--                                  th:object="${transaction}"-->
-<!--                                  method="post">-->
-<!--                                <div th:id="${transaction.getId()}" class="row justify-content-between hiddenRow" >-->
-                                    <!--                    <input type="textro" name="id" th:value="${emp.id}" readonly="">-->
-                                    <!--                    th:field="*{content[__${i.index}__].enabled}"-->
-                                    <td th:text="${transaction.getId()}" th:value="${transaction.getId()}" class="col">id</td>
-                                    <td  class="col"><input type="datetime-local" name="date" th:value="${transaction.getDate()}"></td>
-<!--                                    <td  class="col"><input type="date" th:field="*{getDate()}"></td>-->
-                                    <td class="col">
-                                        <select name="type" th:type="${types}">
-                                            <option value="" hidden th:if="${transaction.getType() == null}">Select a type</option>
-                                            <option value="" hidden th:if="${transaction.getType() != null}" th:text="${transaction.getType()}">Select a account</option>
-                                            <option   name="type" th:each="type : ${types}" th:value="${type}" th:text="${type}"></option>
-                                        </select>
-                                    </td>
-                                    <td class="col"><input type="number" name="amount" th:value="${transaction.getAmount()}"></td>
-<!--                                    <td class="col"><input type="text" th:field="*{amount}"></td>-->
-                                    <td class="col">
-                                        <select name="account" th:type="${Long}">
-                                            <option value="" hidden th:if="${transaction.getAccount() == null}">Select a account</option>
-                                            <option value="" hidden th:if="${transaction.getAccount() != null}" th:text="${transaction.getAccount().getName()}">Select a account</option>
-                                            <option th:each="account : ${accounts}" th:value="${account.getId()}" th:text="${account.getName()}"
-                                            ></option>
-                                        </select>
-                                    </td>
-                                    <td colspan="2" >
+                      class="form-horizontal"
+                      th:action="@{/transactions/update/{id}(id=${transaction.id})}"
+                      th:object="${transaction}"
+                      method="post">
+                    <tr class="collapse" th:id="'accordion_'+${transaction.getId()}">
+                        <td th:text="${transaction.getId()}" th:value="${transaction.getId()}" class="col">id</td>
+                        <td class="col"><input type="datetime-local" name="date" th:value="${transaction.getDate()}">
+                        </td>
+                        <td class="col">
+                            <select name="type" th:type="${types}">
+                                <option value="" hidden th:if="${transaction.getType() == null}">Select a type</option>
+                                <option value="" hidden th:if="${transaction.getType() != null}"
+                                        th:text="${transaction.getType()}">Select a account
+                                </option>
+                                <option name="type" th:each="type : ${types}" th:value="${type}"
+                                        th:text="${type}"></option>
+                            </select>
+                        </td>
+                        <td class="col"><input type="number" name="amount" th:value="${transaction.getAmount()}"></td>
+                        <td class="col">
+                            <select name="account" th:type="${Long}">
+                                <option value="" hidden th:if="${transaction.getAccount() == null}">Select a account
+                                </option>
+                                <option value="" hidden th:if="${transaction.getAccount() != null}"
+                                        th:text="${transaction.getAccount().getName()}">Select a account
+                                </option>
+                                <option th:each="account : ${accounts}" th:value="${account.getId()}"
+                                        th:text="${account.getName()}"
+                                ></option>
+                            </select>
+                        </td>
+                        <td colspan="2">
 
-                                        <button type="submit" class="btn btn-primary btn-sm">Submit</button>
-                                    </td>
-<!--                                </div>-->
-<!--                            </form>-->
-<!--                        </div>-->
-<!--                    </td>-->
-                </tr>
+                            <button type="submit" class="btn btn-primary btn-sm">Submit</button>
+                        </td>
+                    </tr>
                 </form>
-        </th:block>
-        <!--            <tr>-->
-        <!--                <td colspan="6">-->
-        <!--                    <div class="collapse" id="collapseExample">-->
-        <!--                        <div class="card card-body">-->
-        <!--                            <form-->
-        <!--                                    action="#"-->
-        <!--                                    class="form-horizontal"-->
-        <!--                                    th:action="@{/transactions/save}"-->
-        <!--                                    th:object="${form}"-->
-        <!--                                    method="post"-->
-        <!--                            >-->
-        <!--                                <fieldset>-->
-        <!--                                    <div class="row m-1">-->
-        <!--                                        <div class="col" th:utext="#{label.transaction.date}">date</div>-->
-        <!--                                        <div class="col">-->
-        <!--                                            <input type="date" name="date"/>-->
-        <!--                                        </div>-->
-        <!--                                    </div>-->
-        <!--                                    <div class="row m-1">-->
-        <!--                                        <div class="col" th:utext="#{label.transaction.category}">category</div>-->
-        <!--                                        <div class="col">-->
-        <!--                                            &lt;!&ndash;                                    <input th:utext="#{label.transaction.date}" name="name"/>&ndash;&gt;-->
-        <!--                                            <select id="category" name="category">-->
-        <!--                                                <option th:each="category : ${categories}" th:value="${category.name}" th:text="${category.name}"></option>-->
-        <!--                                            </select>-->
-        <!--                                        </div>-->
-        <!--                                    </div>-->
-        <!--                                    <div class="row m-1">-->
-        <!--                                        <div class="col" th:utext="#{label.transaction.balance}">balance</div>-->
-        <!--                                        <div class="col">-->
-        <!--                                            <input th:placeholder="#{label.transaction.balance}" type="number" name="balance"/>-->
-        <!--                                        </div>-->
-        <!--                                    </div>-->
-        <!--                                    <div class="row m-1">-->
-        <!--                                        <div class="col" th:utext="#{label.transaction.account}">Account</div>-->
-        <!--                                        <div class="col">-->
-        <!--                                            <select id="account" name="account">-->
-        <!--                                                <option th:each="account : ${accounts}" th:value="${account.name}" th:text="${account.name}"-->
-        <!--                                                ></option>-->
-        <!--                                            </select>-->
-        <!--                                        </div>-->
-        <!--                                    </div>-->
-        <!--                                    <div class="row mt-3">-->
-        <!--                                        <div class="col"></div>-->
-        <!--                                        <div class="col text-center">-->
-        <!--                                            <input-->
-        <!--                                                    type="submit"-->
-        <!--                                                    id="submitButton"-->
-        <!--                                                    class="btn btn-success"-->
-        <!--                                                    th:value="#{label.form.submit}"-->
-        <!--                                            />-->
-        <!--                                        </div>-->
-        <!--                                    </div>-->
-        <!--                                </fieldset>-->
-        <!--                            </form>-->
-        <!--                            rergerrg-->
-        <!--                        </div>-->
-        <!--                    </div>-->
-        <!--                </td>-->
-        <!--            </tr>-->
-        </tbody>
-
+            </th:block>
+            </tbody>
         </table>
     </div>
 </main>

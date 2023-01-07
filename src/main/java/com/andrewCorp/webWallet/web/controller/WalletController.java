@@ -54,8 +54,6 @@ public class WalletController {
         return "accounts";
     }
 
-
-
     @GetMapping(value = "accounts/create")
     public String showAccountsCreateForm(Model model) {
         AccountsCreationDto accountsForm = new AccountsCreationDto();
@@ -106,6 +104,7 @@ public class WalletController {
         options.add("option 2");
         options.add("option 3");
         model.addAttribute("options", options);
+
         return "dropDownList/dropDownList.html";
     }
 
@@ -130,7 +129,6 @@ public class WalletController {
 
         return "transactions";
     }
-
 
     @GetMapping(value = "/account/{id}/transactions")
     public String showAccountTransactions(@PathVariable(name = "id") Long id, Model model) {
@@ -188,7 +186,6 @@ public class WalletController {
 
         transactionRepository.saveAndFlush(transactionFromDb);
 
-
         return "redirect:/transactions/all";
     }
 
@@ -202,7 +199,6 @@ public class WalletController {
 
         return "redirect:/accounts/transaction/all";
     }
-
 
     @PostMapping(value = "/transactions/save")
     public String saveTransaction(
@@ -226,62 +222,24 @@ public class WalletController {
         }
         transactionFromDB.setWallet(getWalletFromContext());
 
-//        ModelAndView modelAndView = new ModelAndView("transactions")
-
         Wallet wallet = getWalletFromContext();
         model.addAttribute("transactions", transactionRepository.findTransactionsByWalletId(wallet.getId()));
         model.addAttribute("accounts", accountRepository.findAllByWalletId(wallet.getId()));
         model.addAttribute("types", TransactionType.values());
         model.addAttribute("categories", wallet.getCategories());
 
-//        return modelAndView;
-
         return "redirect:/transactions/all";
-//        return "transactions";
     }
 
+    @GetMapping(value = "transactions/delete/{id}")
+    public String updateTransaction(Model model, @PathVariable(name = "id") Long id) {
+        Transaction transactionFromDb = transactionRepository.getReferenceById(id);
+
+        transactionRepository.delete(transactionFromDb);
 
 
-
-//    @PostMapping(value = "transactions/save")
-//    public String saveTransaction(@RequestParam Account account,
-//                               @RequestParam BigDecimal amount,
-//                               @RequestParam String remark,
-//                               @RequestParam Date date,
-//                               @RequestParam TransactionType transactionType,
-//                               Model model) {
-//        transactionRepository.save(new Transaction(account.getId(), amount, "debug", date, TransactionType.EXPENSE));
-//
-//
-//        Wallet wallet = getWalletFromContext();
-//        model.addAttribute("transactions", transactionRepository.findTransactionsByWalletId(wallet.getId()));
-//        model.addAttribute("accounts", accountRepository.findAllByWalletId(wallet.getId()));
-//        model.addAttribute("types", TransactionType.values());
-//        model.addAttribute("categories", wallet.getCategories());
-//
-//        return "redirect:/transactions/all";
-//    }
-
-//    @PostMapping(value = "transactions/save")
-//    public String saveTransaction(@ModelAttribute Transaction transaction, @ModelAttribute Account account, Model model) {
-//        Transaction transactionFromDb = transactionRepository.save(new Transaction());
-//
-//        transactionFromDb.setType(transaction.getType());
-//        transactionFromDb.setWallet(getWalletFromContext());
-//        transactionFromDb.setAccountId(account.getId());
-//        transactionFromDb.setAmount(transaction.getAmount());
-//        transactionFromDb.setDate(transaction.getDate());
-//
-//
-//        Wallet wallet = getWalletFromContext();
-//        model.addAttribute("transactions", transactionRepository.findTransactionsByWalletId(wallet.getId()));
-//        model.addAttribute("accounts", accountRepository.findAllByWalletId(wallet.getId()));
-//        model.addAttribute("types", TransactionType.values());
-//        model.addAttribute("categories", wallet.getCategories());
-//
-//        return "redirect:/transactions/all";
-//    }
-
+        return "redirect:/transactions/all";
+    }
 
     private Wallet getWalletFromContext() {
         final User user = userService.findUserByEmail(((User) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getEmail());
