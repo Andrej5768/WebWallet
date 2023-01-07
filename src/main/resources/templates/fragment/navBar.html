@@ -12,10 +12,16 @@
                 <div class="collapse navbar-collapse" id="navbar">
                     <ul class="navbar-nav me-auto mb-2 mb-sm-0">
                         <li class="nav-item">
-                            <a class="nav-link active" aria-current="page" href="#">Home</a>
+                            <a class="nav-link active" aria-current="page" th:href="@{/homepage}" th:utext="#{label.pages.home.title}">Home</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">Link</a>
+                            <a class="nav-link" th:href="@{/accounts/all}" th:utext="#{label.pages.accounts.title}">Link</a><!--TODO-->
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" th:href="@{/transactions/all}" th:utext="#{label.pages.transaction.title}">Link</a><!--TODO-->
+                        </li>
+                        <li class="nav-item" sec:authorize="isAuthenticated()">
+                            <a class="nav-link" th:href="@{/debug}">Debug</a><!--TODO-->
                         </li>
 
                         <li class="nav-item dropdown">
@@ -30,6 +36,7 @@
                         <div sec:authorize="isAuthenticated()" class="nav-item d-block d-sm-none">
                             <ul class="nav-item">
                                 <li><hr></li>
+                                <li><p class="dropdown-item-text" th:text="${#authentication.principal.email}">user</p></li>
                                 <li><a class="nav-link" href="#">Settings</a></li>
                                 <li><a class="nav-link" href="#">Profile</a></li>
                                 <li><hr></li>
@@ -43,6 +50,8 @@
                             <img src="/img/user.png" alt="mdo" width="32" height="32" class="rounded-circle">
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end text-small">
+                            <li><p class="dropdown-item-text" th:text="${#authentication.principal.email}">user</p></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#">Settings</a></li>
                             <li><a class="dropdown-item" href="#">Profile</a></li>
                             <li><hr class="dropdown-divider"></li>

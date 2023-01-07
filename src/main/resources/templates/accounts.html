@@ -24,13 +24,13 @@
                 </thead>
                 <tbody>
                 <!--    TODO-->
-                <tr th:if="${accounts != null}">
+                <tr th:if="${accounts.isEmpty()}">
                     <td colspan="2"> No accounts or Card Available</td>
                 </tr>
-                <tr th:each="account : ${accounts}">
+                <tr th:if="${!accounts.isEmpty()}" th:each="account : ${accounts}">
                     <td>
                         <form action="#" class="form-horizontal"
-                              th:action="@{/accounts/transaction/all}"
+                              th:action="@{/transactions/all}"
                               th:object="${account}"
                               method="post"><input type="submit" id="submit" class="btn btn-success"
                                                    th:value="${account.name}"></form>
@@ -61,7 +61,7 @@
             <a class="btn btn-success" href="#" th:href="@{/accounts/create}"> Add accounts </a>
             <a class="btn btn-primary" href="#" th:href="@{/accounts/edit}"
 
-               th:classappend="${accounts != null} ? 'disabled' : ''"> Edit accounts </a>
+               th:classappend="${accounts.isEmpty()} ? 'disabled' : ''"> Edit accounts </a>
         </div>
     </div>
 </main>

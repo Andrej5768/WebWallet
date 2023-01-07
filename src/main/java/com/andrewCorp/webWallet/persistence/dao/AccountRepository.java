@@ -9,9 +9,7 @@ import java.util.List;
 public interface AccountRepository extends JpaRepository<Account, Long> {
     Account findByName(String name);
 
-    List<Account> findAccountsByUserId(Long id);
-
-    List<Account> findAll();
+    List<Account> findAllByWalletId(Long id);
 
     @Override
     void delete(Account entity);

@@ -1,6 +1,7 @@
 package com.andrewCorp.webWallet.persistence.model;
 
 import com.andrewCorp.webWallet.persistence.enums.TransactionType;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import javax.persistence.*;
 import java.math.BigDecimal;
@@ -10,97 +11,117 @@ import java.util.Objects;
 @Entity
 @Table(name = "transaction")
 public class Transaction {
-        @Id
-        @Column(unique = true, nullable = false)
-        @GeneratedValue(strategy = GenerationType.AUTO)
-        private Long id;
-        private Long accountId;
-        private BigDecimal amount;
-        private String remark;
-        private Date date;
 
-        private TransactionType transactionType;
-        public Transaction() {
-        }
+    //TODO add category field
+    @Id
+    @Column(unique = true, nullable = false)
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
 
-        public Transaction(Long accountId, BigDecimal amount, String remark, Date date, TransactionType transactionType) {
-                this.accountId = accountId;
-                this.amount = amount;
-                this.remark = remark;
-                this.date = date;
-                this.transactionType = transactionType;
-        }
+    @ManyToOne
+    @JoinColumn(name = "account_id")
+    private Account account;
+    private BigDecimal amount;
+    private String remark;
 
-        public Long getId() {
-                return id;
-        }
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private Date date;
 
-        public void setId(final Long id) {
-                this.id = id;
-        }
+    @Enumerated(EnumType.STRING)
+    private TransactionType type;
 
-        public BigDecimal getAmount() {
-                return amount;
-        }
+    @ManyToOne
+    @JoinColumn(name = "wallet_id")
+    private Wallet wallet;
 
-        public void setAmount(BigDecimal amount) {
-                this.amount = amount;
-        }
+    public Transaction() {
+    }
 
-        public String getRemark() {
-                return remark;
-        }
+    public Transaction(Account account, BigDecimal amount, String remark, Date date) {
+        this.account = account;
+        this.amount = amount;
+        this.remark = remark;
+        this.date = date;
+    }
 
-        public void setRemark(String remark) {
-                this.remark = remark;
-        }
+    public Wallet getWallet() {
+        return wallet;
+    }
 
-        public Long getAccountId() {
-                return accountId;
-        }
+    public void setWallet(Wallet wallet) {
+        this.wallet = wallet;
+    }
 
-        public void setAccountId(Long accountId) {
-                this.accountId = accountId;
-        }
+    public TransactionType getType() {
+        return type;
+    }
 
-        public Date getDate() {
-                return date;
-        }
+    public void setType(TransactionType type) {
+        this.type = type;
+    }
 
-        public void setDate(Date date) {
-                this.date = date;
-        }
+    public Long getId() {
+        return id;
+    }
 
-        public TransactionType getTransactionType() {
-                return transactionType;
-        }
+    public void setId(final Long id) {
+        this.id = id;
+    }
 
-        public void setTransactionType(TransactionType transactionType) {
-                this.transactionType = transactionType;
-        }
+    public BigDecimal getAmount() {
+        return amount;
+    }
 
-        @Override
-        public boolean equals(Object o) {
-                if (this == o) return true;
-                if (o == null || getClass() != o.getClass()) return false;
-                Transaction that = (Transaction) o;
-                return Objects.equals(id, that.id) && Objects.equals(accountId, that.accountId) && Objects.equals(amount, that.amount) && Objects.equals(date, that.date);
-        }
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
 
-        @Override
-        public int hashCode() {
-                return Objects.hash(id, accountId, amount, date);
-        }
+    public String getRemark() {
+        return remark;
+    }
 
-        @Override
-        public String toString() {
-                final StringBuffer sb = new StringBuffer("Transaction{");
-                sb.append("id=").append(id);
-                sb.append(", accountId=").append(accountId);
-                sb.append(", amount=").append(amount);
-                sb.append(", remark='").append(remark).append('\'');
-                sb.append(", date=").append(date);
-                sb.append('}');
-                return sb.toString();
-        }
+    public void setRemark(String remark) {
+        this.remark = remark;
+    }
+
+    public Account getAccount() {
+        return account;
+    }
+
+    public void setAccount(Account account) {
+        this.account = account;
+    }
+
+    public Date getDate() {
+        return date;
+    }
+
+    public void setDate(Date date) {
+        this.date = date;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Transaction that = (Transaction) o;
+        return Objects.equals(id, that.id) && Objects.equals(account, that.account) && Objects.equals(amount, that.amount) && Objects.equals(date, that.date);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, account, amount, date);
+    }
+
+    @Override
+    public String toString() {
+        final StringBuffer sb = new StringBuffer("Transaction{");
+        sb.append("id=").append(id);
+        sb.append(", accountName=").append(account.getName());
+        sb.append(", amount=").append(amount);
+        sb.append(", remark='").append(remark).append('\'');
+        sb.append(", date=").append(date);
+        sb.append('}');
+        return sb.toString();
+    }
 }

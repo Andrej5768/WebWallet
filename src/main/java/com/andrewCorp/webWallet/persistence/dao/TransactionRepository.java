@@ -6,5 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
+    List<Transaction> findTransactionsByWalletId(Long id);
+
     List<Transaction> findTransactionsByAccountId(Long id);
+
+    Transaction save(Transaction transaction);
 }

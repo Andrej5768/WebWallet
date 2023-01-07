@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" class="h-100">
+<head th:replace="fragment/head :: head(~{::title},~{})">
+    <title th:utext="#{label.pages.index.title}">Web Wallet</title>
+</head>
+<body class="d-flex flex-column h-100">
+<div th:replace="fragment/navBar :: nav"></div>
+<main class="flex-shrink-0">
+    <div class="container my-5">
+        <div class="row p-4 pb-0 pe-lg-0 pt-lg-5 align-items-center rounded-3 border shadow-lg">
+            <div>Upper Text</div>
+            <div th:text="${#}">
+                8
+            </div>
+            <div>
+                <tr th:each="account : ${accounts}">
+                    <td th:text="${account.id}">1</td>
+                    <td><a href="#" th:text="${account.name}">Title ...</a></td>
+                    <td th:text="${account.amount}">Text ...</td>
+                </tr>
+            </div>
+            <div>
+                user id are <p th:text="${#authentication.principal.id}">th</p>
+                user id are <p th:text="${#authentication.principal.wallet.id}">th</p>
+<!--                wallet are <p th:object="wallet = ${#authentication.principal.wallet}">th</p>-->
+<!--                wallet id are <p th:text="${wallet.getId()}">th</p>-->
+<!--                wallet id are <p th:text="${#authentication.principal.wallet.accounts}">th</p>-->
+<!--                accounts are <p th:text="${}">th</p>-->
+            </div>
+        </div>
+    </div>
+</main>
+
+<div th:replace="fragment/footer :: footer"></div>
+</body>
+</html>
