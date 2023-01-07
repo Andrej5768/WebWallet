@@ -169,6 +169,29 @@ public class WalletController {
         return "editTransactionsForm";
     }
 
+    @PostMapping(value = "transactions/update/{id}")
+    public String updateTransaction(@ModelAttribute Transaction transaction, Model model, @PathVariable(name = "id") Long id) {
+        Transaction transactionFromDb = transactionRepository.getReferenceById(id);
+
+        if (transaction.getDate() != null) {
+            transactionFromDb.setDate(transaction.getDate());
+        }
+        if (transaction.getType() != null) {
+            transactionFromDb.setType(transaction.getType());
+        }
+        if (transaction.getAmount() != null) {
+            transactionFromDb.setAmount(transaction.getAmount());
+        }
+        if (transaction.getAccount() != null) {
+            transactionFromDb.setAccount(transaction.getAccount());
+        }
+
+        transactionRepository.saveAndFlush(transactionFromDb);
+
+
+        return "redirect:/transactions/all";
+    }
+
     @PostMapping(value = "transactions/saveAll")
     public String saveTransactions(@ModelAttribute TransactionCreationDto form, Model model) {
         transactionRepository.saveAll(form.getTransactions());
@@ -196,7 +219,7 @@ public class WalletController {
 //            transactionFromDB.se TODO
         }
         transactionFromDB.setAmount(BigDecimal.valueOf(Double.parseDouble(amount)));
-        transactionFromDB.setAccountId(accountRepository.findByName(account).getId());
+        transactionFromDB.setAccount(accountRepository.findByName(account));
         transactionFromDB.setType(TransactionType.valueOf(transactionType));
         if (remark != null) {
             transactionFromDB.setRemark(remark);
