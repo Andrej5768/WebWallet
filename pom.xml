@@ -18,7 +18,7 @@
     </parent>
 
     <properties>
-        <postgresql.version>42.2.26</postgresql.version>
+        <postgresql.version>42.3.3</postgresql.version>
         <jstl.version>1.2</jstl.version>
         <tomcat-embed-jasper.version>10.0.23</tomcat-embed-jasper.version>
         <spring-security-taglibs.version>5.2.0.RELEASE</spring-security-taglibs.version>
