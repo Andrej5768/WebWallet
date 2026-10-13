@@ -1,8 +1,7 @@
 package com.andrewCorp.webWallet.persistence.model;
 
-import org.springframework.boot.autoconfigure.security.SecurityProperties;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.Collection;
 
 @Entity

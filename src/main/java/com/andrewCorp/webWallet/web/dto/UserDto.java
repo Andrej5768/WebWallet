@@ -4,8 +4,8 @@ import com.andrewCorp.webWallet.validation.PasswordMatches;
 import com.andrewCorp.webWallet.validation.ValidEmail;
 import com.andrewCorp.webWallet.validation.ValidPassword;
 
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 @PasswordMatches
 public class UserDto {
