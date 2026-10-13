@@ -2,13 +2,13 @@ package com.andrewCorp.webWallet.config;
 
 import com.andrewCorp.webWallet.validation.EmailValidator;
 import com.andrewCorp.webWallet.validation.PasswordMatchesValidator;
-import org.apache.tomcat.util.http.LegacyCookieProcessor;
+import org.apache.tomcat.util.http.Rfc6265CookieProcessor;
 import org.apache.tomcat.util.http.SameSiteCookies;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
+import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
-import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
+import org.springframework.boot.web.server.servlet.ConfigurableServletWebServerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -88,9 +88,9 @@ public class MvcConfig implements WebMvcConfigurer {
     @Bean
     public WebServerFactoryCustomizer<TomcatServletWebServerFactory> cookieProcessorCustomizer() {
         return (factory) -> factory.addContextCustomizers((context) -> {
-            LegacyCookieProcessor legacyCookieProcessor = new LegacyCookieProcessor();
-            legacyCookieProcessor.setSameSiteCookies(SameSiteCookies.STRICT.getValue());
-            context.setCookieProcessor(legacyCookieProcessor);
+            Rfc6265CookieProcessor cookieProcessor = new Rfc6265CookieProcessor();
+            cookieProcessor.setSameSiteCookies(SameSiteCookies.STRICT.getValue());
+            context.setCookieProcessor(cookieProcessor);
         });
     }
 

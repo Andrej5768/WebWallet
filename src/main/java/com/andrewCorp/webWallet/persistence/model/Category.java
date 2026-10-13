@@ -1,6 +1,6 @@
 package com.andrewCorp.webWallet.persistence.model;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "category")

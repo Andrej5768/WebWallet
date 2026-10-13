@@ -8,12 +8,17 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UserDetailsService;
 
 //@Component
 public class CustomAuthenticationProvider extends DaoAuthenticationProvider {
 
     @Autowired
     private UserRepository userRepository;
+
+    public CustomAuthenticationProvider(UserDetailsService userDetailsService) {
+        super(userDetailsService);
+    }
 
     @Override
     public Authentication authenticate(Authentication auth) throws AuthenticationException {

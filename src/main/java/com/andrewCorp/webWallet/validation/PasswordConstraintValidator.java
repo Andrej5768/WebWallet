@@ -1,13 +1,14 @@
 package com.andrewCorp.webWallet.validation;
 
 import com.google.common.base.Joiner;
-import org.passay.LengthRule;
+import org.passay.DefaultPasswordValidator;
 import org.passay.PasswordData;
 import org.passay.PasswordValidator;
-import org.passay.RuleResult;
+import org.passay.ValidationResult;
+import org.passay.rule.LengthRule;
 
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 import java.util.Arrays;
 
 public class PasswordConstraintValidator implements ConstraintValidator<ValidPassword, String> {
@@ -20,7 +21,7 @@ public class PasswordConstraintValidator implements ConstraintValidator<ValidPas
     @Override
     public boolean isValid(final String password, final ConstraintValidatorContext context) {
         // @formatter:off
-        final PasswordValidator validator = new PasswordValidator(Arrays.asList(
+        final PasswordValidator validator = new DefaultPasswordValidator(Arrays.asList(
             new LengthRule(8, 30)//,
 //            new UppercaseCharacterRule(1),
 //            new DigitCharacterRule(1),
@@ -30,12 +31,12 @@ public class PasswordConstraintValidator implements ConstraintValidator<ValidPas
 //            new QwertySequenceRule(3,false),
 //            new WhitespaceRule()
         ));
-        final RuleResult result = validator.validate(new PasswordData(password));
+        final ValidationResult result = validator.validate(new PasswordData(password));
         if (result.isValid()) {
             return true;
         }
         context.disableDefaultConstraintViolation();
-        context.buildConstraintViolationWithTemplate(Joiner.on(",").join(validator.getMessages(result))).addConstraintViolation();
+        context.buildConstraintViolationWithTemplate(Joiner.on(",").join(result.getMessages())).addConstraintViolation();
         return false;
     }
 
