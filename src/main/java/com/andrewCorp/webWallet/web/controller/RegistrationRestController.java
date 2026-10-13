@@ -99,7 +99,7 @@ public class RegistrationRestController {
             userService.changeUserPassword(user.get(), passwordDto.getNewPassword());
             return new GenericResponse(messages.getMessage("message.resetPasswordSuc", null, locale));
         } else {
-            return new GenericResponse(messages.getMessage("auth.message.invalid", null, locale));
+            return new GenericResponse(messages.getMessage("auth.message.invalidUser", null, locale));
         }
     }
 
