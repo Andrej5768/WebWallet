@@ -13,7 +13,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.UnsupportedEncodingException;
 import java.util.Collection;
 import java.util.List;
@@ -42,18 +46,20 @@ public class RegistrationController {
     @Autowired
     private MessageSource messages;
 
+    private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
+
     public RegistrationController() {
         super();
     }
 
     @GetMapping("/registrationConfirm")
-    public ModelAndView confirmRegistration(final HttpServletRequest request, final ModelMap model, @RequestParam("token") final String token) throws UnsupportedEncodingException {
+    public ModelAndView confirmRegistration(final HttpServletRequest request, final HttpServletResponse response, final ModelMap model, @RequestParam("token") final String token) throws UnsupportedEncodingException {
         Locale locale = request.getLocale();
         model.addAttribute("lang", locale.getLanguage());
         final String result = userService.validateVerificationToken(token);
         if (result.equals("valid")) {
             final User user = userService.getUser(token);
-            authWithoutPassword(user);
+            authWithoutPassword(user, request, response);
             model.addAttribute("messageKey", "message.accountVerified");
             return new ModelAndView("redirect:/console", model);
         }
@@ -143,7 +149,7 @@ public class RegistrationController {
 
     // ============== NON-API ============
 
-    public void authWithoutPassword(User user) {
+    public void authWithoutPassword(User user, HttpServletRequest request, HttpServletResponse response) {
 
         List<Privilege> privileges = user.getRoles()
                 .stream()
@@ -157,7 +163,11 @@ public class RegistrationController {
                 .collect(Collectors.toList());
 
         Authentication authentication = new UsernamePasswordAuthenticationToken(user, null, authorities);
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+        // Since Spring Security 6 the context is not saved to the session automatically
+        securityContextRepository.saveContext(context, request, response);
     }
 
     private String getAppUrl(HttpServletRequest request) {
