@@ -231,20 +231,21 @@ public class WalletController {
             @RequestParam(value = "transactionType") String transactionType,
             @RequestParam(value = "remark", required = false) String remark,
             Model model) {
-        Transaction transactionFromDB = transactionRepository.save(new Transaction());
-        transactionFromDB.setDate(Date.valueOf(date));
-        if (category != null) {
-//            transactionFromDB.se TODO
-        }
-        transactionFromDB.setAmount(BigDecimal.valueOf(Double.parseDouble(amount)));
-        transactionFromDB.setAccount(accountRepository.findByNameAndWalletId(account, getWalletFromContext().getId()));
-        transactionFromDB.setType(TransactionType.valueOf(transactionType));
-        if (remark != null) {
-            transactionFromDB.setRemark(remark);
-        }
-        transactionFromDB.setWallet(getWalletFromContext());
-
         Wallet wallet = getWalletFromContext();
+        Transaction transaction = new Transaction();
+        transaction.setDate(Date.valueOf(date));
+        if (category != null) {
+//            transaction.se TODO
+        }
+        transaction.setAmount(BigDecimal.valueOf(Double.parseDouble(amount)));
+        transaction.setAccount(accountRepository.findByNameAndWalletId(account, wallet.getId()));
+        transaction.setType(TransactionType.valueOf(transactionType));
+        if (remark != null) {
+            transaction.setRemark(remark);
+        }
+        transaction.setWallet(wallet);
+        transactionRepository.save(transaction);
+
         model.addAttribute("transactions", transactionRepository.findTransactionsByWalletId(wallet.getId()));
         model.addAttribute("accounts", accountRepository.findAllByWalletId(wallet.getId()));
         model.addAttribute("types", TransactionType.values());
