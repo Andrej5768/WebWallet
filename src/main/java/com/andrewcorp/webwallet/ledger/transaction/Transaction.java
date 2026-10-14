@@ -85,6 +85,9 @@ public class Transaction {
 
     private String bankReference;
 
+    /** Merchant category code of a card payment. */
+    private Short mcc;
+
     @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id")
     private List<TransactionSplit> splits = new ArrayList<>();
@@ -239,6 +242,14 @@ public class Transaction {
 
     public void setBankReference(String bankReference) {
         this.bankReference = bankReference;
+    }
+
+    public Short getMcc() {
+        return mcc;
+    }
+
+    public void setMcc(Short mcc) {
+        this.mcc = mcc;
     }
 
     public List<TransactionSplit> getSplits() {
