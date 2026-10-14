@@ -38,6 +38,10 @@ public class Category {
     @Column(nullable = false)
     private int sortOrder;
 
+    private String externalSource;
+
+    private String externalId;
+
     protected Category() {
     }
 
@@ -86,6 +90,19 @@ public class Category {
 
     public void setArchived(boolean archived) {
         this.archived = archived;
+    }
+
+    public String getExternalSource() {
+        return externalSource;
+    }
+
+    public String getExternalId() {
+        return externalId;
+    }
+
+    public void setExternal(String source, String id) {
+        this.externalSource = source;
+        this.externalId = id;
     }
 
     public int getSortOrder() {
