@@ -76,7 +76,7 @@ public class WebSecurityConfig {
                                 "/user/registration*", "/registrationConfirm*", "/expiredAccount*", "/registration*",
                                 "/badUser*", "/user/resendRegistrationToken*" ,"/forgetPassword*", "/user/resetPassword*","/user/savePassword*","/updatePassword*",
                                 "/user/changePassword*", "/emailError*", "/resources/**","/old/user/registration*","/successRegister*",
-                                "/user/enableNewLoc*", "/accounts/*", "/accounts/**", "/img/**").permitAll()
+                                "/user/enableNewLoc*", "/img/**").permitAll()
                         .requestMatchers("/invalidSession*").anonymous()
                         .requestMatchers("/user/updatePassword*").hasAuthority("CHANGE_PASSWORD_PRIVILEGE")
                         .anyRequest().hasAuthority("READ_PRIVILEGE"))
