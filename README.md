@@ -57,6 +57,16 @@ to grow into a public service.
 - Dividends and coupons belong to the investment module and are shown as passive income in the
   income vs. expenses report (a projection, not a duplicate record).
 
+## Development workflow
+
+- `dev` is the default branch and holds ongoing development.
+- `master` holds the stable version and is what gets deployed.
+- Each task is done in its own branch created from `dev` (e.g. `feature/monobank-sync`, `fix/...`)
+  and merged into `dev` through a pull request.
+- A release is a pull request from `dev` into `master`. `master` is changed only through pull requests.
+- GitHub Actions runs `mvn verify` (tests and the 75% coverage check) on pushes and pull requests
+  to both branches; a pull request is merged only when the build is green.
+
 ## Roadmap
 
 ### Phase 0 — Backend foundation
@@ -75,8 +85,8 @@ to grow into a public service.
 - [ ] Daily NBU exchange rates
 - [ ] Import pipeline: parsing → normalization → deduplication → auto-categorization
 - [ ] Monobank synchronization (personal token stored encrypted, statements, webhook, MCC)
-- [ ] PrivatBank PDF statement parser
-- [ ] Zen Money export import
+- [ ] PrivatBank PDF statement parser ([notes](docs/imports/privatbank-pdf.md))
+- [ ] Zen Money export import ([notes](docs/imports/zenmoney.md))
 - [ ] Auto-categorization rules
 - [ ] Envelope budget: assigned / activity / available per month and category, roll-over,
       overspending, credit card payments
