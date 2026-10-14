@@ -8,14 +8,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.andrewcorp.webwallet.auth.LoginAttemptService;
+import com.andrewcorp.webwallet.auth.AuthRateLimiter;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.currency.NbuClient;
+import com.andrewcorp.webwallet.mail.MailConfig;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,12 +26,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.task.SyncTaskExecutor;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.convention.TestBean;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.RequestBuilder;
@@ -65,7 +69,7 @@ public abstract class AbstractIntegrationTest {
     private JdbcTemplate jdbc;
 
     @Autowired
-    private LoginAttemptService loginAttempts;
+    private AuthRateLimiter rateLimiter;
 
     @MockitoBean
     protected JavaMailSender mailSender;
@@ -73,11 +77,19 @@ public abstract class AbstractIntegrationTest {
     @MockitoBean
     protected NbuClient nbuClient;
 
+    /** Emails are sent synchronously, so that a test can check them right after the request. */
+    @TestBean(name = MailConfig.MAIL_EXECUTOR)
+    private Executor mailExecutor;
+
+    static Executor mailExecutor() {
+        return new SyncTaskExecutor();
+    }
+
     @BeforeEach
     void cleanDatabase() {
         jdbc.execute("truncate table users, exchange_rates restart identity cascade");
         clearInvocations(mailSender);
-        loginAttempts.reset();
+        rateLimiter.reset();
     }
 
     protected MockHttpServletRequestBuilder postJson(String url, Object body) {

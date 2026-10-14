@@ -16,7 +16,6 @@ import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 import org.springframework.context.ApplicationEventPublisher;
@@ -30,7 +29,7 @@ public class AuthService {
     private final UserRepository users;
     private final UserTokenRepository userTokens;
     private final TokenService tokenService;
-    private final LoginAttemptService loginAttempts;
+    private final AuthRateLimiter rateLimiter;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher events;
     private final AppProperties.Auth properties;
@@ -43,7 +42,7 @@ public class AuthService {
             UserRepository users,
             UserTokenRepository userTokens,
             TokenService tokenService,
-            LoginAttemptService loginAttempts,
+            AuthRateLimiter rateLimiter,
             PasswordEncoder passwordEncoder,
             ApplicationEventPublisher events,
             AppProperties properties,
@@ -52,7 +51,7 @@ public class AuthService {
         this.users = users;
         this.userTokens = userTokens;
         this.tokenService = tokenService;
-        this.loginAttempts = loginAttempts;
+        this.rateLimiter = rateLimiter;
         this.passwordEncoder = passwordEncoder;
         this.events = events;
         this.properties = properties.auth();
@@ -61,21 +60,30 @@ public class AuthService {
         this.dummyPasswordHash = passwordEncoder.encode(TokenHasher.newToken());
     }
 
+    /**
+     * Registers a user and sends the verification email. For a taken email the owner gets an email instead and the
+     * response is the same, so that registration does not reveal accounts.
+     */
     @Transactional
-    public User register(RegisterRequest request, Locale locale) {
+    public void register(RegisterRequest request, Locale locale, String clientIp) {
         String email = User.normalizeEmail(request.email());
-        if (users.existsByEmail(email)) {
-            throw new ApiException(ErrorCode.EMAIL_TAKEN);
+        rateLimiter.emailRequested(clientIp, email);
+        // Hashed for a taken email as well, so that the response time is the same
+        String passwordHash = passwordEncoder.encode(request.password());
+        Optional<User> existing = users.findByEmail(email);
+        if (existing.isPresent()) {
+            events.publishEvent(
+                    new AuthMailEvent(AuthMailEvent.Type.ACCOUNT_EXISTS, email, locale(existing.get()), null));
+            return;
         }
         User user = users.save(new User(
                 email,
-                passwordEncoder.encode(request.password()),
+                passwordHash,
                 request.firstName().trim(),
                 request.lastName().trim(),
                 supportedLanguage(locale)));
-        defaultCategories.create(user.getId(), Locale.forLanguageTag(user.getLocale()));
+        defaultCategories.create(user.getId(), locale(user));
         sendToken(user, UserTokenType.EMAIL_VERIFICATION);
-        return user;
     }
 
     @Transactional
@@ -86,24 +94,25 @@ public class AuthService {
 
     /** Silently does nothing for unknown or already verified emails, so the response does not reveal accounts. */
     @Transactional
-    public void resendVerification(String email) {
-        users.findByEmail(User.normalizeEmail(email))
+    public void resendVerification(String email, String clientIp) {
+        String normalized = User.normalizeEmail(email);
+        rateLimiter.emailRequested(clientIp, normalized);
+        users.findByEmail(normalized)
                 .filter(user -> !user.isEmailVerified())
                 .ifPresent(user -> sendToken(user, UserTokenType.EMAIL_VERIFICATION));
     }
 
     @Transactional
     public TokenResponse login(LoginRequest request, String clientIp) {
-        if (loginAttempts.isBlocked(clientIp)) {
-            throw new ApiException(ErrorCode.TOO_MANY_ATTEMPTS);
-        }
-        Optional<User> user = users.findByEmail(User.normalizeEmail(request.email()));
+        String email = User.normalizeEmail(request.email());
+        rateLimiter.checkLogin(clientIp, email);
+        Optional<User> user = users.findByEmail(email);
         String hash = user.map(User::getPasswordHash).orElse(dummyPasswordHash);
         if (!passwordEncoder.matches(request.password(), hash) || user.isEmpty()) {
-            loginAttempts.loginFailed(clientIp);
+            rateLimiter.loginFailed(clientIp, email);
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         }
-        loginAttempts.loginSucceeded(clientIp);
+        rateLimiter.loginSucceeded(email);
         if (!user.get().isEnabled()) {
             throw new ApiException(ErrorCode.ACCOUNT_DISABLED);
         }
@@ -115,8 +124,10 @@ public class AuthService {
 
     /** Silently does nothing for unknown emails, so the response does not reveal accounts. */
     @Transactional
-    public void forgotPassword(String email) {
-        users.findByEmail(User.normalizeEmail(email))
+    public void forgotPassword(String email, String clientIp) {
+        String normalized = User.normalizeEmail(email);
+        rateLimiter.emailRequested(clientIp, normalized);
+        users.findByEmail(normalized)
                 .filter(User::isEnabled)
                 .ifPresent(user -> sendToken(user, UserTokenType.PASSWORD_RESET));
     }
@@ -125,10 +136,9 @@ public class AuthService {
     @Transactional
     public void resetPassword(String rawToken, String newPassword) {
         User user = useToken(rawToken, UserTokenType.PASSWORD_RESET).getUser();
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        setPassword(user, newPassword);
         // Following the emailed link proves ownership of the address
         user.setEmailVerified(true);
-        tokenService.revokeAllSessions(user);
     }
 
     /** Changes the password, ends all other sessions and returns tokens for a new one. */
@@ -138,9 +148,15 @@ public class AuthService {
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
             throw new ApiException(ErrorCode.INVALID_CURRENT_PASSWORD);
         }
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        tokenService.revokeAllSessions(user);
+        setPassword(user, newPassword);
         return tokenService.issueTokens(user);
+    }
+
+    /** Ends all sessions and voids reset links that were sent for the old password. */
+    private void setPassword(User user, String newPassword) {
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userTokens.deleteByUserAndType(user, UserTokenType.PASSWORD_RESET);
+        tokenService.revokeAllSessions(user);
     }
 
     private void sendToken(User user, UserTokenType type) {
@@ -154,18 +170,22 @@ public class AuthService {
         AuthMailEvent.Type mailType = type == UserTokenType.EMAIL_VERIFICATION
                 ? AuthMailEvent.Type.EMAIL_VERIFICATION
                 : AuthMailEvent.Type.PASSWORD_RESET;
-        events.publishEvent(new AuthMailEvent(
-                mailType, user.getEmail(), user.getFirstName(), Locale.forLanguageTag(user.getLocale()), rawToken));
+        events.publishEvent(new AuthMailEvent(mailType, user.getEmail(), locale(user), rawToken));
     }
 
+    /** Marks the token used with a conditional update, so that a token cannot be used twice concurrently. */
     private UserToken useToken(String rawToken, UserTokenType type) {
-        Instant now = clock.instant();
         UserToken token = userTokens
                 .findByTokenHashAndType(TokenHasher.hash(rawToken), type)
-                .filter(candidate -> candidate.isUsable(now))
                 .orElseThrow(() -> new ApiException(ErrorCode.INVALID_TOKEN));
-        token.markUsed(now);
+        if (userTokens.markUsedIfUsable(token.getId(), clock.instant()) == 0) {
+            throw new ApiException(ErrorCode.INVALID_TOKEN);
+        }
         return token;
+    }
+
+    private static Locale locale(User user) {
+        return Locale.forLanguageTag(user.getLocale());
     }
 
     private static String supportedLanguage(Locale locale) {

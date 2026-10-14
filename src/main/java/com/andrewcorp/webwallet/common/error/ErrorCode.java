@@ -12,7 +12,7 @@ public enum ErrorCode {
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "error.emailNotVerified"),
     ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, "error.accountDisabled"),
     TOO_MANY_ATTEMPTS(HttpStatus.TOO_MANY_REQUESTS, "error.tooManyAttempts"),
-    EMAIL_TAKEN(HttpStatus.CONFLICT, "error.emailTaken"),
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "error.tooManyRequests"),
     INVALID_TOKEN(HttpStatus.BAD_REQUEST, "error.invalidToken"),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "error.invalidRefreshToken"),
     INVALID_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "error.invalidCurrentPassword"),

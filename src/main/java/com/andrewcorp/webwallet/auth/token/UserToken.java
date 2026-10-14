@@ -59,12 +59,12 @@ public class UserToken {
         createdAt = Instant.now();
     }
 
-    public boolean isUsable(Instant now) {
-        return usedAt == null && expiresAt.isAfter(now);
-    }
-
     public void markUsed(Instant now) {
         usedAt = now;
+    }
+
+    public Long getId() {
+        return id;
     }
 
     public User getUser() {

@@ -16,7 +16,15 @@ class SecurityConfigTest {
                 new AppProperties.Mail("a@b.c"),
                 new AppProperties.Cors(List.of()),
                 new AppProperties.Jwt(secret, "test", Duration.ofMinutes(15), Duration.ofDays(30)),
-                new AppProperties.Auth(Duration.ofHours(24), Duration.ofHours(1), 10, Duration.ofHours(24)));
+                new AppProperties.Auth(
+                        Duration.ofHours(24),
+                        Duration.ofHours(1),
+                        10,
+                        Duration.ofHours(24),
+                        Duration.ofHours(1),
+                        5,
+                        20,
+                        Duration.ofHours(1)));
     }
 
     @Test

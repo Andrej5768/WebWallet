@@ -11,6 +11,11 @@ public interface UserTokenRepository extends JpaRepository<UserToken, Long> {
 
     Optional<UserToken> findByTokenHashAndType(String tokenHash, UserTokenType type);
 
+    /** Marks the token used if it is still usable; 0 means it is expired or another request used it first. */
+    @Modifying(flushAutomatically = true)
+    @Query("update UserToken t set t.usedAt = :now where t.id = :id and t.usedAt is null and t.expiresAt > :now")
+    int markUsedIfUsable(Long id, Instant now);
+
     @Modifying(flushAutomatically = true)
     @Query("delete from UserToken t where t.user = :user and t.type = :type")
     void deleteByUserAndType(User user, UserTokenType type);

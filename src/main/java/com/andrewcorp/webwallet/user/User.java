@@ -44,6 +44,10 @@ public class User {
     @Column(nullable = false)
     private boolean enabled = true;
 
+    /** Increased to invalidate the access tokens already issued, see {@link #invalidateTokens()}. */
+    @Column(nullable = false)
+    private int tokenVersion;
+
     /** Language for emails: {@code en} or {@code uk}. */
     @Column(nullable = false)
     private String locale = "en";
@@ -137,6 +141,15 @@ public class User {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public int getTokenVersion() {
+        return tokenVersion;
+    }
+
+    /** Makes the access tokens issued so far invalid, e.g. after a password change. */
+    public void invalidateTokens() {
+        tokenVersion++;
     }
 
     public String getLocale() {

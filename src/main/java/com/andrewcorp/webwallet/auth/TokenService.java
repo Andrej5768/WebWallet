@@ -29,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class TokenService {
 
     public static final String ROLES_CLAIM = "roles";
+    /** {@link User#getTokenVersion()} at the time the access token was issued. */
+    public static final String TOKEN_VERSION_CLAIM = "ver";
 
     private static final Logger log = LoggerFactory.getLogger(TokenService.class);
 
@@ -61,18 +63,16 @@ public class TokenService {
         RefreshToken token = refreshTokens
                 .findByTokenHash(TokenHasher.hash(rawRefreshToken))
                 .orElseThrow(() -> new ApiException(ErrorCode.INVALID_REFRESH_TOKEN));
-        if (token.isRevoked()) {
-            log.warn(
-                    "Reuse of a revoked refresh token detected for user {}, revoking the session",
-                    token.getUser().getId());
-            refreshTokens.revokeFamily(token.getFamilyId(), now);
-            throw new ApiException(ErrorCode.INVALID_REFRESH_TOKEN);
-        }
         User user = token.getUser();
         if (token.isExpired(now) || !user.isEnabled()) {
             throw new ApiException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
-        token.revoke(now);
+        // Conditional update, so that of two concurrent requests with the same token only one succeeds
+        if (refreshTokens.revokeIfActive(token.getId(), now) == 0) {
+            log.warn("Reuse of a revoked refresh token detected for user {}, revoking the session", user.getId());
+            refreshTokens.revokeFamily(token.getFamilyId(), now);
+            throw new ApiException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
         return issueTokens(user, token.getFamilyId());
     }
 
@@ -84,8 +84,10 @@ public class TokenService {
                 .ifPresent(token -> refreshTokens.revokeFamily(token.getFamilyId(), clock.instant()));
     }
 
+    /** Ends all sessions of the user, including the access tokens already issued. */
     @Transactional
     public void revokeAllSessions(User user) {
+        user.invalidateTokens();
         refreshTokens.revokeAllForUser(user, clock.instant());
     }
 
@@ -108,6 +110,7 @@ public class TokenService {
                 .expiresAt(now.plus(properties.accessTokenTtl()))
                 .claim("email", user.getEmail())
                 .claim(ROLES_CLAIM, List.of(user.getRole().name()))
+                .claim(TOKEN_VERSION_CLAIM, user.getTokenVersion())
                 .build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
         return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
