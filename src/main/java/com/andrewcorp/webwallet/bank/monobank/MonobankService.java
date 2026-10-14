@@ -32,7 +32,9 @@ import java.util.Objects;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Connects Monobank accounts and imports their operations. Monobank allows one request per minute per token, so the
@@ -58,6 +60,7 @@ public class MonobankService {
     private final MonobankStatementImporter importer;
     private final SecretCipher cipher;
     private final EntityManager entityManager;
+    private final TransactionTemplate tx;
     private final Clock clock;
     private final String publicUrl;
 
@@ -70,6 +73,7 @@ public class MonobankService {
             MonobankStatementImporter importer,
             SecretCipher cipher,
             EntityManager entityManager,
+            PlatformTransactionManager transactionManager,
             Clock clock,
             @Value("${app.public-url:}") String publicUrl) {
         this.connections = connections;
@@ -80,22 +84,29 @@ public class MonobankService {
         this.importer = importer;
         this.cipher = cipher;
         this.entityManager = entityManager;
+        this.tx = new TransactionTemplate(transactionManager);
         this.clock = clock;
         this.publicUrl = publicUrl == null ? "" : publicUrl.replaceAll("/+$", "");
     }
 
     /**
      * Connects (or reconnects with a new token) and links every card and jar to an account: an existing account
-     * with the same card number, or a new one.
+     * with the same card number, or a new one. The bank is asked before the transaction starts, so that a slow
+     * response does not hold a database connection.
      */
-    @Transactional
     public ConnectionResponse connect(Long userId, ConnectRequest request) {
         ClientInfo info = client.clientInfo(request.token());
+        return tx.execute(status -> saveConnection(userId, request, info));
+    }
+
+    private ConnectionResponse saveConnection(Long userId, ConnectRequest request, ClientInfo info) {
         Instant now = clock.instant();
         BankConnection connection = connections
                 .findByUserIdAndProvider(userId, BankProvider.MONOBANK)
                 .orElseGet(() -> new BankConnection(userId, BankProvider.MONOBANK, "", TokenHasher.newToken()));
         connection.setEncryptedToken(cipher.encrypt(request.token()));
+        // A new webhook URL on every connect: the old one stops working
+        connection.setWebhookSecret(TokenHasher.newToken());
         connection.setClientName(info.name());
         connection.setLastRequestAt(now);
         connection.setLastError(null);
@@ -163,37 +174,86 @@ public class MonobankService {
 
     /**
      * Makes the next request of the connection: registers the webhook if needed, or loads the next period of the
-     * account that is the most behind. Returns false when there was nothing to do.
+     * account that is the most behind. Returns false when there was nothing to do. The bank is asked between two
+     * short transactions, so that a slow response does not hold a database connection or lock.
      */
-    @Transactional
     public boolean syncStep(Long connectionId) {
+        SyncRequest request = tx.execute(status -> nextRequest(connectionId));
+        if (request == null) {
+            return false;
+        }
+        if (request.webhookUrl() != null) {
+            client.setWebhook(request.token(), request.webhookUrl());
+            tx.executeWithoutResult(status -> connections.findById(connectionId).ifPresent(connection -> {
+                connection.setWebhookRegistered(true);
+                connection.setLastError(null);
+            }));
+            return true;
+        }
+        List<StatementItem> items =
+                client.statement(request.token(), request.externalAccountId(), request.from(), request.to());
+        tx.executeWithoutResult(status -> applyStatement(connectionId, request, items));
+        return true;
+    }
+
+    /** What to ask the bank for: the webhook registration or a statement period of one account. */
+    private record SyncRequest(
+            String token,
+            String webhookUrl,
+            Long linkId,
+            String externalAccountId,
+            Instant from,
+            Instant to,
+            Instant gapTo,
+            Instant requestedAt) {}
+
+    private SyncRequest nextRequest(Long connectionId) {
         BankConnection connection = connections.findById(connectionId).orElse(null);
         if (connection == null) {
-            return false;
+            return null;
         }
         Instant now = clock.instant();
         String token = cipher.decrypt(connection.getEncryptedToken());
         if (!publicUrl.isEmpty() && !connection.isWebhookRegistered()) {
             connection.setLastRequestAt(now);
-            client.setWebhook(token, publicUrl + WEBHOOK_PATH + connection.getWebhookSecret());
-            connection.setWebhookRegistered(true);
-            connection.setLastError(null);
-            return true;
+            return new SyncRequest(
+                    token, publicUrl + WEBHOOK_PATH + connection.getWebhookSecret(), null, null, null, null, null, now);
         }
-        List<BankAccountLink> allLinks = links.findByConnectionOrderByIdAsc(connection);
-        Optional<BankAccountLink> next = allLinks.stream()
+        Optional<BankAccountLink> next = links.findByConnectionOrderByIdAsc(connection).stream()
                 .filter(link -> link.getAccount() != null)
                 .filter(link -> link.getGapTo() != null || link.getSyncedUntil().isBefore(now.minus(SYNC_INTERVAL)))
                 .min(Comparator.comparing(BankAccountLink::getSyncedUntil));
         if (next.isEmpty()) {
-            return false;
+            return null;
         }
         BankAccountLink link = next.get();
         Instant from = link.getSyncedUntil();
         Instant to = link.getGapTo() != null ? link.getGapTo() : min(from.plus(MAX_STATEMENT_PERIOD), now);
         connection.setLastRequestAt(now);
-        List<StatementItem> items = client.statement(token, link.getExternalAccountId(), from, to);
+        return new SyncRequest(token, null, link.getId(), link.getExternalAccountId(), from, to, link.getGapTo(), now);
+    }
+
+    private void applyStatement(Long connectionId, SyncRequest request, List<StatementItem> items) {
+        // Disconnected while the bank was asked
+        BankConnection connection = connections.findLockedById(connectionId).orElse(null);
+        if (connection == null) {
+            return;
+        }
         connection.setLastError(null);
+        List<BankAccountLink> allLinks = links.findByConnectionOrderByIdAsc(connection);
+        BankAccountLink link = allLinks.stream()
+                .filter(candidate -> candidate.getId().equals(request.linkId()))
+                .findFirst()
+                .orElse(null);
+        // Unlinked or synchronized by someone else in the meantime
+        if (link == null
+                || link.getAccount() == null
+                || !link.getSyncedUntil().equals(request.from())
+                || !Objects.equals(link.getGapTo(), request.gapTo())) {
+            return;
+        }
+        Instant to = request.to();
+        Instant now = request.requestedAt();
         importer.importItems(link.getAccount(), ownAccounts(allLinks), items);
 
         if (items.size() >= MonobankClient.MAX_STATEMENT_ITEMS) {
@@ -211,14 +271,13 @@ public class MonobankService {
                 alignCreatedAccount(link);
             }
         }
-        return true;
     }
 
     /** Imports an operation pushed by Monobank. Unknown secrets and accounts are ignored. */
     @Transactional
     public void handleWebhook(String secret, String externalAccountId, StatementItem item) {
         connections
-                .findByProviderAndWebhookSecret(BankProvider.MONOBANK, secret)
+                .findLockedByProviderAndWebhookSecret(BankProvider.MONOBANK, secret)
                 .ifPresent(connection -> {
                     List<BankAccountLink> allLinks = links.findByConnectionOrderByIdAsc(connection);
                     allLinks.stream()

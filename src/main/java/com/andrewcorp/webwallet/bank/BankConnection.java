@@ -34,7 +34,7 @@ public class BankConnection {
 
     private String clientName;
 
-    @Column(nullable = false, updatable = false)
+    @Column(nullable = false)
     private String webhookSecret;
 
     private Instant lastRequestAt;
@@ -91,6 +91,10 @@ public class BankConnection {
 
     public String getWebhookSecret() {
         return webhookSecret;
+    }
+
+    public void setWebhookSecret(String webhookSecret) {
+        this.webhookSecret = webhookSecret;
     }
 
     public Instant getLastRequestAt() {

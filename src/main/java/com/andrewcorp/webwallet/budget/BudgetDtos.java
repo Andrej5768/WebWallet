@@ -29,7 +29,8 @@ public final class BudgetDtos {
             BigDecimal assigned,
             BigDecimal activity,
             BigDecimal available,
-            List<CategoryRow> categories) {}
+            List<CategoryRow> categories,
+            List<String> unconvertedCurrencies) {}
 
     /**
      * @param assigned  money put into the envelope this month

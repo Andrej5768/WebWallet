@@ -229,8 +229,12 @@ class MonobankSyncTest extends AbstractIntegrationTest {
     void reconnectKeepsLinks() throws Exception {
         connect(null);
         Long ironAccount = linkedAccount("mono-iron").getId();
+        String oldSecret = connection().getWebhookSecret();
 
         connect(null);
+
+        // The webhook URL changes, so that the old one cannot be used any more
+        assertThat(connection().getWebhookSecret()).isNotEqualTo(oldSecret);
 
         assertThat(links.count()).isEqualTo(4);
         assertThat(linkedAccount("mono-iron").getId()).isEqualTo(ironAccount);
@@ -456,6 +460,38 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         assertThat(userTransactions()).hasSize(501);
         assertThat(link("mono-black").getGapTo()).isNull();
         assertThat(link("mono-black").getSyncedUntil()).isAfter(Instant.now().minus(1, ChronoUnit.MINUTES));
+    }
+
+    @Test
+    void operationsWithInvalidIdsAreIgnored() throws Exception {
+        connect(LocalDate.now().minusDays(5));
+        unlinkAllBut("mono-black");
+        statements.put(
+                "mono-black",
+                List.of(
+                        item("", hoursAgo(3), "Empty id", 5814, -100, 0),
+                        item("50%_off", hoursAgo(2), "Wildcards", 5814, -200, 0),
+                        item("op-ok_1", hoursAgo(1), "Coffee", 5814, -300, 0)));
+
+        syncAll();
+
+        assertThat(userTransactions())
+                .singleElement()
+                .satisfies(t -> assertThat(t.getExternalId()).isEqualTo("op-ok_1"));
+    }
+
+    @Test
+    void statementIsDroppedWhenTheAccountIsUnlinkedWhileTheBankIsAsked() throws Exception {
+        connect(LocalDate.now().minusDays(5));
+        unlinkAllBut("mono-black");
+        when(client.statement(eq(TOKEN), eq("mono-black"), any(), any())).thenAnswer(invocation -> {
+            unlinkAllBut("none");
+            return List.of(item("op-late", hoursAgo(1), "Coffee", 5814, -100, 0));
+        });
+
+        assertThat(service.syncStep(connection().getId())).isTrue();
+
+        assertThat(userTransactions()).isEmpty();
     }
 
     private void unlinkAllBut(String externalId) {

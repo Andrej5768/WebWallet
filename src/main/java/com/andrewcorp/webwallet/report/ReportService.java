@@ -103,7 +103,7 @@ public class ReportService {
             }
         }
         rows.sort(Comparator.comparing(CategorySpending::amount).reversed());
-        return new SpendingResponse(from, to, converter.target(), total, uncategorized, rows);
+        return new SpendingResponse(from, to, converter.target(), total, uncategorized, rows, converter.unconverted());
     }
 
     @Transactional
@@ -126,7 +126,7 @@ public class ReportService {
                 .sorted(Comparator.comparing(PayeeSpending::amount).reversed().thenComparing(PayeeSpending::name))
                 .limit(limit)
                 .toList();
-        return new PayeesResponse(from, to, converter.target(), payees);
+        return new PayeesResponse(from, to, converter.target(), payees, converter.unconverted());
     }
 
     @Transactional
@@ -155,7 +155,8 @@ public class ReportService {
                 expense,
                 income.subtract(expense),
                 savingsRate(income, expense),
-                months);
+                months,
+                converter.unconverted());
     }
 
     /** Balances of all accounts at the end of every month of the period. */
@@ -193,7 +194,7 @@ public class ReportService {
             }
             months.add(new MonthNetWorth(month, assets, liabilities, assets.add(liabilities)));
         }
-        return new NetWorthResponse(converter.target(), months);
+        return new NetWorthResponse(converter.target(), months, converter.unconverted());
     }
 
     private static void apply(MovementRow movement, Map<Long, BigDecimal> balances) {

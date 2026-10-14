@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.bouncycastle.cms.CMSException;
@@ -15,22 +16,44 @@ import org.springframework.stereotype.Component;
 
 /**
  * Extracts the text of a PDF. Bank statements are often wrapped in a CMS / PKCS#7 signature container, which is
- * unwrapped first.
+ * unwrapped first. Uploaded files are untrusted, so the memory, the page count and the text length are limited.
  */
 @Component
 public class PdfText {
 
     private static final byte[] PDF_START = "%PDF-".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] PDF_END = "%%EOF".getBytes(StandardCharsets.US_ASCII);
+    private static final long MAX_MEMORY_BYTES = 64L * 1024 * 1024;
+
+    private final int maxPages;
+    private final int maxTextLength;
+
+    public PdfText() {
+        // A statement for a few years has a few hundred pages of about 3000 characters
+        this(1000, 5_000_000);
+    }
+
+    PdfText(int maxPages, int maxTextLength) {
+        this.maxPages = maxPages;
+        this.maxTextLength = maxTextLength;
+    }
 
     /** Text of all pages with {@code \n} line breaks. */
     public String extract(byte[] file) {
-        try (PDDocument document = Loader.loadPDF(unwrap(file))) {
+        try (PDDocument document = Loader.loadPDF(
+                unwrap(file), null, null, null, MemoryUsageSetting.setupMainMemoryOnly(MAX_MEMORY_BYTES).streamCache)) {
+            if (document.getNumberOfPages() > maxPages) {
+                throw new ApiException(ErrorCode.INVALID_IMPORT_FILE);
+            }
             PDFTextStripper stripper = new PDFTextStripper();
             // The defaults are the system line separator, \r\n on Windows
             stripper.setLineSeparator("\n");
             stripper.setPageEnd("\n");
-            return stripper.getText(document);
+            String text = stripper.getText(document);
+            if (text.length() > maxTextLength) {
+                throw new ApiException(ErrorCode.INVALID_IMPORT_FILE);
+            }
+            return text;
         } catch (IOException e) {
             throw new ApiException(ErrorCode.INVALID_IMPORT_FILE);
         }

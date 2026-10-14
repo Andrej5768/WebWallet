@@ -34,11 +34,11 @@ public record TransactionRequest(
         @Positive @Digits(integer = 15, fraction = 4) BigDecimal originalAmount,
         @CurrencyCode String originalCurrency,
         Long categoryId,
-        @Valid List<SplitRequest> splits,
+        @Valid @Size(max = 100) List<SplitRequest> splits,
         Long payeeId,
         @Size(max = 100) String payeeName,
         @Size(max = 1000) String comment,
-        List<Long> tagIds) {
+        @Size(max = 50) List<Long> tagIds) {
 
     public record SplitRequest(
             Long categoryId,

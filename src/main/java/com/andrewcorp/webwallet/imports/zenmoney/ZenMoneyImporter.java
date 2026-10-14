@@ -22,12 +22,14 @@ import com.andrewcorp.webwallet.user.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +47,13 @@ public class ZenMoneyImporter {
 
     private static final int MAX_PAYEE_LENGTH = 200;
     private static final int MAX_COMMENT_LENGTH = 1000;
+    /** Amounts are stored as numeric(19, 4). */
+    private static final BigDecimal MAX_AMOUNT = new BigDecimal("1e15");
+
+    private static final BigDecimal MAX_INTEREST_RATE = new BigDecimal("1000");
+    private static final Pattern CURRENCY = Pattern.compile("[A-Z]{3}");
+    private static final LocalDate MIN_DATE = LocalDate.of(1900, 1, 1);
+    private static final LocalDate MAX_DATE = LocalDate.of(2100, 1, 1);
 
     private final UserRepository users;
     private final AccountRepository accounts;
@@ -100,7 +109,10 @@ public class ZenMoneyImporter {
         }
 
         ImportResult execute() {
-            list(dump.instrument()).forEach(instrument -> currencies.put(instrument.id(), instrument.shortTitle()));
+            list(dump.instrument()).stream()
+                    .filter(instrument -> instrument.shortTitle() != null
+                            && CURRENCY.matcher(instrument.shortTitle()).matches())
+                    .forEach(instrument -> currencies.put(instrument.id(), instrument.shortTitle()));
             list(dump.tag()).forEach(tag -> tagsById.put(tag.id(), tag));
             list(dump.merchant()).forEach(merchant -> merchantNames.put(merchant.id(), merchant.title()));
             payees.findByUserIdOrderByNameAsc(userId).forEach(payee -> payeesByName.put(key(payee.getName()), payee));
@@ -146,8 +158,11 @@ public class ZenMoneyImporter {
             }
             account.setInBudget(type.inBudgetByDefault() && !Boolean.FALSE.equals(source.inBalance()));
             account.setArchived(Boolean.TRUE.equals(source.archive()));
-            account.setCreditLimit(positive(source.creditLimit()));
-            account.setInterestRate(positive(source.percent()));
+            account.setCreditLimit(valid(positive(source.creditLimit())));
+            account.setInterestRate(
+                    source.percent() != null && source.percent().compareTo(MAX_INTEREST_RATE) < 0
+                            ? positive(source.percent())
+                            : null);
             account.setCardNumbers(
                     source.syncID() == null || source.syncID().isEmpty() ? null : List.copyOf(source.syncID()));
             accountsById.put(source.id(), accounts.save(account));
@@ -177,11 +192,16 @@ public class ZenMoneyImporter {
             }
             BigDecimal income = amount(source.income());
             BigDecimal outcome = amount(source.outcome());
+            LocalDate date = date(source.date());
+            if (date == null || !isValidAmount(income) || !isValidAmount(outcome)) {
+                result.warn("Transaction " + source.id() + " skipped: invalid date or amount");
+                return null;
+            }
 
             Transaction transaction = new Transaction(userId);
             transaction.setSource(TransactionSource.ZENMONEY);
             transaction.setExternalId(source.id());
-            transaction.setDate(LocalDate.parse(source.date()));
+            transaction.setDate(date);
             transaction.setComment(truncate(source.comment(), MAX_COMMENT_LENGTH));
             transaction.setPayee(payee(source));
             transaction.setBankReference(
@@ -224,18 +244,20 @@ public class ZenMoneyImporter {
         /** Monthly expense plans become envelope assignments of the month. */
         private void importBudgets() {
             for (ZenMoneyDump.Budget source : list(dump.budget())) {
+                LocalDate date = date(source.date());
                 if (source.tag() == null
                         || TOTAL_BUDGET_TAG.equals(source.tag())
                         || source.outcome() == null
                         || source.outcome().signum() <= 0
-                        || source.date() == null) {
+                        || !isValidAmount(source.outcome())
+                        || date == null) {
                     continue;
                 }
                 Category category = category(source.tag(), CategoryKind.EXPENSE);
                 if (category == null) {
                     continue;
                 }
-                LocalDate month = LocalDate.parse(source.date()).withDayOfMonth(1);
+                LocalDate month = date.withDayOfMonth(1);
                 budget.findByUserIdAndMonthAndCategory(userId, month, category)
                         .ifPresentOrElse(
                                 assignment -> assignment.setAmount(source.outcome()),
@@ -246,13 +268,25 @@ public class ZenMoneyImporter {
 
         private void original(Transaction transaction, Account account, BigDecimal amount, Integer instrument) {
             String currency = instrument == null ? null : currencies.get(instrument);
-            if (amount != null && amount.signum() > 0 && currency != null && !currency.equals(account.getCurrency())) {
+            if (amount != null
+                    && amount.signum() > 0
+                    && isValidAmount(amount)
+                    && currency != null
+                    && !currency.equals(account.getCurrency())) {
                 transaction.setOriginalAmount(amount);
                 transaction.setOriginalCurrency(currency);
             }
         }
 
         private Category category(String tagId, CategoryKind kind) {
+            return category(tagId, kind, true);
+        }
+
+        /**
+         * Categories have two levels, so only the parent of a tag is imported and not the parent's parent; this also
+         * stops at cycles of parents in a malformed export.
+         */
+        private Category category(String tagId, CategoryKind kind, boolean withParent) {
             ZenMoneyDump.Tag tag = tagId == null ? null : tagsById.get(tagId);
             if (tag == null) {
                 return null;
@@ -267,7 +301,11 @@ public class ZenMoneyImporter {
             Category category = categories
                     .findByUserIdAndExternalSourceAndExternalId(userId, SOURCE, externalId)
                     .orElseGet(() -> {
-                        Category parent = tag.parent() == null ? null : category(tag.parent(), kind);
+                        Category parent = !withParent
+                                        || tag.parent() == null
+                                        || tag.parent().equals(tag.id())
+                                ? null
+                                : category(tag.parent(), kind, false);
                         Category created = new Category(
                                 userId, parent == null ? null : parent.getId(), name(tag.title(), "Category"), kind);
                         created.setArchived(Boolean.TRUE.equals(tag.archive()));
@@ -303,7 +341,9 @@ public class ZenMoneyImporter {
             Map<Long, BigDecimal> balances = accountService.balances(userId);
             for (ZenMoneyDump.Account source : list(dump.account())) {
                 Account account = accountsById.get(source.id());
-                if (account == null || source.balance() == null) {
+                if (account == null
+                        || source.balance() == null
+                        || source.balance().abs().compareTo(MAX_AMOUNT) >= 0) {
                     continue;
                 }
                 BigDecimal computed = balances.getOrDefault(account.getId(), account.getOpeningBalance());
@@ -340,6 +380,27 @@ public class ZenMoneyImporter {
 
     private static BigDecimal amount(BigDecimal amount) {
         return amount == null ? BigDecimal.ZERO : amount;
+    }
+
+    private static boolean isValidAmount(BigDecimal amount) {
+        return amount.signum() >= 0 && amount.compareTo(MAX_AMOUNT) < 0;
+    }
+
+    private static BigDecimal valid(BigDecimal amount) {
+        return amount != null && isValidAmount(amount) ? amount : null;
+    }
+
+    /** Null for a missing, malformed or implausible date. */
+    private static LocalDate date(String text) {
+        if (text == null) {
+            return null;
+        }
+        try {
+            LocalDate date = LocalDate.parse(text);
+            return date.isBefore(MIN_DATE) || date.isAfter(MAX_DATE) ? null : date;
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     private static BigDecimal positive(BigDecimal amount) {

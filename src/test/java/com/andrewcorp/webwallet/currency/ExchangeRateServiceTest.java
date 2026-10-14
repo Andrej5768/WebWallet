@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -90,6 +91,33 @@ class ExchangeRateServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> service.rate("PLN", DATE))
                 .isInstanceOfSatisfying(
                         ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.RATE_UNAVAILABLE));
+    }
+
+    @Test
+    void converterLeavesOutCurrenciesWithoutRateAndAsksNbuOnce() {
+        rates.save(new ExchangeRate("USD", DATE, new BigDecimal("41.5")));
+        CurrencyConverter converter = service.converterTo("UAH");
+
+        assertThat(converter.convert(new BigDecimal("10"), "XAU", DATE)).isEqualByComparingTo("0");
+        assertThat(converter.convert(new BigDecimal("10"), "USD", DATE)).isEqualByComparingTo("415");
+        assertThat(converter.unconverted()).containsExactly("XAU");
+        // Another request does not ask the NBU again for a rate it did not have
+        assertThat(service.converterTo("UAH").convert(BigDecimal.ONE, "XAU", DATE))
+                .isEqualByComparingTo("0");
+        verify(nbuClient, times(1)).history(eq("XAU"), any(), any());
+    }
+
+    @Test
+    void concurrentlyLoadedRatesDoNotConflict() {
+        rates.save(new ExchangeRate("CHF", DATE, new BigDecimal("50")));
+        when(nbuClient.history(eq("CHF"), any(), any()))
+                .thenReturn(List.of(
+                        new ExchangeRate("CHF", DATE, new BigDecimal("50")),
+                        new ExchangeRate("CHF", DATE.plusDays(10), new BigDecimal("51"))));
+
+        // The stored rate is too old for that date, so the history is loaded; one of its rates is already stored
+        assertThat(service.rate("CHF", DATE.plusDays(10))).isEqualByComparingTo("51");
+        assertThat(rates.count()).isEqualTo(2);
     }
 
     @Test

@@ -22,6 +22,7 @@ import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
 import com.andrewcorp.webwallet.user.User;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -205,6 +206,46 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
                         .header("Authorization", auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_IMPORT_FILE"));
+    }
+
+    @Test
+    void malformedDataIsSkippedWithWarnings() throws Exception {
+        dump = """
+                {
+                  "instrument": [{"id": 1, "shortTitle": "UAH"}, {"id": 2, "shortTitle": "<script>"}],
+                  "account": [
+                    {"id": "a", "instrument": 1, "title": "Card", "type": "ccard", "balance": 0, "percent": 1e9},
+                    {"id": "b", "instrument": 2, "title": "Odd", "type": "cash", "balance": 0}
+                  ],
+                  "tag": [
+                    {"id": "t1", "title": "One", "parent": "t2"},
+                    {"id": "t2", "title": "Two", "parent": "t1"}
+                  ],
+                  "transaction": [
+                    {"id": "cycle", "date": "2026-09-01", "incomeAccount": "a", "income": 0,
+                     "outcomeAccount": "a", "outcome": 10, "tag": ["t1"]},
+                    {"id": "bad-date", "date": "01.09.2026", "incomeAccount": "a", "income": 0,
+                     "outcomeAccount": "a", "outcome": 10},
+                    {"id": "negative", "date": "2026-09-01", "incomeAccount": "a", "income": 0,
+                     "outcomeAccount": "a", "outcome": -10},
+                    {"id": "huge", "date": "2026-09-01", "incomeAccount": "a", "income": 0,
+                     "outcomeAccount": "a", "outcome": 1e20}
+                  ]
+                }
+                """.getBytes(StandardCharsets.UTF_8);
+
+        Map<String, Object> result = importFile();
+
+        assertThat(result).containsEntry("accountsCreated", 1).containsEntry("transactionsImported", 1);
+        assertThat((List<String>) result.get("warnings"))
+                .anySatisfy(warning -> assertThat(warning).contains("unknown currency"))
+                .anySatisfy(warning -> assertThat(warning).contains("bad-date"))
+                .anySatisfy(warning -> assertThat(warning).contains("negative"))
+                .anySatisfy(warning -> assertThat(warning).contains("huge"));
+        assertThat(account("a").getInterestRate()).isNull();
+        // A cycle of parents ends after one level
+        assertThat(category("t1").getParentId()).isEqualTo(category("t2").getId());
+        assertThat(category("t2").getParentId()).isNull();
     }
 
     @Test

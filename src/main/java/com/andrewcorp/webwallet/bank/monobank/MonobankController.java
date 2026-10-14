@@ -11,6 +11,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +29,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/banks/monobank")
 public class MonobankController {
+
+    private static final Logger log = LoggerFactory.getLogger(MonobankController.class);
 
     private final MonobankService monobank;
 
@@ -70,13 +75,22 @@ public class MonobankController {
         // Nothing to do: Monobank only expects 200
     }
 
+    /** Always answers 200 for a well-formed event: Monobank retries failed calls and then disables the webhook. */
     @Hidden
     @PostMapping("/webhook/{secret}")
     public void webhook(@PathVariable String secret, @RequestBody WebhookEvent event) {
-        if ("StatementItem".equals(event.type())
-                && event.data() != null
-                && event.data().statementItem() != null) {
+        if (!"StatementItem".equals(event.type())
+                || event.data() == null
+                || event.data().statementItem() == null) {
+            return;
+        }
+        try {
             monobank.handleWebhook(secret, event.data().account(), event.data().statementItem());
+        } catch (DataIntegrityViolationException e) {
+            // The operation was imported concurrently; the synchronization picks up anything missed
+            log.warn(
+                    "Monobank webhook operation was not imported: {}",
+                    e.getMostSpecificCause().getMessage());
         }
     }
 

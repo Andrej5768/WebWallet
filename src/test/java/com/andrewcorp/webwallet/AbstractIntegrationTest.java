@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.andrewcorp.webwallet.auth.AuthRateLimiter;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
+import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.currency.NbuClient;
 import com.andrewcorp.webwallet.mail.MailConfig;
 import com.andrewcorp.webwallet.user.User;
@@ -71,6 +72,9 @@ public abstract class AbstractIntegrationTest {
     @Autowired
     private AuthRateLimiter rateLimiter;
 
+    @Autowired
+    private ExchangeRateService exchangeRates;
+
     @MockitoBean
     protected JavaMailSender mailSender;
 
@@ -90,6 +94,7 @@ public abstract class AbstractIntegrationTest {
         jdbc.execute("truncate table users, exchange_rates restart identity cascade");
         clearInvocations(mailSender);
         rateLimiter.reset();
+        exchangeRates.forgetMissingRates();
     }
 
     protected MockHttpServletRequestBuilder postJson(String url, Object body) {

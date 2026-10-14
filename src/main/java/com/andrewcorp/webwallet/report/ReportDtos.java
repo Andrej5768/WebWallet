@@ -20,13 +20,19 @@ public final class ReportDtos {
             String currency,
             BigDecimal total,
             BigDecimal uncategorized,
-            List<CategorySpending> categories) {}
+            List<CategorySpending> categories,
+            List<String> unconvertedCurrencies) {}
 
     /** @param share part of the total spending, 0..1 */
     public record CategorySpending(
             Long categoryId, String name, BigDecimal amount, BigDecimal share, List<CategorySpending> children) {}
 
-    public record PayeesResponse(LocalDate from, LocalDate to, String currency, List<PayeeSpending> payees) {}
+    public record PayeesResponse(
+            LocalDate from,
+            LocalDate to,
+            String currency,
+            List<PayeeSpending> payees,
+            List<String> unconvertedCurrencies) {}
 
     public record PayeeSpending(Long payeeId, String name, BigDecimal amount, int transactions) {}
 
@@ -39,13 +45,14 @@ public final class ReportDtos {
             BigDecimal expense,
             BigDecimal net,
             BigDecimal savingsRate,
-            List<MonthIncomeExpense> months) {}
+            List<MonthIncomeExpense> months,
+            List<String> unconvertedCurrencies) {}
 
     /** @param savingsRate part of the income that was not spent, null without income */
     public record MonthIncomeExpense(
             YearMonth month, BigDecimal income, BigDecimal expense, BigDecimal net, BigDecimal savingsRate) {}
 
-    public record NetWorthResponse(String currency, List<MonthNetWorth> months) {}
+    public record NetWorthResponse(String currency, List<MonthNetWorth> months, List<String> unconvertedCurrencies) {}
 
     /**
      * Balances at the end of the month, converted at the rates of that day.
