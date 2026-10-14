@@ -115,7 +115,7 @@ public class ReportService {
         Map<Long, String> names = new HashMap<>();
         Map<Long, BigDecimal> amounts = new HashMap<>();
         Map<Long, Integer> counts = new HashMap<>();
-        for (PayeeRow row : reports.findPayeeExpenses(userId, from, to, TransactionType.EXPENSE)) {
+        for (PayeeRow row : reports.findPayeeExpenses(userId, from, to)) {
             names.put(row.getPayeeId(), row.getPayeeName());
             amounts.merge(
                     row.getPayeeId(),

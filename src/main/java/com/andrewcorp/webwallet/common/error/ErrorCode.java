@@ -20,7 +20,6 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "error.forbidden"),
     NOT_FOUND(HttpStatus.NOT_FOUND, "error.notFound"),
     RESOURCE_IN_USE(HttpStatus.CONFLICT, "error.resourceInUse"),
-    RATE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "error.rateUnavailable"),
     INVALID_EXTERNAL_TOKEN(HttpStatus.BAD_REQUEST, "error.import.token"),
     EXTERNAL_SERVICE_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "error.import.unavailable"),
     INVALID_IMPORT_FILE(HttpStatus.BAD_REQUEST, "error.import.file"),

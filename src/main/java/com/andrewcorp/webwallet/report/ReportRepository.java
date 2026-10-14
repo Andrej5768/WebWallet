@@ -25,14 +25,22 @@ public interface ReportRepository extends Repository<Transaction, Long> {
             group by t.date, a.currency, t.type, c.id, c.kind""")
     List<SplitRow> findSplits(Long userId, LocalDate from, LocalDate to, TransactionType transfer);
 
-    /** Expenses with a payee in the period, summed per day and currency. */
+    /**
+     * Spending with a payee in the period, summed per day and currency: expenses, minus refunds (incomes in an
+     * expense category).
+     */
     @Query("""
             select p.id as payeeId, p.name as payeeName, t.date as date, a.currency as currency,
-                   sum(t.amount) as amount, count(t) as transactions
-            from Transaction t join t.payee p join t.account a
-            where t.userId = :userId and t.type = :expense and t.date between :from and :to
+                   sum(case when t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.EXPENSE
+                            then s.amount else -s.amount end) as amount,
+                   count(distinct t.id) as transactions
+            from TransactionSplit s join s.transaction t join t.payee p join t.account a left join s.category c
+            where t.userId = :userId and t.date between :from and :to
+              and (t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.EXPENSE
+                   or (t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.INCOME
+                       and c.kind = com.andrewcorp.webwallet.ledger.category.CategoryKind.EXPENSE))
             group by p.id, p.name, t.date, a.currency""")
-    List<PayeeRow> findPayeeExpenses(Long userId, LocalDate from, LocalDate to, TransactionType expense);
+    List<PayeeRow> findPayeeExpenses(Long userId, LocalDate from, LocalDate to);
 
     /** Balance changes of the source accounts up to the date, summed per account and month. */
     @Query("""

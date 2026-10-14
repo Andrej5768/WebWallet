@@ -43,6 +43,8 @@ public class PrivatBankImporter {
     private static final Pattern RECIPIENT = Pattern.compile("отримувач (.+?), банк");
     private static final Pattern SENDER = Pattern.compile("(?:^|, )від ([^,]+)$");
     private static final Pattern PAYMENT_COMMENT = Pattern.compile("Коментар до платежу: (.*)$");
+    /** Bank category of the separate expense created for a fee charged on top of an operation. */
+    static final String FEE_CATEGORY = "Комісія банку";
 
     private final AccountRepository accounts;
     private final AccountService accountService;
@@ -80,8 +82,13 @@ public class PrivatBankImporter {
         PayeeService.Lookup payeeLookup = payees.lookup(userId);
 
         // Oldest first, so that the categories learned from earlier operations apply to later ones
+        BigDecimal balanceBefore = statement.openingBalance();
         for (PrivatStatement.Record record : statement.records().reversed()) {
             String key = key(statement, record);
+            if (chargedSeparately(record, balanceBefore)) {
+                importFee(account, record, key + "|fee", imported, suggestions, result);
+            }
+            balanceBefore = record.balanceAfter();
             if (imported.contains(key) || matcher.findKnown(userId, key).isPresent()) {
                 result.transactionsSkipped++;
                 continue;
@@ -146,7 +153,8 @@ public class PrivatBankImporter {
             return;
         }
         if (OperationMatcher.TRANSFER_CATEGORIES.contains(record.bankCategory())
-                && matcher.mergeTransfer(account, type, amount, record.date(), key)
+                // PrivatBank charges a fee for transfers to cards of other banks
+                && matcher.mergeTransfer(account, type, amount, record.date(), key, true)
                         .isPresent()) {
             result.transactionsMatched++;
             return;
@@ -174,6 +182,45 @@ public class PrivatBankImporter {
         transaction.replaceSplits(
                 List.of(new SplitData(suggestions.suggest(payee, null, bankCategory, kind), amount, null)));
         transactions.save(transaction);
+        result.transactionsImported++;
+    }
+
+    /**
+     * Whether the fee of the operation was taken from the card on top of the card amount: the balance changed by the
+     * amount and the fee. Otherwise the fee is part of the amount, or the balance before is not known.
+     */
+    private static boolean chargedSeparately(PrivatStatement.Record record, BigDecimal balanceBefore) {
+        return balanceBefore != null
+                && record.fee().signum() > 0
+                && balanceBefore.add(record.cardAmount()).subtract(record.fee()).compareTo(record.balanceAfter()) == 0;
+    }
+
+    /** A fee charged on top of an operation becomes an expense of its own, so that the balance adds up. */
+    private void importFee(
+            Account account,
+            PrivatStatement.Record record,
+            String key,
+            Set<String> imported,
+            CategorySuggester.Session suggestions,
+            ImportResult.Builder result) {
+        if (imported.contains(key)
+                || matcher.findKnown(account.getUserId(), key).isPresent()) {
+            return;
+        }
+        Transaction fee = new Transaction(account.getUserId());
+        fee.setSource(TransactionSource.PRIVATBANK);
+        fee.setExternalId(key);
+        fee.setBankId(key);
+        fee.setType(TransactionType.EXPENSE);
+        fee.setDate(record.date());
+        fee.setAccount(account);
+        fee.setAmount(record.fee());
+        fee.setBankCategory(FEE_CATEGORY);
+        fee.setComment(FEE_CATEGORY);
+        fee.replaceSplits(List.of(new SplitData(
+                suggestions.suggest(null, null, FEE_CATEGORY, CategoryKind.EXPENSE), record.fee(), null)));
+        transactions.save(fee);
+        imported.add(key);
         result.transactionsImported++;
     }
 

@@ -58,6 +58,10 @@ class MonobankStatementImporter {
 
     /** @param account account the operations belong to */
     Result importItems(Account account, List<StatementItem> items) {
+        if (items.isEmpty()) {
+            // Most synchronizations find nothing new: the rules and payees are not even loaded
+            return new Result();
+        }
         Batch batch = new Batch(
                 account, categories.session(account.getUserId()), payees.lookup(account.getUserId()), new Result());
         // Oldest first, so that the categories learned from earlier operations apply to later ones
@@ -99,7 +103,9 @@ class MonobankStatementImporter {
         Short mcc = mcc(item);
         if (mcc != null
                 && mcc == OperationMatcher.TRANSFER_MCC
-                && matcher.mergeTransfer(account, type, amount, date, item.id()).isPresent()) {
+                // Transfers between own Monobank cards are free: no fee tolerance
+                && matcher.mergeTransfer(account, type, amount, date, item.id(), false)
+                        .isPresent()) {
             result.imported++;
             return;
         }
@@ -123,7 +129,9 @@ class MonobankStatementImporter {
         }
         Payee payee = payee(batch.payees(), item);
         transaction.setPayee(payee);
-        CategoryKind kind = type == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
+        // Money back from a merchant is a refund: it goes to the expense category of the purchase
+        boolean refund = type == TransactionType.INCOME && mcc != null && mcc != OperationMatcher.TRANSFER_MCC;
+        CategoryKind kind = type == TransactionType.INCOME && !refund ? CategoryKind.INCOME : CategoryKind.EXPENSE;
         transaction.replaceSplits(
                 List.of(new SplitData(batch.categories().suggest(payee, mcc, null, kind), amount, null)));
         transactions.save(transaction);

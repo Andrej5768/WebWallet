@@ -40,6 +40,14 @@ import java.util.Set;
 @Table(name = "transactions")
 public class Transaction {
 
+    /**
+     * Range of plausible dates. Older dates are rejected: converting them would make the exchange rates be requested
+     * for decades the NBU has no data for.
+     */
+    public static final LocalDate MIN_DATE = LocalDate.of(1990, 1, 1);
+
+    public static final LocalDate MAX_DATE = LocalDate.of(2100, 1, 1);
+
     /** Ids are allocated in blocks, so that the inserts of an import can be batched. */
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "transactions_id")

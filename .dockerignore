@@ -6,3 +6,4 @@ docs
 *.iml
 *.log
 .env
+config

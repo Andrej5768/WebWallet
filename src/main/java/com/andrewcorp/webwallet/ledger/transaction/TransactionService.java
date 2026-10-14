@@ -103,6 +103,9 @@ public class TransactionService {
     }
 
     private void apply(Long userId, Transaction transaction, TransactionRequest request) {
+        if (request.date().isBefore(Transaction.MIN_DATE) || request.date().isAfter(Transaction.MAX_DATE)) {
+            throw ApiException.invalid("date", "error.transaction.date");
+        }
         Account account = account(userId, request.accountId(), "accountId");
         // A bank operation belongs to its account: moved elsewhere, the transaction no longer stands for it, and the
         // operation must be imported again

@@ -35,12 +35,9 @@ public class PayeeService {
                 .orElseGet(() -> payees.save(new Payee(userId, trimmed)));
     }
 
-    /** Finds and creates payees for the many operations of one import, with the payees of the user loaded once. */
-    @Transactional(readOnly = true)
+    /** Finds and creates payees for the operations of one import, looking each name up only once. */
     public Lookup lookup(Long userId) {
-        Map<String, Payee> byName = new HashMap<>();
-        payees.findByUserIdOrderByNameAsc(userId).forEach(payee -> byName.put(key(payee.getName()), payee));
-        return new Lookup(userId, byName);
+        return new Lookup(userId, new HashMap<>());
     }
 
     public final class Lookup {
@@ -57,10 +54,12 @@ public class PayeeService {
         /** @see PayeeService#findOrCreate */
         public Payee findOrCreate(String name) {
             String trimmed = name.trim();
-            return byName.computeIfAbsent(key(trimmed), k -> {
-                created++;
-                return payees.save(new Payee(userId, trimmed));
-            });
+            return byName.computeIfAbsent(
+                    key(trimmed),
+                    k -> payees.findByUserIdAndNameIgnoreCase(userId, trimmed).orElseGet(() -> {
+                        created++;
+                        return payees.save(new Payee(userId, trimmed));
+                    }));
         }
 
         /** Number of payees created by {@link #findOrCreate}. */
