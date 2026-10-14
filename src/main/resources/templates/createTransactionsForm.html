@@ -8,34 +8,40 @@
 <div class="container">
     <div class="row">
         <div class="col-md-12">
-            <h1> Add transaction </h1>
+            <h1 th:utext="#{label.transaction.add}"> Add transaction </h1>
         </div>
     </div>
     <div class="row">
         <div class="col-md-6">
-            <a class="btn btn-info" href="#" th:href="@{/accounts/all}"> Back to All accounts </a>
+            <a class="btn btn-info" href="#" th:href="@{/transactions/all}"> Back to All transactions </a>
             <form action="#" class="form-horizontal"
-                  th:action="@{/accounts/transaction/save}"
-                  th:object="${formT}"
+                  th:action="@{/transactions/save}"
                   method="post">
                 <fieldset>
                     <table class="table">
                         <tbody>
                         <tr>
-                            <td><input th:placeholder="Account" type="hidden" name="accountId"
-                                       th:value="${account.getId}"></td>
-                            <td><input th:placeholder="Amount" name="amount" type="number"></td>
-                            <td><input th:placeholder="Remark" name="remark"></td>
-                            <td><input th:placeholder="Date" name="date" type="date"></td>
+                            <td><input th:placeholder="#{label.transaction.date}" name="date" type="date" required></td>
+                            <td><input th:placeholder="#{label.transaction.balance}" name="amount" type="number" step="0.01" required></td>
                             <td>
-                                <select th:field="*{types}">
+                                <select name="account" required>
+                                    <option value="" hidden>Select an account</option>
+                                    <option th:each="account : ${accounts}"
+                                            th:value="${account.name}"
+                                            th:text="${account.name}">Account
+                                    </option>
+                                </select>
+                            </td>
+                            <td>
+                                <select name="transactionType" required>
                                     <option th:each="type : ${types}"
                                             th:value="${type}"
                                             th:text="#{${type}}">TransactionType
                                     </option>
                                 </select>
                             </td>
-                            <td><input type="submit" id="submitButton" class="btn btn-success" th:value="Save"></td>
+                            <td><input th:placeholder="#{label.transaction.remark}" name="remark"></td>
+                            <td><input type="submit" id="submitButton" class="btn btn-success" th:value="#{label.form.submit}"></td>
                         </tr>
                         </tbody>
                     </table>

@@ -154,13 +154,8 @@ public class WalletController {
 
     @GetMapping(value = "transactions/create")
     public String showTransactionsCreateForm(Model model) {
-        AccountsCreationDto accountsForm = new AccountsCreationDto();
-
-        for (int i = 1; i <= 3; i++) {
-            accountsForm.addAccounts(new Account());
-        }
-
-        model.addAttribute("form", accountsForm);
+        model.addAttribute("accounts", accountRepository.findAllByWalletId(getWalletFromContext().getId()));
+        model.addAttribute("types", TransactionType.values());
 
         return "createTransactionsForm";
     }
