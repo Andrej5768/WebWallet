@@ -52,6 +52,9 @@ public class BankAccountLink {
 
     private BigDecimal bankBalance;
 
+    /** Whether the opening balance of the account was aligned with the bank, which is done only once. */
+    private boolean balanceAligned;
+
     protected BankAccountLink() {}
 
     public BankAccountLink(
@@ -115,6 +118,14 @@ public class BankAccountLink {
     public void setGap(Instant gapTo, Instant gapTarget) {
         this.gapTo = gapTo;
         this.gapTarget = gapTarget;
+    }
+
+    public boolean isBalanceAligned() {
+        return balanceAligned;
+    }
+
+    public void setBalanceAligned(boolean balanceAligned) {
+        this.balanceAligned = balanceAligned;
     }
 
     public BigDecimal getBankBalance() {

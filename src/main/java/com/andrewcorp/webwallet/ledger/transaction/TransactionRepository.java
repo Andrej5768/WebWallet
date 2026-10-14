@@ -25,45 +25,49 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
 
     Optional<Transaction> findByUserIdAndSourceAndExternalId(Long userId, TransactionSource source, String externalId);
 
-    /** Zen Money keeps bank ids with a prefix, e.g. {@code [monobank][reg]-<id>}. */
-    Optional<Transaction> findFirstByUserIdAndBankReferenceEndingWith(Long userId, String bankId);
+    /** Transactions that stand for the bank operation, on either side of a transfer. */
+    @Query("""
+            select t from Transaction t
+            where t.userId = :userId and (t.bankId = :bankId or t.toBankId = :bankId) order by t.id""")
+    List<Transaction> findByBankId(Long userId, String bankId);
 
     /** Expenses or incomes of the account with this amount around the date, not yet matched to a bank operation. */
     @Query("""
             select t from Transaction t
             where t.userId = :userId and t.account = :account and t.type = :type and t.amount = :amount
-              and t.date between :from and :to and t.bankReference is null and t.source <> :excludedSource""")
+              and t.date between :from and :to and t.bankId is null""")
     List<Transaction> findMatchCandidates(
-            Long userId,
-            Account account,
-            TransactionType type,
-            BigDecimal amount,
-            LocalDate from,
-            LocalDate to,
-            TransactionSource excludedSource);
+            Long userId, Account account, TransactionType type, BigDecimal amount, LocalDate from, LocalDate to);
 
-    /** Imported bank operations on other accounts that may be the other half of a transfer between own cards. */
+    /** Transfers from the account with this amount around the date whose outgoing half is not matched yet. */
     @Query("""
             select t from Transaction t
-            where t.userId = :userId and t.source = :source and t.type = :type and t.amount = :amount
-              and t.date = :date and t.mcc = :mcc and t.account in :accounts""")
-    List<Transaction> findTransferCounterparts(
-            Long userId,
-            TransactionSource source,
-            TransactionType type,
-            BigDecimal amount,
-            LocalDate date,
-            Short mcc,
-            Collection<Account> accounts);
+            where t.userId = :userId and t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.TRANSFER
+              and t.account = :account and t.amount = :amount and t.date between :from and :to and t.bankId is null""")
+    List<Transaction> findOutgoingTransferMatches(
+            Long userId, Account account, BigDecimal amount, LocalDate from, LocalDate to);
+
+    /** Transfers to the account with this amount around the date whose incoming half is not matched yet. */
+    @Query("""
+            select t from Transaction t
+            where t.userId = :userId and t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.TRANSFER
+              and t.toAccount = :account and t.toAmount = :amount and t.date between :from and :to
+              and t.toBankId is null""")
+    List<Transaction> findIncomingTransferMatches(
+            Long userId, Account account, BigDecimal amount, LocalDate from, LocalDate to);
 
     /**
-     * Expenses or incomes on other accounts of the same currency that may be the other half of a transfer between own
-     * accounts, possibly with a fee (the amount in the given range).
+     * Imported expenses or incomes on other accounts of the same currency that look like one half of a transfer
+     * between own accounts (a transfer MCC or bank category, or no category), possibly with a fee (the amount in the
+     * given range). Transactions entered manually are not merged: they are what the user meant.
      */
     @Query("""
             select t from Transaction t
             where t.userId = :userId and t.type = :type and t.account <> :account and t.account.currency = :currency
-              and t.date between :from and :to and t.amount between :minAmount and :maxAmount""")
+              and t.date between :from and :to and t.amount between :minAmount and :maxAmount
+              and t.source <> com.andrewcorp.webwallet.ledger.transaction.TransactionSource.MANUAL
+              and (t.mcc = :transferMcc or t.bankCategory in :transferCategories
+                   or not exists (select s from TransactionSplit s where s.transaction = t and s.category is not null))""")
     List<Transaction> findTransferCandidates(
             Long userId,
             TransactionType type,
@@ -72,7 +76,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             LocalDate from,
             LocalDate to,
             BigDecimal minAmount,
-            BigDecimal maxAmount);
+            BigDecimal maxAmount,
+            Short transferMcc,
+            Collection<String> transferCategories);
 
     /** Expenses and incomes without a category and without a split into several categories. */
     @Query("""

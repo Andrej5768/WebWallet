@@ -82,7 +82,11 @@ public class Transaction {
 
     private String externalId;
 
-    private String bankReference;
+    /** Id of the bank operation on {@link #account}, see {@code OperationMatcher#normalizeBankId}. */
+    private String bankId;
+
+    /** Id of the bank operation on {@link #toAccount}: the incoming half of a transfer. */
+    private String toBankId;
 
     /** Merchant category code of a card payment. */
     private Short mcc;
@@ -239,12 +243,20 @@ public class Transaction {
         this.externalId = externalId;
     }
 
-    public String getBankReference() {
-        return bankReference;
+    public String getBankId() {
+        return bankId;
     }
 
-    public void setBankReference(String bankReference) {
-        this.bankReference = bankReference;
+    public void setBankId(String bankId) {
+        this.bankId = bankId;
+    }
+
+    public String getToBankId() {
+        return toBankId;
+    }
+
+    public void setToBankId(String toBankId) {
+        this.toBankId = toBankId;
     }
 
     public Short getMcc() {

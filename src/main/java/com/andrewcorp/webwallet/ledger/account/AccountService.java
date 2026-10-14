@@ -7,6 +7,7 @@ import com.andrewcorp.webwallet.ledger.account.dto.AccountResponse;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository.AccountChange;
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,6 +87,27 @@ public class AccountService {
             balances.merge(change.getAccountId(), change.getChange(), BigDecimal::add);
         }
         return balances;
+    }
+
+    /**
+     * Sets the opening balance so that the balance computed from the transactions equals the given one, e.g. the
+     * balance reported by a bank for an account whose earlier history is not imported.
+     */
+    @Transactional
+    public void alignBalance(Account account, BigDecimal balance) {
+        transactions.flush();
+        BigDecimal computed = balances(account.getUserId()).getOrDefault(account.getId(), account.getOpeningBalance());
+        account.setOpeningBalance(account.getOpeningBalance().add(balance.subtract(computed)));
+    }
+
+    /** Accounts in the currency with any of the card numbers (last four digits), in the display order. */
+    @Transactional(readOnly = true)
+    public List<Account> findByCardNumbers(Long userId, String currency, Collection<String> cardNumbers) {
+        return accounts.findByUserIdOrderBySortOrderAscIdAsc(userId).stream()
+                .filter(account -> account.getCurrency().equals(currency))
+                .filter(account -> account.getCardNumbers() != null
+                        && account.getCardNumbers().stream().anyMatch(cardNumbers::contains))
+                .toList();
     }
 
     private AccountResponse toResponse(Long userId, Account account) {
