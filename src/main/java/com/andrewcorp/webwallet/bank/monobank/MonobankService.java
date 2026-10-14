@@ -46,6 +46,8 @@ public class MonobankService {
     static final String SOURCE = "MONOBANK";
     /** The longest period of one statement request (31 days and 1 hour, minus a margin). */
     static final Duration MAX_STATEMENT_PERIOD = Duration.ofDays(31);
+    /** Every request also covers this much of the past, to see holds that were settled or cancelled since. */
+    static final Duration HOLD_WINDOW = Duration.ofDays(7);
     /** Accounts synchronized more recently than this are not requested again. */
     static final Duration SYNC_INTERVAL = Duration.ofMinutes(5);
 
@@ -202,6 +204,7 @@ public class MonobankService {
             Instant from,
             Instant to,
             Instant gapTo,
+            Instant syncedUntil,
             Instant requestedAt) {}
 
     private SyncRequest nextRequest(Long connectionId) {
@@ -214,7 +217,15 @@ public class MonobankService {
         if (!publicUrl.isEmpty() && !connection.isWebhookRegistered()) {
             connection.setLastRequestAt(now);
             return new SyncRequest(
-                    token, publicUrl + WEBHOOK_PATH + connection.getWebhookSecret(), null, null, null, null, null, now);
+                    token,
+                    publicUrl + WEBHOOK_PATH + connection.getWebhookSecret(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    now);
         }
         Optional<BankAccountLink> next = links.findByConnectionOrderByIdAsc(connection).stream()
                 .filter(link -> link.getAccount() != null)
@@ -224,10 +235,26 @@ public class MonobankService {
             return null;
         }
         BankAccountLink link = next.get();
-        Instant from = link.getSyncedUntil();
-        Instant to = link.getGapTo() != null ? link.getGapTo() : min(from.plus(MAX_STATEMENT_PERIOD), now);
+        Instant from;
+        Instant to;
+        if (link.getGapTo() != null) {
+            from = link.getSyncedUntil();
+            to = link.getGapTo();
+        } else {
+            from = max(link.getSyncedUntil().minus(HOLD_WINDOW), link.getHistoryFrom());
+            to = min(from.plus(MAX_STATEMENT_PERIOD), now);
+        }
         connection.setLastRequestAt(now);
-        return new SyncRequest(token, null, link.getId(), link.getExternalAccountId(), from, to, link.getGapTo(), now);
+        return new SyncRequest(
+                token,
+                null,
+                link.getId(),
+                link.getExternalAccountId(),
+                from,
+                to,
+                link.getGapTo(),
+                link.getSyncedUntil(),
+                now);
     }
 
     private void applyStatement(Long connectionId, SyncRequest request, List<StatementItem> items) {
@@ -243,7 +270,7 @@ public class MonobankService {
         // Unlinked or synchronized by someone else in the meantime
         if (link == null
                 || link.getAccount() == null
-                || !link.getSyncedUntil().equals(request.from())
+                || !link.getSyncedUntil().equals(request.syncedUntil())
                 || !Objects.equals(link.getGapTo(), request.gapTo())) {
             return;
         }
@@ -251,11 +278,17 @@ public class MonobankService {
         Instant now = request.requestedAt();
         importer.importItems(link.getAccount(), items);
 
-        if (items.size() >= MonobankClient.MAX_STATEMENT_ITEMS) {
-            Instant oldest = Instant.ofEpochSecond(
-                    items.stream().mapToLong(StatementItem::time).min().orElseThrow());
+        Instant oldest = items.stream().mapToLong(StatementItem::time).min().stream()
+                .mapToObj(Instant::ofEpochSecond)
+                .findFirst()
+                .orElse(to);
+        // A full page that does not reach back to the operations imported before leaves a gap to load next
+        if (items.size() >= MonobankClient.MAX_STATEMENT_ITEMS && oldest.isAfter(link.getSyncedUntil())) {
             link.setGap(oldest, link.getGapTarget() != null ? link.getGapTarget() : to);
         } else {
+            if (items.size() < MonobankClient.MAX_STATEMENT_ITEMS) {
+                importer.removeCancelledHolds(link.getAccount(), request.from(), to, items);
+            }
             Instant target = link.getGapTarget() != null ? link.getGapTarget() : to;
             link.setSyncedUntil(target);
             link.setGap(null, null);
@@ -311,9 +344,10 @@ public class MonobankService {
         BankAccountLink link = link(connection, bankAccount.id(), title, currency, syncFrom);
         BigDecimal creditLimit = Currencies.fromMinorUnits(bankAccount.creditLimit(), currency);
         if (link.getAccount() == null && link.getId() == null) {
-            Account account = accountService.findByCardNumbers(userId, currency, cardNumbers).stream()
-                    .filter(candidate -> !isLinked(connection, candidate))
-                    .findFirst()
+            Account account = createdBefore(userId, bankAccount.id())
+                    .or(() -> accountService.findByCardNumbers(userId, currency, cardNumbers).stream()
+                            .filter(candidate -> !isLinked(connection, candidate))
+                            .findFirst())
                     .orElseGet(() -> {
                         Account created = new Account(
                                 userId,
@@ -342,12 +376,19 @@ public class MonobankService {
         }
         BankAccountLink link = link(connection, jar.id(), jar.title(), currency, syncFrom);
         if (link.getAccount() == null && link.getId() == null) {
-            Account account = new Account(userId, jar.title(), AccountType.SAVINGS, currency);
-            account.setExternal(SOURCE, jar.id());
-            link.setAccount(accounts.save(account));
+            link.setAccount(createdBefore(userId, jar.id()).orElseGet(() -> {
+                Account account = new Account(userId, jar.title(), AccountType.SAVINGS, currency);
+                account.setExternal(SOURCE, jar.id());
+                return accounts.save(account);
+            }));
         }
         link.setBankBalance(Currencies.fromMinorUnits(jar.balance(), currency));
         links.save(link);
+    }
+
+    /** The account created for the bank account by an earlier connection, which was disconnected since. */
+    private Optional<Account> createdBefore(Long userId, String externalId) {
+        return accounts.findByUserIdAndExternalSourceAndExternalId(userId, SOURCE, externalId);
     }
 
     private BankAccountLink link(
@@ -419,5 +460,9 @@ public class MonobankService {
 
     private static Instant min(Instant a, Instant b) {
         return a.isBefore(b) ? a : b;
+    }
+
+    private static Instant max(Instant a, Instant b) {
+        return a.isAfter(b) ? a : b;
     }
 }

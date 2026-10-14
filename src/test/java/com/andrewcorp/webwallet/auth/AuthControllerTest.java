@@ -16,6 +16,7 @@ import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
 import com.andrewcorp.webwallet.user.Role;
 import com.andrewcorp.webwallet.user.User;
+import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -97,6 +98,26 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.errors[*].field", hasItem("email")))
                 .andExpect(jsonPath("$.errors[*].field", hasItem("password")))
                 .andExpect(jsonPath("$.errors[*].field", hasItem("firstName")));
+    }
+
+    @Test
+    void passwordsLongerThanBcryptCanHashAreRejected() throws Exception {
+        // 40 Cyrillic letters are 80 bytes in UTF-8, more than the 72 BCrypt uses
+        Map<String, String> body = new HashMap<>(registration("long@test.com"));
+        body.put("password", "п".repeat(40));
+
+        mockMvc.perform(postJson("/api/v1/auth/register", body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("password"));
+        body.put("password", "п".repeat(36));
+        mockMvc.perform(postJson("/api/v1/auth/register", body)).andExpect(status().isAccepted());
+    }
+
+    @Test
+    void oversizedLoginFieldsAreRejected() throws Exception {
+        mockMvc.perform(postJson(
+                        "/api/v1/auth/login", Map.of("email", "a".repeat(10_000) + "@test.com", "password", PASSWORD)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

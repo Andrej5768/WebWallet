@@ -91,6 +91,9 @@ public class Transaction {
     /** Id of the bank operation on {@link #toAccount}: the incoming half of a transfer. */
     private String toBankId;
 
+    /** A card payment the bank has only reserved; it may still change its amount or be cancelled. */
+    private boolean hold;
+
     /** Merchant category code of a card payment. */
     private Short mcc;
 
@@ -244,6 +247,14 @@ public class Transaction {
 
     public void setExternalId(String externalId) {
         this.externalId = externalId;
+    }
+
+    public boolean isHold() {
+        return hold;
+    }
+
+    public void setHold(boolean hold) {
+        this.hold = hold;
     }
 
     public String getBankId() {

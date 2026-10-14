@@ -46,6 +46,10 @@ public class BankAccountLink {
     @Column(nullable = false)
     private Instant syncedUntil;
 
+    /** Start of the imported history; operations before it are never requested. */
+    @Column(nullable = false, updatable = false)
+    private Instant historyFrom;
+
     private Instant gapTo;
 
     private Instant gapTarget;
@@ -64,6 +68,11 @@ public class BankAccountLink {
         this.title = title;
         this.currency = currency;
         this.syncedUntil = syncedUntil;
+        this.historyFrom = syncedUntil;
+    }
+
+    public Instant getHistoryFrom() {
+        return historyFrom;
     }
 
     public Long getId() {
