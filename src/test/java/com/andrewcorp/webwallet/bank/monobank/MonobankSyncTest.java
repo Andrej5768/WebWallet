@@ -326,7 +326,7 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         fromZen.setDate(LocalDate.now().minusDays(1));
         fromZen.setAccount(existingCard);
         fromZen.setAmount(new BigDecimal("100"));
-        fromZen.setBankReference("[monobank][reg]-op-zen");
+        fromZen.setBankId("op-zen");
         transactions.save(fromZen);
         // Entered manually two days earlier than the bank date
         Transaction manual = new Transaction(user.getId());
@@ -347,8 +347,7 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         syncAll();
 
         assertThat(userTransactions()).hasSize(3);
-        assertThat(transactions.findById(manualId).orElseThrow().getBankReference())
-                .isEqualTo("op-manual");
+        assertThat(transactions.findById(manualId).orElseThrow().getBankId()).isEqualTo("op-manual");
 
         // The hold is settled with another amount; a repeated synchronization updates it
         statements.put(
@@ -363,6 +362,30 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         assertThat(after).hasSize(3);
         assertThat(find(after, "op-hold").getAmount()).isEqualByComparingTo("120");
         assertThat(find(after, "op-hold").getSplits().get(0).getAmount()).isEqualByComparingTo("120");
+    }
+
+    @Test
+    void manualTransferIsMatchedOnBothSides() throws Exception {
+        connect(LocalDate.now().minusDays(5));
+        Account iron = linkedAccount("mono-iron");
+        Transaction manual = new Transaction(user.getId());
+        manual.setType(TransactionType.TRANSFER);
+        manual.setDate(LocalDate.now().minusDays(1));
+        manual.setAccount(existingCard);
+        manual.setAmount(new BigDecimal("1000"));
+        manual.setToAccount(iron);
+        manual.setToAmount(new BigDecimal("1000"));
+        Long manualId = transactions.save(manual).getId();
+        statements.put("mono-black", List.of(item("op-out", hoursAgo(5), "На залізну картку", 4829, -100_000, 0)));
+        statements.put("mono-iron", List.of(item("op-in", hoursAgo(5), "З чорної картки", 4829, 100_000, 7_000_000)));
+
+        syncAll();
+
+        assertThat(userTransactions()).singleElement().satisfies(transfer -> {
+            assertThat(transfer.getId()).isEqualTo(manualId);
+            assertThat(transfer.getBankId()).isEqualTo("op-out");
+            assertThat(transfer.getToBankId()).isEqualTo("op-in");
+        });
     }
 
     private void resync(String externalId) {
@@ -522,6 +545,11 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         Account iron = linkedAccount("mono-iron");
         // Own funds: 64 800 on the card minus the 50 000 credit limit
         assertThat(accountService.balances(user.getId()).get(iron.getId())).isEqualByComparingTo("14800");
+        // The alignment is done once: a correction by the user is kept by later synchronizations
+        tx.executeWithoutResult(
+                status -> accounts.findById(iron.getId()).orElseThrow().setOpeningBalance(new BigDecimal("1000")));
+        resync("mono-iron");
+        assertThat(linkedAccount("mono-iron").getOpeningBalance()).isEqualByComparingTo("1000");
         // An existing account is not adjusted
         assertThat(accountService.balances(user.getId()).get(existingCard.getId()))
                 .isEqualByComparingTo("0");

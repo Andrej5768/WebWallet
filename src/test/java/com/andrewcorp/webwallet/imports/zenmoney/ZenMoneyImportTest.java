@@ -20,6 +20,10 @@ import com.andrewcorp.webwallet.ledger.account.AccountType;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
+import com.andrewcorp.webwallet.ledger.transaction.Transaction;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionSource;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.user.User;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +41,9 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
 
     @Autowired
     private AccountRepository accounts;
+
+    @Autowired
+    private TransactionRepository transactions;
 
     @Autowired
     private CategoryRepository categories;
@@ -160,6 +167,10 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
     @Test
     void repeatedImportAddsNothing() throws Exception {
         importFile();
+        // A correction by the user is kept by the next import
+        Account card = account("acc-card");
+        card.setOpeningBalance(new BigDecimal("500"));
+        accounts.save(card);
 
         Map<String, Object> second = importFile();
 
@@ -172,8 +183,29 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
                 .containsEntry("transactionsSkipped", 9);
         mockMvc.perform(get("/api/v1/transactions").header("Authorization", auth))
                 .andExpect(jsonPath("$.totalItems").value(8));
-        mockMvc.perform(get("/api/v1/accounts/" + account("acc-card").getId()).header("Authorization", auth))
-                .andExpect(jsonPath("$.balance").value(-1000));
+        assertThat(account("acc-card").getOpeningBalance()).isEqualByComparingTo("500");
+    }
+
+    @Test
+    void operationsAlreadyImportedFromTheBankAreSkipped() throws Exception {
+        Account mono = accounts.save(new Account(user.getId(), "Monobank", AccountType.CARD, "UAH"));
+        Transaction fromBank = new Transaction(user.getId());
+        fromBank.setSource(TransactionSource.MONOBANK);
+        fromBank.setExternalId("abc");
+        fromBank.setBankId("abc");
+        fromBank.setType(TransactionType.EXPENSE);
+        fromBank.setDate(LocalDate.of(2026, 9, 1));
+        fromBank.setAccount(mono);
+        fromBank.setAmount(new BigDecimal("300"));
+        transactions.save(fromBank);
+
+        importFile();
+
+        // Zen Money keeps the id of the operation as "[monobank][reg]-abc"
+        assertThat(transactions.findByUserIdAndSourceAndExternalId(
+                        user.getId(), TransactionSource.ZENMONEY, "tx-groceries"))
+                .isEmpty();
+        assertThat(transactions.findByBankId(user.getId(), "abc")).hasSize(1);
     }
 
     @Test

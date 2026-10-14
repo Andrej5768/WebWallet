@@ -195,8 +195,7 @@ class PrivatBankImportTest extends AbstractIntegrationTest {
                     assertThat(transfer.getAmount()).isEqualByComparingTo("10300");
                     assertThat(transfer.getToAmount()).isEqualByComparingTo("10000");
                 });
-        assertThat(transactions.findById(manualId).orElseThrow().getBankReference())
-                .isNotNull();
+        assertThat(transactions.findById(manualId).orElseThrow().getBankId()).isNotNull();
 
         // Imported again: the matched operations are recognized as well
         Map<String, Object> second = json(upload(), 200);
@@ -204,6 +203,28 @@ class PrivatBankImportTest extends AbstractIntegrationTest {
         // An existing account keeps its own opening balance
         assertThat(accounts.findById(card.getId()).orElseThrow().getOpeningBalance())
                 .isEqualByComparingTo("0");
+    }
+
+    @Test
+    void transferWithFeeIsNotGuessedAmongSeveralCandidates() throws Exception {
+        Account mono = accounts.save(new Account(user.getId(), "Monobank", AccountType.CARD, "UAH"));
+        for (String amount : new String[] {"10000", "9990"}) {
+            Transaction received = new Transaction(user.getId());
+            received.setSource(TransactionSource.MONOBANK);
+            received.setType(TransactionType.INCOME);
+            received.setDate(LocalDate.of(2026, 10, 5));
+            received.setAccount(mono);
+            received.setAmount(new BigDecimal(amount));
+            transactions.save(received);
+        }
+
+        Map<String, Object> result = json(upload(), 200);
+
+        // 10 300 left Privat: neither 10 000 nor 9 990 is exact, so no pair is made up
+        assertThat(result).containsEntry("transactionsMatched", 0);
+        assertThat(userTransactions())
+                .filteredOn(t -> t.getType() == TransactionType.TRANSFER)
+                .isEmpty();
     }
 
     @Test
