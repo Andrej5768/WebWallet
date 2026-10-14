@@ -57,6 +57,32 @@ to grow into a public service.
 - Dividends and coupons belong to the investment module and are shown as passive income in the
   income vs. expenses report (a projection, not a duplicate record).
 
+## Getting started
+
+Requirements: JDK 21, Maven, Docker.
+
+Run PostgreSQL and Mailpit in Docker and the backend from the IDE or Maven with the `local` profile:
+
+```bash
+docker compose up -d postgres mailpit
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+Or run everything in containers:
+
+```bash
+cp .env.example .env   # set JWT_SECRET, e.g. `openssl rand -base64 32`
+docker compose --profile app up -d --build
+```
+
+- API: http://localhost:8080/api/v1, Swagger UI: http://localhost:8080/swagger-ui.html
+- Emails sent by the backend (verification, password reset): http://localhost:8025
+- Tests: `mvn verify` (needs Docker for Testcontainers)
+
+Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`,
+`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`
+(see `src/main/resources/application.properties`).
+
 ## Development workflow
 
 - `dev` is the default branch and holds ongoing development.
@@ -70,14 +96,14 @@ to grow into a public service.
 ## Roadmap
 
 ### Phase 0 — Backend foundation
-- [ ] Flyway migrations with a new baseline schema, `ddl-auto=validate`
-- [ ] Integration tests on PostgreSQL via Testcontainers instead of H2
-- [ ] REST API under `/api/v1` with an OpenAPI spec (springdoc) and ProblemDetail errors
-- [ ] Stateless JWT authentication (access + rotating refresh tokens) for the web and mobile clients;
+- [x] Flyway migrations with a new baseline schema, `ddl-auto=validate`
+- [x] Integration tests on PostgreSQL via Testcontainers instead of H2
+- [x] REST API under `/api/v1` with an OpenAPI spec (springdoc) and ProblemDetail errors
+- [x] Stateless JWT authentication (access + rotating refresh tokens) for the web and mobile clients;
       registration, email confirmation and password reset as API endpoints
-- [ ] Remove Thymeleaf pages, session-based login and the old controllers
-- [ ] Dockerfile and Docker Compose (backend + PostgreSQL)
-- [ ] Ukrainian and English localization only
+- [x] Remove Thymeleaf pages, session-based login and the old controllers
+- [x] Dockerfile and Docker Compose (backend + PostgreSQL + Mailpit)
+- [x] Ukrainian and English localization only
 
 ### Phase 1 — Finance MVP (enough to move off Zen Money)
 - [ ] New domain model: accounts, two-level categories, tags, payees, transactions with transfer legs

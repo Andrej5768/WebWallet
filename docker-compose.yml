@@ -1,0 +1,51 @@
+# Local development: `docker compose up -d postgres mailpit` and run the backend from the IDE with the `local` profile,
+# or `docker compose up --build` to run everything in containers (requires JWT_SECRET in .env, see .env.example).
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: webwallet
+      POSTGRES_USER: webwallet
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-webwallet}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U webwallet -d webwallet" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Catches all outgoing emails, web UI at http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  backend:
+    build: .
+    profiles: [ "app" ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/webwallet
+      DB_USERNAME: webwallet
+      DB_PASSWORD: ${DB_PASSWORD:-webwallet}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -base64 32)}
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://localhost:5173}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
