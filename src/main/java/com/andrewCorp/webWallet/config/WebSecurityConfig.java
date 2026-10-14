@@ -14,6 +14,7 @@ import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DefaultAuthenticationEventPublisher;
 import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.RememberMeAuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -35,6 +36,8 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
 // @ImportResource({ "classpath:webSecurityConfig.xml" })
 @EnableWebSecurity
 public class WebSecurityConfig {
+
+    private static final String REMEMBER_ME_KEY = "theKey";
 
     @Autowired
     private UserDetailsService userDetailsService;
@@ -59,7 +62,8 @@ public class WebSecurityConfig {
 
     @Bean
     public AuthenticationManager authenticationManager() {
-        final ProviderManager authenticationManager = new ProviderManager(authProvider());
+        // RememberMeAuthenticationProvider is not added automatically to a manually created ProviderManager
+        final ProviderManager authenticationManager = new ProviderManager(authProvider(), new RememberMeAuthenticationProvider(REMEMBER_ME_KEY));
         // Required for AuthenticationFailureListener/AuthenticationSuccessEventListener (login attempt blocking)
         authenticationManager.setAuthenticationEventPublisher(new DefaultAuthenticationEventPublisher(applicationEventPublisher));
         return authenticationManager;
@@ -98,7 +102,7 @@ public class WebSecurityConfig {
                         .logoutSuccessUrl("/logout.html?logSucc=true")
                         .deleteCookies("JSESSIONID")
                         .permitAll())
-                .rememberMe(rememberMe -> rememberMe.rememberMeServices(rememberMeServices()).key("theKey"));
+                .rememberMe(rememberMe -> rememberMe.rememberMeServices(rememberMeServices()).key(REMEMBER_ME_KEY));
         // @formatter:on
         return http.build();
 
@@ -149,7 +153,7 @@ public class WebSecurityConfig {
 
     @Bean
     public RememberMeServices rememberMeServices() {
-        CustomRememberMeServices rememberMeServices = new CustomRememberMeServices("theKey", userDetailsService, new InMemoryTokenRepositoryImpl());
+        CustomRememberMeServices rememberMeServices = new CustomRememberMeServices(REMEMBER_ME_KEY, userDetailsService, new InMemoryTokenRepositoryImpl());
         return rememberMeServices;
     }
 
