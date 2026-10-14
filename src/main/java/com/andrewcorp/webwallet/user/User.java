@@ -49,6 +49,10 @@ public class User {
     @Column(nullable = false)
     private String locale = "en";
 
+    /** ISO 4217 currency of reports and the envelope budget. */
+    @Column(nullable = false)
+    private String baseCurrency = "UAH";
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -143,6 +147,14 @@ public class User {
 
     public void setLocale(String locale) {
         this.locale = locale;
+    }
+
+    public String getBaseCurrency() {
+        return baseCurrency;
+    }
+
+    public void setBaseCurrency(String baseCurrency) {
+        this.baseCurrency = baseCurrency;
     }
 
     public Instant getCreatedAt() {

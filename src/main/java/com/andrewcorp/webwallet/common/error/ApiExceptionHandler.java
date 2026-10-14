@@ -15,6 +15,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.List;
@@ -38,7 +39,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ProblemDetail> handleApiException(ApiException ex) {
-        return ResponseEntity.status(ex.code().status()).body(problemDetails.of(ex.code()));
+        ProblemDetail problem = problemDetails.of(ex.code());
+        if (!ex.violations().isEmpty()) {
+            problem.setProperty("errors", ex.violations().stream()
+                    .map(violation -> Map.of(
+                            "field", violation.field(),
+                            "message", messages.getMessage(violation.messageKey(), null, LocaleContextHolder.getLocale())))
+                    .toList());
+        }
+        return ResponseEntity.status(ex.code().status()).body(problem);
     }
 
     @ExceptionHandler(Exception.class)
@@ -53,6 +62,20 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = problemDetails.of(ErrorCode.VALIDATION_FAILED);
         List<Map<String, String>> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(this::toFieldError)
+                .toList();
+        problem.setProperty("errors", errors);
+        return ResponseEntity.badRequest().body(problem);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(HandlerMethodValidationException ex,
+                                                                           HttpHeaders headers, HttpStatusCode status,
+                                                                           WebRequest request) {
+        ProblemDetail problem = problemDetails.of(ErrorCode.VALIDATION_FAILED);
+        List<Map<String, String>> errors = ex.getParameterValidationResults().stream()
+                .flatMap(result -> result.getResolvableErrors().stream().map(error -> Map.of(
+                        "field", String.valueOf(result.getMethodParameter().getParameterName()),
+                        "message", messages.getMessage(error, LocaleContextHolder.getLocale()))))
                 .toList();
         problem.setProperty("errors", errors);
         return ResponseEntity.badRequest().body(problem);

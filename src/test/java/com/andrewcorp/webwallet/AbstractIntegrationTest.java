@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet;
 
 import com.andrewcorp.webwallet.auth.LoginAttemptService;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
+import com.andrewcorp.webwallet.currency.NbuClient;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +33,8 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Runs against the full application with PostgreSQL in Testcontainers. Requests commit for real (no test
@@ -67,9 +70,12 @@ public abstract class AbstractIntegrationTest {
     @MockitoBean
     protected JavaMailSender mailSender;
 
+    @MockitoBean
+    protected NbuClient nbuClient;
+
     @BeforeEach
     void cleanDatabase() {
-        jdbc.execute("truncate table users restart identity cascade");
+        jdbc.execute("truncate table users, exchange_rates restart identity cascade");
         clearInvocations(mailSender);
         loginAttempts.reset();
     }
@@ -93,6 +99,32 @@ public abstract class AbstractIntegrationTest {
         String body = mockMvc.perform(postJson("/api/v1/auth/login", Map.of("email", email, "password", password)))
                 .andReturn().getResponse().getContentAsString();
         return jsonMapper.readValue(body, TokenResponse.class);
+    }
+
+    /** Logs in a new verified user and returns the Authorization header value. */
+    protected String loginNewUser() throws Exception {
+        return bearer(login(createVerifiedUser().getEmail(), PASSWORD));
+    }
+
+    protected MockHttpServletRequestBuilder postJson(String url, Object body, String authorization) {
+        return postJson(url, body).header("Authorization", authorization);
+    }
+
+    protected MockHttpServletRequestBuilder putJson(String url, Object body, String authorization) {
+        return put(url).contentType(MediaType.APPLICATION_JSON).content(jsonMapper.writeValueAsString(body))
+                .header("Authorization", authorization);
+    }
+
+    /** Performs the request, expects the status and returns the JSON response as a map. */
+    @SuppressWarnings("unchecked")
+    protected Map<String, Object> json(MockHttpServletRequestBuilder request, int expectedStatus) throws Exception {
+        String body = mockMvc.perform(request).andExpect(status().is(expectedStatus)).andReturn().getResponse()
+                .getContentAsString();
+        return body.isEmpty() ? Map.of() : jsonMapper.readValue(body, Map.class);
+    }
+
+    protected static Long id(Map<String, Object> json) {
+        return ((Number) json.get("id")).longValue();
     }
 
     protected static String bearer(TokenResponse tokens) {

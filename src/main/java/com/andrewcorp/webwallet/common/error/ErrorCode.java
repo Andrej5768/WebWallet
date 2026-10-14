@@ -18,6 +18,9 @@ public enum ErrorCode {
     INVALID_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "error.invalidCurrentPassword"),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "error.unauthorized"),
     FORBIDDEN(HttpStatus.FORBIDDEN, "error.forbidden"),
+    NOT_FOUND(HttpStatus.NOT_FOUND, "error.notFound"),
+    RESOURCE_IN_USE(HttpStatus.CONFLICT, "error.resourceInUse"),
+    RATE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "error.rateUnavailable"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "error.internal");
 
     private final HttpStatus status;
