@@ -1,5 +1,12 @@
 package com.andrewcorp.webwallet.imports.privatbank;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
@@ -10,6 +17,11 @@ import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSource;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.user.User;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,19 +30,6 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.transaction.support.TransactionTemplate;
-
-import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * The PDF text extraction is replaced by the anonymized text of a statement; it is tested separately.
@@ -60,20 +59,25 @@ class PrivatBankImportTest extends AbstractIntegrationTest {
     void setUp() throws Exception {
         user = createVerifiedUser();
         auth = bearer(login(user.getEmail(), PASSWORD));
-        sample = new ClassPathResource("imports/privat/statement-sample.txt").getContentAsString(StandardCharsets.UTF_8);
+        sample = new ClassPathResource("imports/privat/statement-sample.txt")
+                .getContentAsString(StandardCharsets.UTF_8)
+                // Git may check the file out with CRLF line endings on Windows
+                .replace("\r\n", "\n");
         when(pdfText.extract(any())).thenAnswer(invocation -> sample);
     }
 
     private MockMultipartHttpServletRequestBuilder upload() {
         MockMultipartHttpServletRequestBuilder request = multipart("/api/v1/imports/privatbank")
-                .file(new MockMultipartFile("file", "statement.pdf", "application/pdf", new byte[]{1}));
+                .file(new MockMultipartFile("file", "statement.pdf", "application/pdf", new byte[] {1}));
         request.header("Authorization", auth);
         return request;
     }
 
     private List<Transaction> userTransactions() {
         return tx.execute(status -> {
-            List<Transaction> all = transactions.findAll().stream().filter(t -> t.getUserId().equals(user.getId())).toList();
+            List<Transaction> all = transactions.findAll().stream()
+                    .filter(t -> t.getUserId().equals(user.getId()))
+                    .toList();
             all.forEach(t -> {
                 t.getAccount().getId();
                 if (t.getToAccount() != null) {
@@ -88,19 +92,24 @@ class PrivatBankImportTest extends AbstractIntegrationTest {
     }
 
     private static Transaction onDate(List<Transaction> transactions, String date) {
-        return transactions.stream().filter(t -> t.getDate().equals(LocalDate.parse(date))).findFirst().orElseThrow();
+        return transactions.stream()
+                .filter(t -> t.getDate().equals(LocalDate.parse(date)))
+                .findFirst()
+                .orElseThrow();
     }
 
     @Test
     void importsIntoNewAccount() throws Exception {
         Map<String, Object> result = json(upload(), 200);
 
-        assertThat(result).containsEntry("accountsCreated", 1)
+        assertThat(result)
+                .containsEntry("accountsCreated", 1)
                 .containsEntry("transactionsImported", 6)
                 .containsEntry("transactionsMatched", 0);
         assertThat((List<?>) result.get("warnings")).isEmpty();
 
-        Account account = accounts.findByUserIdOrderBySortOrderAscIdAsc(user.getId()).get(0);
+        Account account =
+                accounts.findByUserIdOrderBySortOrderAscIdAsc(user.getId()).get(0);
         assertThat(account.getName()).isEqualTo("PrivatBank *1234");
         assertThat(account.getType()).isEqualTo(AccountType.CREDIT_CARD);
         assertThat(account.getCreditLimit()).isEqualByComparingTo("70000");
@@ -135,7 +144,8 @@ class PrivatBankImportTest extends AbstractIntegrationTest {
 
         Map<String, Object> second = json(upload(), 200);
 
-        assertThat(second).containsEntry("accountsCreated", 0)
+        assertThat(second)
+                .containsEntry("accountsCreated", 0)
                 .containsEntry("transactionsImported", 0)
                 .containsEntry("transactionsSkipped", 6);
         assertThat(userTransactions()).hasSize(6);
@@ -165,25 +175,35 @@ class PrivatBankImportTest extends AbstractIntegrationTest {
 
         Map<String, Object> result = json(upload(), 200);
 
-        assertThat(result).containsEntry("accountsCreated", 0)
+        assertThat(result)
+                .containsEntry("accountsCreated", 0)
                 .containsEntry("transactionsImported", 4)
                 .containsEntry("transactionsMatched", 2);
         List<Transaction> all = userTransactions();
         assertThat(all).hasSize(6);
-        assertThat(all).filteredOn(t -> t.getAccount().getId().equals(mono.getId()) || mono.getId().equals(
-                t.getToAccount() == null ? null : t.getToAccount().getId())).singleElement().satisfies(transfer -> {
-            assertThat(transfer.getId()).isEqualTo(receivedId);
-            assertThat(transfer.getType()).isEqualTo(TransactionType.TRANSFER);
-            assertThat(transfer.getAmount()).isEqualByComparingTo("10300");
-            assertThat(transfer.getToAmount()).isEqualByComparingTo("10000");
-        });
-        assertThat(transactions.findById(manualId).orElseThrow().getBankReference()).isNotNull();
+        assertThat(all)
+                .filteredOn(t -> t.getAccount().getId().equals(mono.getId())
+                        || mono.getId()
+                                .equals(
+                                        t.getToAccount() == null
+                                                ? null
+                                                : t.getToAccount().getId()))
+                .singleElement()
+                .satisfies(transfer -> {
+                    assertThat(transfer.getId()).isEqualTo(receivedId);
+                    assertThat(transfer.getType()).isEqualTo(TransactionType.TRANSFER);
+                    assertThat(transfer.getAmount()).isEqualByComparingTo("10300");
+                    assertThat(transfer.getToAmount()).isEqualByComparingTo("10000");
+                });
+        assertThat(transactions.findById(manualId).orElseThrow().getBankReference())
+                .isNotNull();
 
         // Imported again: the matched operations are recognized as well
         Map<String, Object> second = json(upload(), 200);
         assertThat(second).containsEntry("transactionsImported", 0).containsEntry("transactionsSkipped", 6);
         // An existing account keeps its own opening balance
-        assertThat(accounts.findById(card.getId()).orElseThrow().getOpeningBalance()).isEqualByComparingTo("0");
+        assertThat(accounts.findById(card.getId()).orElseThrow().getOpeningBalance())
+                .isEqualByComparingTo("0");
     }
 
     @Test
@@ -194,12 +214,13 @@ class PrivatBankImportTest extends AbstractIntegrationTest {
         mockMvc.perform(upload().param("accountId", usd.getId().toString()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("accountId"));
-        mockMvc.perform(upload().param("accountId", "999999"))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(upload().param("accountId", "999999")).andExpect(status().isBadRequest());
 
         json(upload().param("accountId", other.getId().toString()), 200);
 
-        assertThat(userTransactions()).hasSize(6).allSatisfy(t -> assertThat(t.getAccount().getId()).isEqualTo(other.getId()));
+        assertThat(userTransactions())
+                .hasSize(6)
+                .allSatisfy(t -> assertThat(t.getAccount().getId()).isEqualTo(other.getId()));
     }
 
     @Test
@@ -213,15 +234,23 @@ class PrivatBankImportTest extends AbstractIntegrationTest {
 
     @Test
     void bankCategoryRules() throws Exception {
-        Long groceries = id(json(postJson("/api/v1/categories", Map.of("name", "Groceries", "kind", "EXPENSE"), auth), 201));
-        json(postJson("/api/v1/categorization-rules",
-                Map.of("categoryId", groceries, "bankCategory", "Супермаркети та продукти"), auth), 201);
+        Long groceries =
+                id(json(postJson("/api/v1/categories", Map.of("name", "Groceries", "kind", "EXPENSE"), auth), 201));
+        json(
+                postJson(
+                        "/api/v1/categorization-rules",
+                        Map.of("categoryId", groceries, "bankCategory", "Супермаркети та продукти"),
+                        auth),
+                201);
 
         json(upload(), 200);
 
         Transaction imported = tx.execute(status -> {
-            Transaction t = onDate(transactions.findAll().stream()
-                    .filter(candidate -> candidate.getUserId().equals(user.getId())).toList(), "2026-10-11");
+            Transaction t = onDate(
+                    transactions.findAll().stream()
+                            .filter(candidate -> candidate.getUserId().equals(user.getId()))
+                            .toList(),
+                    "2026-10-11");
             t.getSplits().get(0).getCategory().getId();
             return t;
         });

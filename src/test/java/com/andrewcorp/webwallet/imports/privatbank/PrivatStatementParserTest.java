@@ -1,17 +1,16 @@
 package com.andrewcorp.webwallet.imports.privatbank;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.core.io.ClassPathResource;
-
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalTime;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 
 class PrivatStatementParserTest {
 
@@ -20,7 +19,10 @@ class PrivatStatementParserTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        sample = new ClassPathResource("imports/privat/statement-sample.txt").getContentAsString(StandardCharsets.UTF_8);
+        sample = new ClassPathResource("imports/privat/statement-sample.txt")
+                .getContentAsString(StandardCharsets.UTF_8)
+                // Git may check the file out with CRLF line endings on Windows
+                .replace("\r\n", "\n");
     }
 
     @Test
@@ -51,7 +53,9 @@ class PrivatStatementParserTest {
         assertThat(groceries.cardAmount()).isEqualByComparingTo("-3060.51");
         assertThat(groceries.balanceAfter()).isEqualByComparingTo("-54698.84");
         assertThat(groceries.bankCategory()).isEqualTo("Супермаркети та продукти");
-        assertThat(groceries.details()).contains("отримувач PRODUKTY SHOP, банк").doesNotContain("\n");
+        assertThat(groceries.details())
+                .contains("отримувач PRODUKTY SHOP, банк")
+                .doesNotContain("\n");
 
         // A second (virtual) card of the same account; a purchase in another currency
         PrivatStatement.Record steam = statement.records().get(2);
@@ -62,8 +66,9 @@ class PrivatStatementParserTest {
 
         // A page break inside the details and a fee wrapped in the middle of the number
         PrivatStatement.Record wrapped = statement.records().get(3);
-        assertThat(wrapped.details()).isEqualTo("Платежі за реквізитами, УКРАЇНА, отримувач ТОВ БУДМАТЕРІАЛИ, банк"
-                + " отримувача -, код ІД НБУ -, Коментар до платежу: оплата за рахунком 15");
+        assertThat(wrapped.details())
+                .isEqualTo("Платежі за реквізитами, УКРАЇНА, отримувач ТОВ БУДМАТЕРІАЛИ, банк"
+                        + " отримувача -, код ІД НБУ -, Коментар до платежу: оплата за рахунком 15");
         assertThat(wrapped.fee()).isEqualByComparingTo("1223.43");
         assertThat(wrapped.cardAmount()).isEqualByComparingTo("-42737.73");
 
@@ -103,6 +108,7 @@ class PrivatStatementParserTest {
     @Test
     void rejectsOtherDocuments() {
         assertThatThrownBy(() -> parser.parse("Кредитний договір № 123\nСума кредиту: 10 000,00"))
-                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_IMPORT_FILE));
+                .isInstanceOfSatisfying(
+                        ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_IMPORT_FILE));
     }
 }
