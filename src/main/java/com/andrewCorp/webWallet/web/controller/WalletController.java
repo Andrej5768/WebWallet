@@ -162,12 +162,14 @@ public class WalletController {
 
     @GetMapping(value = "transactions/edit")
     public String showTransactionsEditForm(Model model) {
+        Wallet wallet = getWalletFromContext();
         List<Transaction> transactions = new ArrayList<>();
-        transactionRepository.findTransactionsByWalletId(getWalletFromContext().getId())
+        transactionRepository.findTransactionsByWalletId(wallet.getId())
                 .iterator()
                 .forEachRemaining(transactions::add);
 
         model.addAttribute("form", new TransactionCreationDto(transactions));
+        model.addAttribute("accounts", accountRepository.findAllByWalletId(wallet.getId()));
         model.addAttribute("types", TransactionType.values());
 
         return "editTransactionsForm";
