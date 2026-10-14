@@ -112,6 +112,16 @@ class CategoryControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void categoryWithBudgetCannotBeDeleted() throws Exception {
+        Long category = id(json(postJson("/api/v1/categories", category("Gifts", "EXPENSE", null), auth), 201));
+        mockMvc.perform(putJson("/api/v1/budget/2026-10/categories/" + category, Map.of("assigned", 100), auth))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/categories/" + category).header("Authorization", auth))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
     void kindOfUsedCategoryCannotChange() throws Exception {
         Long parent = id(json(postJson("/api/v1/categories", category("Trips", "EXPENSE", null), auth), 201));
         Long child = id(json(postJson("/api/v1/categories", category("Tickets", "EXPENSE", parent), auth), 201));

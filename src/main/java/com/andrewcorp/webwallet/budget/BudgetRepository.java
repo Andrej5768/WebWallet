@@ -20,6 +20,8 @@ public interface BudgetRepository extends JpaRepository<BudgetAssignment, Long> 
 
     boolean existsByCategoryIdIn(Collection<Long> categoryIds);
 
+    boolean existsByUserId(Long userId);
+
     /** Expense and income parts of transactions on budget accounts, summed per day, currency and category. */
     @Query("""
             select t.date as date, a.currency as currency, t.type as type, c.id as categoryId, c.kind as kind,

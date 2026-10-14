@@ -248,6 +248,22 @@ class MonobankSyncTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void historyCanStartAtMostThreeYearsAgo() throws Exception {
+        mockMvc.perform(postJson(
+                        "/api/v1/banks/monobank",
+                        Map.of(
+                                "token",
+                                TOKEN,
+                                "since",
+                                LocalDate.now().minusYears(4).toString()),
+                        auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("since"));
+        mockMvc.perform(postJson("/api/v1/banks/monobank", Map.of("token", "bad\r\ntoken"), auth))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void connectWithRejectedToken() throws Exception {
         when(client.clientInfo("bad")).thenThrow(new ApiException(ErrorCode.INVALID_EXTERNAL_TOKEN));
 

@@ -143,7 +143,16 @@ public class ZenMoneyImporter {
                     .findFirst()
                     .ifPresent(currency -> {
                         User user = users.findById(userId).orElseThrow();
-                        user.setBaseCurrency(currency);
+                        if (user.getBaseCurrency().equals(currency)) {
+                            return;
+                        }
+                        // Assigned money of the budget is in the base currency and would change its value
+                        if (budget.existsByUserId(userId)) {
+                            result.warn("The base currency " + currency
+                                    + " of Zen Money is not used: the budget already has assigned money");
+                        } else {
+                            user.setBaseCurrency(currency);
+                        }
                     });
         }
 

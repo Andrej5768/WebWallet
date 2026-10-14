@@ -2,6 +2,8 @@ package com.andrewcorp.webwallet.bank.monobank.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PastOrPresent;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -16,7 +18,9 @@ public final class MonobankDtos {
      * @param since date to import the history from; 31 days ago by default
      */
     public record ConnectRequest(
-            @NotBlank String token, @PastOrPresent LocalDate since) {}
+            @NotBlank @Size(max = 100) @Pattern(regexp = "[A-Za-z0-9_-]+") String token,
+
+            @PastOrPresent LocalDate since) {}
 
     /** @param accountId WebWallet account to import into, or null to stop synchronizing the bank account */
     public record LinkRequest(Long accountId) {}

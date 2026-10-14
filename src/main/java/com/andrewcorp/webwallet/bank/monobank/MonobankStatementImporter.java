@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +37,11 @@ class MonobankStatementImporter {
     static final ZoneId BANK_ZONE = Zones.KYIV;
     /** Operation ids are used in queries and as external ids; anything else is not from Monobank. */
     static final Pattern ITEM_ID = Pattern.compile("[A-Za-z0-9_-]{1,100}");
+
+    /** Amounts in minor units beyond this cannot be stored (numeric(19, 4)) and are not real operations. */
+    private static final long MAX_MINOR_UNITS = 100_000_000_000_000L;
+
+    private static final long MIN_TIME = Instant.parse("2000-01-01T00:00:00Z").getEpochSecond();
 
     private static final int MAX_PAYEE_LENGTH = 200;
     private static final int MAX_COMMENT_LENGTH = 1000;
@@ -75,9 +81,7 @@ class MonobankStatementImporter {
     private void importItem(Batch batch, StatementItem item) {
         Account account = batch.account();
         Result result = batch.result();
-        if (item.amount() == 0
-                || item.id() == null
-                || !ITEM_ID.matcher(item.id()).matches()) {
+        if (!isValid(item)) {
             return;
         }
         Long userId = account.getUserId();
@@ -182,6 +186,18 @@ class MonobankStatementImporter {
 
     private static Short mcc(StatementItem item) {
         return item.mcc() == null ? null : item.mcc().shortValue();
+    }
+
+    /** Statement items and pushed operations are checked: a webhook URL is only as secret as the logs it gets into. */
+    private static boolean isValid(StatementItem item) {
+        long latest = Instant.now().plus(1, ChronoUnit.DAYS).getEpochSecond();
+        return item.amount() != 0
+                && Math.abs(item.amount()) < MAX_MINOR_UNITS
+                && Math.abs(item.operationAmount()) < MAX_MINOR_UNITS
+                && item.time() >= MIN_TIME
+                && item.time() <= latest
+                && item.id() != null
+                && ITEM_ID.matcher(item.id()).matches();
     }
 
     static final class Result {

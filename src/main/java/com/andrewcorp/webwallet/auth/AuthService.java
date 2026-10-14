@@ -145,7 +145,9 @@ public class AuthService {
     @Transactional
     public TokenResponse changePassword(Long userId, String currentPassword, String newPassword) {
         User user = users.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
+        rateLimiter.checkPasswordChange(userId);
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            rateLimiter.passwordCheckFailed(userId);
             throw new ApiException(ErrorCode.INVALID_CURRENT_PASSWORD);
         }
         setPassword(user, newPassword);

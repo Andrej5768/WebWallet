@@ -80,7 +80,10 @@ public class CategoryService {
     @Transactional
     public void delete(Long userId, Long id) {
         Category category = find(userId, id);
-        if (categories.existsByParentId(category.getId()) || splits.existsByCategoryIdIn(List.of(category.getId()))) {
+        // Deleting the assignments would silently change the money ready to assign of past months
+        if (categories.existsByParentId(category.getId())
+                || splits.existsByCategoryIdIn(List.of(category.getId()))
+                || budget.existsByCategoryIdIn(List.of(category.getId()))) {
             throw new ApiException(ErrorCode.RESOURCE_IN_USE);
         }
         categories.delete(category);

@@ -117,6 +117,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     @Query("""
             select s.category from TransactionSplit s join s.transaction t
             where t.userId = :userId and t.payee = :payee and s.category is not null and s.category.kind = :kind
+              and s.category.archived = false
             order by t.date desc, t.id desc""")
     List<Category> findCategoriesUsedForPayee(Long userId, Payee payee, CategoryKind kind, Pageable pageable);
 

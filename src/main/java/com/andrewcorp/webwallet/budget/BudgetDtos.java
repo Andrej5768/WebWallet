@@ -2,7 +2,6 @@ package com.andrewcorp.webwallet.budget;
 
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
 import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.util.List;
@@ -13,7 +12,7 @@ public final class BudgetDtos {
 
     /** @param assigned money for the envelope this month, in the base currency; 0 removes the assignment */
     public record AssignRequest(
-            @NotNull @PositiveOrZero @Digits(integer = 15, fraction = 4) BigDecimal assigned) {}
+            @NotNull @Digits(integer = 15, fraction = 4) BigDecimal assigned) {}
 
     /**
      * Envelope budget of a month in the base currency of the user.
