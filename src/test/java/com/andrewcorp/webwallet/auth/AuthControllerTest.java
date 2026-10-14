@@ -331,6 +331,16 @@ class AuthControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void ipv6ClientsAndPlusAddressesCountTogether() {
+        assertThat(AuthRateLimiter.clientKey("2001:db8:1:2:aaaa::1"))
+                .isEqualTo(AuthRateLimiter.clientKey("2001:db8:1:2:bbbb::2"))
+                .isNotEqualTo(AuthRateLimiter.clientKey("2001:db8:1:3::1"));
+        assertThat(AuthRateLimiter.clientKey("10.0.0.1")).isEqualTo("10.0.0.1");
+        assertThat(AuthRateLimiter.mailboxKey("user+1@test.com")).isEqualTo("user@test.com");
+        assertThat(AuthRateLimiter.mailboxKey("user@test.com")).isEqualTo("user@test.com");
+    }
+
+    @Test
     void requestsThatSendEmailsAreLimitedPerIp() throws Exception {
         for (int i = 0; i < 20; i++) {
             mockMvc.perform(withIp(

@@ -3,6 +3,7 @@ package com.andrewcorp.webwallet.imports.privatbank;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import java.io.IOException;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.apache.pdfbox.Loader;
@@ -49,13 +50,49 @@ public class PdfText {
             // The defaults are the system line separator, \r\n on Windows
             stripper.setLineSeparator("\n");
             stripper.setPageEnd("\n");
-            String text = stripper.getText(document);
-            if (text.length() > maxTextLength) {
-                throw new ApiException(ErrorCode.INVALID_IMPORT_FILE);
-            }
-            return text;
-        } catch (IOException e) {
+            // Written into a bounded buffer: a small PDF can expand into an enormous text
+            LimitedWriter text = new LimitedWriter(maxTextLength);
+            stripper.writeText(document, text);
+            return text.toString();
+        } catch (TextTooLongException | IOException e) {
             throw new ApiException(ErrorCode.INVALID_IMPORT_FILE);
+        }
+    }
+
+    private static final class TextTooLongException extends RuntimeException {
+
+        TextTooLongException() {
+            super(null, null, false, false);
+        }
+    }
+
+    /** Collects the text and stops the extraction once it exceeds the limit. */
+    private static final class LimitedWriter extends Writer {
+
+        private final StringBuilder text = new StringBuilder();
+        private final int maxLength;
+
+        LimitedWriter(int maxLength) {
+            this.maxLength = maxLength;
+        }
+
+        @Override
+        public void write(char[] buffer, int offset, int length) {
+            if (text.length() + length > maxLength) {
+                throw new TextTooLongException();
+            }
+            text.append(buffer, offset, length);
+        }
+
+        @Override
+        public void flush() {}
+
+        @Override
+        public void close() {}
+
+        @Override
+        public String toString() {
+            return text.toString();
         }
     }
 

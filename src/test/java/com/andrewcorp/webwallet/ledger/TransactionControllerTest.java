@@ -139,6 +139,16 @@ class TransactionControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void implausibleDatesAreRejected() throws Exception {
+        Map<String, Object> body = expense(card, 100);
+        body.put("date", "1950-01-01");
+
+        mockMvc.perform(postJson("/api/v1/transactions", body, auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("date"));
+    }
+
+    @Test
     void categoryAndSplitsAreExclusive() throws Exception {
         Map<String, Object> body = expense(card, 100);
         body.put("categoryId", food);

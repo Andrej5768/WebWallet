@@ -245,6 +245,25 @@ class PrivatBankImportTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void feeChargedOnTopOfAnOperationBecomesAnExpense() throws Exception {
+        // The newest operation: 10 more than the card amount left the card
+        sample = sample.replace("-3 060,51 0,00 0,00 -54 698,84", "-3 060,51 10,00 0,00 -54 708,84");
+
+        Map<String, Object> result = json(upload(), 200);
+
+        assertThat(result).containsEntry("transactionsImported", 7);
+        assertThat(userTransactions())
+                .filteredOn(t -> "Комісія банку".equals(t.getBankCategory()))
+                .singleElement()
+                .satisfies(fee -> {
+                    assertThat(fee.getAmount()).isEqualByComparingTo("10");
+                    assertThat(fee.getDate()).isEqualTo(LocalDate.of(2026, 10, 11));
+                });
+        // Imported again, the fee is recognized as well
+        assertThat(json(upload(), 200)).containsEntry("transactionsImported", 0);
+    }
+
+    @Test
     void parserWarningsAreReturned() throws Exception {
         sample = sample.replace("UAH -10 300,00 0,00 0,00 -51 638,33", "UAH -10 300,00 0,00 0,00 -51 000,00");
 

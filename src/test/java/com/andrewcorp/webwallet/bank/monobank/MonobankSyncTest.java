@@ -26,6 +26,8 @@ import com.andrewcorp.webwallet.bank.monobank.MonobankClient.StatementItem;
 import com.andrewcorp.webwallet.common.crypto.SecretCipher;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.currency.ExchangeRate;
+import com.andrewcorp.webwallet.currency.ExchangeRateRepository;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountService;
@@ -87,6 +89,9 @@ class MonobankSyncTest extends AbstractIntegrationTest {
 
     @Autowired
     private CategoryRepository categories;
+
+    @Autowired
+    private ExchangeRateRepository rates;
 
     @Autowired
     private PayeeService payees;
@@ -753,6 +758,55 @@ class MonobankSyncTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk());
         assertThat(transactions.findById(transfer.getId()).orElseThrow().getToBankId())
                 .isNull();
+    }
+
+    @Test
+    void paymentsToAndFromOtherPeopleAreNotTakenForATransfer() throws Exception {
+        // Sent 1 000 to a friend from one card, got 980 from someone else on another card the same day
+        statements.put("mono-black", List.of(item("op-to-friend", hoursAgo(5), "Олені", 4829, -100_000, 0)));
+        statements.put("mono-iron", List.of(item("op-from-other", hoursAgo(4), "Від Петра", 4829, 98_000, 7_000_000)));
+        connect(LocalDate.now().minusDays(5));
+
+        syncAll();
+
+        assertThat(userTransactions()).hasSize(2).noneMatch(t -> t.getType() == TransactionType.TRANSFER);
+    }
+
+    @Test
+    void currencyExchangeBetweenOwnCardsBecomesOneTransfer() throws Exception {
+        rates.save(new ExchangeRate("USD", LocalDate.now().minusDays(1), new BigDecimal("41")));
+        rates.save(new ExchangeRate("USD", LocalDate.now(), new BigDecimal("41")));
+        // 4 150 UAH bought 100 USD at the bank rate of 41.5
+        statements.put("mono-black", List.of(item("op-uah", hoursAgo(5), "Обмін валюти", 4829, -415_000, 0)));
+        statements.put(
+                "mono-usd",
+                List.of(new StatementItem(
+                        "op-usd", hoursAgo(5), "Обмін валюти", 4829, false, 10_000, 10_000, 840, 20_000, null, null)));
+        connect(LocalDate.now().minusDays(5));
+
+        syncAll();
+
+        assertThat(userTransactions()).singleElement().satisfies(transfer -> {
+            assertThat(transfer.getType()).isEqualTo(TransactionType.TRANSFER);
+            assertThat(transfer.getAmount()).isEqualByComparingTo("4150");
+            assertThat(transfer.getToAmount()).isEqualByComparingTo("100");
+        });
+    }
+
+    @Test
+    void refundFromAMerchantGoesToTheExpenseCategory() throws Exception {
+        Long groceries =
+                id(json(postJson("/api/v1/categories", Map.of("name", "Groceries", "kind", "EXPENSE"), auth), 201));
+        json(postJson("/api/v1/categorization-rules", Map.of("categoryId", groceries, "mcc", 5411), auth), 201);
+        statements.put("mono-black", List.of(item("op-refund", hoursAgo(5), "Silpo", 5411, 5_000, 0)));
+        connect(LocalDate.now().minusDays(5));
+
+        syncAll();
+
+        assertThat(userTransactions()).singleElement().satisfies(refund -> {
+            assertThat(refund.getType()).isEqualTo(TransactionType.INCOME);
+            assertThat(refund.getSplits().get(0).getCategory().getId()).isEqualTo(groceries);
+        });
     }
 
     @Test

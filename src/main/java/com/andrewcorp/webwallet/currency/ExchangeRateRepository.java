@@ -2,15 +2,14 @@ package com.andrewcorp.webwallet.currency;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Optional;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, ExchangeRate.Key> {
 
-    /** The latest known rate on or before the date. */
-    Optional<ExchangeRate> findFirstByCurrencyAndDateLessThanEqualOrderByDateDesc(String currency, LocalDate date);
+    List<ExchangeRate> findByCurrency(String currency);
 
     /** Concurrent loads of the same rates do not fail on the primary key. */
     @Modifying

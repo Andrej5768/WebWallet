@@ -1,5 +1,7 @@
 package com.andrewcorp.webwallet.ledger.transaction;
 
+import com.andrewcorp.webwallet.currency.CurrencyConverter;
+import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -30,14 +32,18 @@ public class OperationMatcher {
     private static final int MATCH_DAYS = 3;
     /** Transfers between own cards lose up to ~4% in fees, e.g. 10 300 leaves one card and 10 000 arrives. */
     private static final BigDecimal MIN_TRANSFER_RATIO = new BigDecimal("0.96");
+    /** A bank exchanges currencies at its own rate, which differs from the NBU rate by a few percent. */
+    private static final BigDecimal EXCHANGE_TOLERANCE = new BigDecimal("0.05");
 
     private static final int MAX_BANK_ID_LENGTH = 200;
     private static final Pattern BANK_ID_PREFIX = Pattern.compile("^(?:\\[[^]]*])+-?");
 
     private final TransactionRepository transactions;
+    private final ExchangeRateService exchangeRates;
 
-    public OperationMatcher(TransactionRepository transactions) {
+    public OperationMatcher(TransactionRepository transactions, ExchangeRateService exchangeRates) {
         this.transactions = transactions;
+        this.exchangeRates = exchangeRates;
     }
 
     /** The id without the prefixes Zen Money adds, e.g. {@code [monobank][reg]-abc} to {@code abc}; null if blank. */
@@ -90,19 +96,30 @@ public class OperationMatcher {
     }
 
     /**
-     * Makes one transfer of the operation and its other half on another own account of the same currency, in
-     * whatever order the two halves are imported. The amounts may differ by a fee: an exact amount is preferred, a
-     * different one is accepted only when it is the only candidate.
+     * Makes one transfer of the operation and its other half on another own account, in whatever order the two
+     * halves are imported. In the same currency an exact amount is preferred; with {@code allowFee} a slightly
+     * different one is accepted when it is the only candidate. In another currency the amounts must agree at the NBU
+     * rate within a few percent, and only a single candidate is accepted.
      *
      * @param type {@link TransactionType#EXPENSE} for money leaving the account, {@link TransactionType#INCOME} for
      *     money arriving
+     * @param allowFee whether the bank charges fees on transfers to own cards of other banks; without it, payments
+     *     to and from other people of similar amounts could be taken for one transfer
      * @return the transfer, or empty when the other half is not there (yet)
      */
     public Optional<Transaction> mergeTransfer(
-            Account account, TransactionType type, BigDecimal amount, LocalDate date, String bankId) {
+            Account account, TransactionType type, BigDecimal amount, LocalDate date, String bankId, boolean allowFee) {
+        Optional<Transaction> counterpart = sameCurrencyCounterpart(account, type, amount, date, allowFee)
+                .or(() -> exchangeCounterpart(account, type, amount, date));
+        counterpart.ifPresent(transfer -> makeTransfer(transfer, account, type, amount, bankId));
+        return counterpart;
+    }
+
+    private Optional<Transaction> sameCurrencyCounterpart(
+            Account account, TransactionType type, BigDecimal amount, LocalDate date, boolean allowFee) {
         boolean outgoing = type == TransactionType.EXPENSE;
-        BigDecimal min = outgoing ? amount.multiply(MIN_TRANSFER_RATIO) : amount;
-        BigDecimal max = outgoing ? amount : amount.divide(MIN_TRANSFER_RATIO, 4, RoundingMode.HALF_UP);
+        BigDecimal min = outgoing && allowFee ? amount.multiply(MIN_TRANSFER_RATIO) : amount;
+        BigDecimal max = !outgoing && allowFee ? amount.divide(MIN_TRANSFER_RATIO, 4, RoundingMode.HALF_UP) : amount;
         List<Transaction> candidates = transactions.findTransferCandidates(
                 account.getUserId(),
                 outgoing ? TransactionType.INCOME : TransactionType.EXPENSE,
@@ -117,30 +134,55 @@ public class OperationMatcher {
         List<Transaction> exact = candidates.stream()
                 .filter(candidate -> candidate.getAmount().compareTo(amount) == 0)
                 .toList();
-        Optional<Transaction> counterpart = !exact.isEmpty()
-                ? closest(exact, date)
-                : candidates.size() == 1 ? Optional.of(candidates.get(0)) : Optional.empty();
-        counterpart.ifPresent(transfer -> {
-            Account other = transfer.getAccount();
-            BigDecimal otherAmount = transfer.getAmount();
-            String otherBankId = transfer.getBankId();
-            transfer.setType(TransactionType.TRANSFER);
-            transfer.replaceSplits(List.of());
-            transfer.setPayee(null);
-            if (outgoing) {
-                transfer.setAccount(account);
-                transfer.setAmount(amount);
-                transfer.setBankId(bankId);
-                transfer.setToAccount(other);
-                transfer.setToAmount(otherAmount);
-                transfer.setToBankId(otherBankId);
-            } else {
-                transfer.setToAccount(account);
-                transfer.setToAmount(amount);
-                transfer.setToBankId(bankId);
-            }
-        });
-        return counterpart;
+        if (!exact.isEmpty()) {
+            return closest(exact, date);
+        }
+        return candidates.size() == 1 ? Optional.of(candidates.get(0)) : Optional.empty();
+    }
+
+    private Optional<Transaction> exchangeCounterpart(
+            Account account, TransactionType type, BigDecimal amount, LocalDate date) {
+        CurrencyConverter converter = exchangeRates.converterTo(account.getCurrency());
+        List<Transaction> candidates = transactions
+                .findExchangeCandidates(
+                        account.getUserId(),
+                        type == TransactionType.EXPENSE ? TransactionType.INCOME : TransactionType.EXPENSE,
+                        account.getCurrency(),
+                        date.minusDays(1),
+                        date.plusDays(1),
+                        TRANSFER_MCC,
+                        TRANSFER_CATEGORIES)
+                .stream()
+                .filter(candidate -> {
+                    BigDecimal converted = converter.convert(
+                            candidate.getAmount(), candidate.getAccount().getCurrency(), candidate.getDate());
+                    return converted.signum() > 0
+                            && converted.subtract(amount).abs().compareTo(amount.multiply(EXCHANGE_TOLERANCE)) <= 0;
+                })
+                .toList();
+        return candidates.size() == 1 ? Optional.of(candidates.get(0)) : Optional.empty();
+    }
+
+    private static void makeTransfer(
+            Transaction transfer, Account account, TransactionType type, BigDecimal amount, String bankId) {
+        Account other = transfer.getAccount();
+        BigDecimal otherAmount = transfer.getAmount();
+        String otherBankId = transfer.getBankId();
+        transfer.setType(TransactionType.TRANSFER);
+        transfer.replaceSplits(List.of());
+        transfer.setPayee(null);
+        if (type == TransactionType.EXPENSE) {
+            transfer.setAccount(account);
+            transfer.setAmount(amount);
+            transfer.setBankId(bankId);
+            transfer.setToAccount(other);
+            transfer.setToAmount(otherAmount);
+            transfer.setToBankId(otherBankId);
+        } else {
+            transfer.setToAccount(account);
+            transfer.setToAmount(amount);
+            transfer.setToBankId(bankId);
+        }
     }
 
     private static Optional<Transaction> closest(List<Transaction> candidates, LocalDate date) {

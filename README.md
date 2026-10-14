@@ -68,6 +68,9 @@ docker compose up -d postgres mailpit
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
+The `local` profile is in `config/application-local.properties` and is read from the project root (the working
+directory); it is not packaged into the jar.
+
 Or run everything in containers:
 
 ```bash

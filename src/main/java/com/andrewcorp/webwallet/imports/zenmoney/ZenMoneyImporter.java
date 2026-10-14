@@ -57,8 +57,6 @@ public class ZenMoneyImporter {
 
     private static final BigDecimal MAX_INTEREST_RATE = new BigDecimal("1000");
     private static final Pattern CURRENCY = Pattern.compile("[A-Z]{3}");
-    private static final LocalDate MIN_DATE = LocalDate.of(1900, 1, 1);
-    private static final LocalDate MAX_DATE = LocalDate.of(2100, 1, 1);
     /** Imported transactions are flushed and detached in chunks, so that a history of years fits in memory. */
     private static final int FLUSH_EVERY = 500;
 
@@ -421,7 +419,7 @@ public class ZenMoneyImporter {
         }
         try {
             LocalDate date = LocalDate.parse(text);
-            return date.isBefore(MIN_DATE) || date.isAfter(MAX_DATE) ? null : date;
+            return date.isBefore(Transaction.MIN_DATE) || date.isAfter(Transaction.MAX_DATE) ? null : date;
         } catch (DateTimeParseException e) {
             return null;
         }

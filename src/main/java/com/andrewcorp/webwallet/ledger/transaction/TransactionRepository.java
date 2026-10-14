@@ -31,6 +31,26 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             where t.userId = :userId and (t.bankId = :bankId or t.toBankId = :bankId) order by t.id""")
     List<Transaction> findByBankId(Long userId, String bankId);
 
+    /**
+     * Imported transfer-like expenses or incomes on own accounts in other currencies around the date: the other half
+     * of a currency exchange between own accounts.
+     */
+    @Query("""
+            select t from Transaction t
+            where t.userId = :userId and t.type = :type and t.account.currency <> :currency
+              and t.date between :from and :to
+              and t.source <> com.andrewcorp.webwallet.ledger.transaction.TransactionSource.MANUAL
+              and (t.mcc = :transferMcc or t.bankCategory in :transferCategories
+                   or not exists (select s from TransactionSplit s where s.transaction = t and s.category is not null))""")
+    List<Transaction> findExchangeCandidates(
+            Long userId,
+            TransactionType type,
+            String currency,
+            LocalDate from,
+            LocalDate to,
+            Short transferMcc,
+            Collection<String> transferCategories);
+
     /** Unsettled card payments imported from the source into the account in the period. */
     @Query("""
             select t from Transaction t

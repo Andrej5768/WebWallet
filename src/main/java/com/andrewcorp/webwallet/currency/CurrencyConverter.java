@@ -4,22 +4,31 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Converts many amounts into one target currency, looking up each rate only once. Create one per request. Amounts
- * in a currency without a known rate are left out (converted to zero) and reported by {@link #unconverted()}.
+ * Converts many amounts into one target currency. Create one per request: it reads the stored rates of each
+ * currency once and asks the NBU only a few times per currency, however many days the amounts span. Amounts in a
+ * currency without a known rate are left out (converted to zero) and reported by {@link #unconverted()}.
  */
 public class CurrencyConverter {
 
+    /** NBU does not publish rates on some days; an older rate is used for up to this many days. */
+    private static final int MAX_RATE_AGE_DAYS = 7;
+    /** Each load covers about a year, so this bounds the NBU requests of one conversion of a long history. */
+    private static final int MAX_LOADS_PER_CURRENCY = 10;
+
     private final ExchangeRateService rates;
     private final String target;
-    private final Map<String, Optional<BigDecimal>> cache = new HashMap<>();
+    private final Map<String, NavigableMap<LocalDate, BigDecimal>> stored = new HashMap<>();
+    private final Map<String, Integer> loads = new HashMap<>();
     private final Set<String> unconverted = new TreeSet<>();
 
     CurrencyConverter(ExchangeRateService rates, String target) {
@@ -52,7 +61,26 @@ public class CurrencyConverter {
         return List.copyOf(unconverted);
     }
 
-    private Optional<BigDecimal> rate(String currency, LocalDate date) {
-        return cache.computeIfAbsent(currency + "|" + date, key -> rates.findRate(currency, date));
+    /**
+     * UAH per one unit of the currency on the date (today for a future date), or the latest earlier rate. When no
+     * recent rate is stored, the NBU is asked; if it has none, an older rate is better than none.
+     */
+    Optional<BigDecimal> rate(String currency, LocalDate date) {
+        if (ExchangeRateService.UAH.equals(currency)) {
+            return Optional.of(BigDecimal.ONE);
+        }
+        LocalDate today = rates.today();
+        LocalDate day = date.isAfter(today) ? today : date;
+        NavigableMap<LocalDate, BigDecimal> known = stored.computeIfAbsent(currency, rates::storedRates);
+        Map.Entry<LocalDate, BigDecimal> rate = known.floorEntry(day);
+        boolean recent = rate != null && ChronoUnit.DAYS.between(rate.getKey(), day) <= MAX_RATE_AGE_DAYS;
+        if (!recent
+                && loads.merge(currency, 1, Integer::sum) <= MAX_LOADS_PER_CURRENCY
+                && rates.loadFrom(currency, day)) {
+            known = rates.storedRates(currency);
+            stored.put(currency, known);
+            rate = known.floorEntry(day);
+        }
+        return Optional.ofNullable(rate).map(Map.Entry::getValue);
     }
 }
