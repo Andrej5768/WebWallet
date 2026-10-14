@@ -19,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.RequestBuilder;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -117,7 +118,7 @@ public abstract class AbstractIntegrationTest {
 
     /** Performs the request, expects the status and returns the JSON response as a map. */
     @SuppressWarnings("unchecked")
-    protected Map<String, Object> json(MockHttpServletRequestBuilder request, int expectedStatus) throws Exception {
+    protected Map<String, Object> json(RequestBuilder request, int expectedStatus) throws Exception {
         String body = mockMvc.perform(request).andExpect(status().is(expectedStatus)).andReturn().getResponse()
                 .getContentAsString();
         return body.isEmpty() ? Map.of() : jsonMapper.readValue(body, Map.class);

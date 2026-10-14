@@ -13,5 +13,7 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     boolean existsByParentId(Long parentId);
 
+    Optional<Category> findByUserIdAndExternalSourceAndExternalId(Long userId, String externalSource, String externalId);
+
     List<Category> findByParentId(Long parentId);
 }

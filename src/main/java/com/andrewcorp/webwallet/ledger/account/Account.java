@@ -10,9 +10,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @Entity
 @Table(name = "accounts")
@@ -52,6 +55,15 @@ public class Account {
 
     @Column(nullable = false)
     private int sortOrder;
+
+    /** System the account was imported from, e.g. {@code ZENMONEY}. */
+    private String externalSource;
+
+    private String externalId;
+
+    /** Last 4 digits of the bank cards of the account. */
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    private List<String> cardNumbers;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -155,6 +167,27 @@ public class Account {
 
     public void setSortOrder(int sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public String getExternalSource() {
+        return externalSource;
+    }
+
+    public String getExternalId() {
+        return externalId;
+    }
+
+    public void setExternal(String source, String id) {
+        this.externalSource = source;
+        this.externalId = id;
+    }
+
+    public List<String> getCardNumbers() {
+        return cardNumbers;
+    }
+
+    public void setCardNumbers(List<String> cardNumbers) {
+        this.cardNumbers = cardNumbers;
     }
 
     public Instant getCreatedAt() {

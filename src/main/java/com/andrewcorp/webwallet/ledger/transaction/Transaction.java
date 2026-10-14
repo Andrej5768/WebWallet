@@ -83,6 +83,8 @@ public class Transaction {
 
     private String externalId;
 
+    private String bankReference;
+
     @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id")
     private List<TransactionSplit> splits = new ArrayList<>();
@@ -229,6 +231,14 @@ public class Transaction {
 
     public void setExternalId(String externalId) {
         this.externalId = externalId;
+    }
+
+    public String getBankReference() {
+        return bankReference;
+    }
+
+    public void setBankReference(String bankReference) {
+        this.bankReference = bankReference;
     }
 
     public List<TransactionSplit> getSplits() {

@@ -7,10 +7,14 @@ import org.springframework.data.jpa.repository.Query;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long>, JpaSpecificationExecutor<Transaction> {
 
     Optional<Transaction> findByIdAndUserId(Long id, Long userId);
+
+    @Query("select t.externalId from Transaction t where t.userId = :userId and t.source = :source and t.externalId is not null")
+    Set<String> findExternalIds(Long userId, TransactionSource source);
 
     /** Net change of each account caused by the transactions where it is the source account. */
     @Query("""
