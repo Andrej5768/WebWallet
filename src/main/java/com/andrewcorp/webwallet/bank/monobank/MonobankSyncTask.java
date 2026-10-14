@@ -1,6 +1,7 @@
 package com.andrewcorp.webwallet.bank.monobank;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.error.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -32,7 +33,7 @@ public class MonobankSyncTask {
                 monobank.recordError(connectionId, e.code().name());
             } catch (RuntimeException e) {
                 log.error("Monobank sync of connection {} failed", connectionId, e);
-                monobank.recordError(connectionId, "INTERNAL_ERROR");
+                monobank.recordError(connectionId, ErrorCode.INTERNAL_ERROR.name());
             }
         }
     }

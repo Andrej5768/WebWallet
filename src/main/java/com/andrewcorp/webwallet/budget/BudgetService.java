@@ -58,7 +58,7 @@ public class BudgetService {
         this.clock = clock;
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public MonthResponse month(Long userId, YearMonth month) {
         CurrencyConverter converter =
                 exchangeRates.converterTo(users.get(userId).getBaseCurrency());

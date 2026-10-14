@@ -44,10 +44,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class MonobankService {
 
     static final String SOURCE = "MONOBANK";
-    /** The longest period of one statement request (31 days and 1 hour, minus a margin). */
+    /** The longest period of one statement request; the bank allows 31 days and 1 hour. */
     static final Duration MAX_STATEMENT_PERIOD = Duration.ofDays(31);
     /** Every request also covers this much of the past, to see holds that were settled or cancelled since. */
     static final Duration HOLD_WINDOW = Duration.ofDays(7);
+    /** Monobank allows one request a minute per token; one second of margin. */
+    static final Duration REQUEST_INTERVAL = Duration.ofSeconds(61);
     /** Accounts synchronized more recently than this are not requested again. */
     static final Duration SYNC_INTERVAL = Duration.ofMinutes(5);
 
@@ -177,7 +179,7 @@ public class MonobankService {
     /** Whether the connection may make a request now without exceeding the Monobank limit. */
     boolean canRequest(BankConnection connection) {
         Instant last = connection.getLastRequestAt();
-        return last == null || !last.plus(Duration.ofSeconds(61)).isAfter(clock.instant());
+        return last == null || !last.plus(REQUEST_INTERVAL).isAfter(clock.instant());
     }
 
     /**

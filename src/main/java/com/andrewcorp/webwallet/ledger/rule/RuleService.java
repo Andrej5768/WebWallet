@@ -12,7 +12,6 @@ import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction.SplitData;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSplit;
-import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -94,8 +93,7 @@ public class RuleService {
         }
         int categorized = 0;
         for (Transaction transaction : transactions.findUncategorized(userId)) {
-            CategoryKind kind =
-                    transaction.getType() == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
+            CategoryKind kind = CategoryKind.of(transaction.getType());
             Optional<Category> category = suggester.byRule(
                     userRules, transaction.getPayee(), transaction.getMcc(), transaction.getBankCategory(), kind);
             if (category.isPresent()) {

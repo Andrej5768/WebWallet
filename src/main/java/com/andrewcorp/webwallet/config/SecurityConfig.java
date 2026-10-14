@@ -4,10 +4,8 @@ import com.andrewcorp.webwallet.auth.AccessTokenValidator;
 import com.andrewcorp.webwallet.auth.TokenService;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.common.error.ProblemDetails;
-import com.andrewcorp.webwallet.common.util.Zones;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.time.Clock;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -164,10 +162,5 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", cors);
         return source;
-    }
-
-    @Bean
-    public Clock clock() {
-        return Clock.system(Zones.KYIV);
     }
 }

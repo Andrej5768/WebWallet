@@ -53,15 +53,15 @@ class CategorySuggesterTest {
         incomeByPayee.setPayee(silpo);
         when(rules.findByUserIdOrderByIdAsc(1L)).thenReturn(List.of(byMcc, byPattern, byPayee, incomeByPayee));
 
-        assertThat(suggester.suggest(1L, silpo, (short) 5411, null, CategoryKind.EXPENSE))
+        assertThat(suggester.session(1L).suggest(silpo, (short) 5411, null, CategoryKind.EXPENSE))
                 .isSameAs(restaurants);
-        assertThat(suggester.suggest(1L, silpo, (short) 5411, null, CategoryKind.INCOME))
+        assertThat(suggester.session(1L).suggest(silpo, (short) 5411, null, CategoryKind.INCOME))
                 .isSameAs(refunds);
 
         Payee otherSilpo = withId(new Payee(1L, "silpo online"));
-        assertThat(suggester.suggest(1L, otherSilpo, (short) 5411, null, CategoryKind.EXPENSE))
+        assertThat(suggester.session(1L).suggest(otherSilpo, (short) 5411, null, CategoryKind.EXPENSE))
                 .isSameAs(food);
-        assertThat(suggester.suggest(1L, null, (short) 5411, null, CategoryKind.EXPENSE))
+        assertThat(suggester.session(1L).suggest(null, (short) 5411, null, CategoryKind.EXPENSE))
                 .isSameAs(groceries);
     }
 
@@ -77,9 +77,9 @@ class CategorySuggesterTest {
         archivedRule.setMcc((short) 4121);
         when(rules.findByUserIdOrderByIdAsc(1L)).thenReturn(List.of(rule, archivedRule));
 
-        assertThat(suggester.suggest(1L, null, (short) 4121, "таксі", CategoryKind.EXPENSE))
+        assertThat(suggester.session(1L).suggest(null, (short) 4121, "таксі", CategoryKind.EXPENSE))
                 .isSameAs(transport);
-        assertThat(suggester.suggest(1L, null, (short) 4121, "Інше", CategoryKind.EXPENSE))
+        assertThat(suggester.session(1L).suggest(null, (short) 4121, "Інше", CategoryKind.EXPENSE))
                 .isNull();
     }
 
@@ -91,9 +91,9 @@ class CategorySuggesterTest {
         when(transactions.findCategoriesUsedForPayee(eq(1L), eq(payee), eq(CategoryKind.EXPENSE), any()))
                 .thenReturn(List.of(groceries));
 
-        assertThat(suggester.suggest(1L, payee, null, null, CategoryKind.EXPENSE))
+        assertThat(suggester.session(1L).suggest(payee, null, null, CategoryKind.EXPENSE))
                 .isSameAs(groceries);
-        assertThat(suggester.suggest(1L, null, null, null, CategoryKind.EXPENSE))
+        assertThat(suggester.session(1L).suggest(null, null, null, CategoryKind.EXPENSE))
                 .isNull();
     }
 }

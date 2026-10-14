@@ -32,7 +32,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/webwallet
+      DB_URL: jdbc:postgresql://postgres:5432/webwallet?reWriteBatchedInserts=true
       DB_USERNAME: webwallet
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -base64 32)}

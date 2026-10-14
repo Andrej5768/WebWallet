@@ -374,6 +374,8 @@ public class ZenMoneyImporter {
          * may include corrections by the user and operations imported from banks.
          */
         private void alignBalances() {
+            entityManager.flush();
+            Map<Long, BigDecimal> balances = accountService.balances(userId);
             for (ZenMoneyDump.Account source : Lists.orEmpty(dump.account())) {
                 Account account = accountsById.get(source.id());
                 if (account == null
@@ -383,7 +385,10 @@ public class ZenMoneyImporter {
                     continue;
                 }
                 // The entity may have been detached while importing the transactions
-                accountService.alignBalance(accounts.getReferenceById(account.getId()), source.balance());
+                Account managed = accounts.getReferenceById(account.getId());
+                BigDecimal computed = balances.getOrDefault(managed.getId(), managed.getOpeningBalance());
+                managed.setOpeningBalance(
+                        managed.getOpeningBalance().add(source.balance().subtract(computed)));
             }
         }
     }
