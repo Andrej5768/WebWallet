@@ -88,6 +88,9 @@ public class Transaction {
     /** Merchant category code of a card payment. */
     private Short mcc;
 
+    /** Classification of the operation by the bank, e.g. "Супермаркети та продукти". */
+    private String bankCategory;
+
     @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id")
     private List<TransactionSplit> splits = new ArrayList<>();
@@ -250,6 +253,14 @@ public class Transaction {
 
     public void setMcc(Short mcc) {
         this.mcc = mcc;
+    }
+
+    public String getBankCategory() {
+        return bankCategory;
+    }
+
+    public void setBankCategory(String bankCategory) {
+        this.bankCategory = bankCategory;
     }
 
     public List<TransactionSplit> getSplits() {

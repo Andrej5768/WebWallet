@@ -110,11 +110,11 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 - [x] New domain model: accounts, two-level categories, tags, payees, transactions with transfer legs
       and splits, money as amount + ISO currency
 - [x] Daily NBU exchange rates
-- [ ] Import pipeline: parsing → normalization → deduplication → auto-categorization
+- [x] Import pipeline: parsing → normalization → deduplication → auto-categorization
 - [x] Monobank synchronization (personal token stored encrypted, statements, webhook, MCC)
 - [x] PrivatBank PDF statement parser
 - [x] Zen Money export import
-- [ ] Auto-categorization rules
+- [x] Auto-categorization rules
 - [ ] Envelope budget: assigned / activity / available per month and category, roll-over,
       overspending, credit card payments
 - [ ] Reports: spending by category, income vs. expenses, net worth, payees

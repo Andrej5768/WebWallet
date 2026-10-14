@@ -9,6 +9,7 @@ import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
 import com.andrewcorp.webwallet.ledger.payee.Payee;
 import com.andrewcorp.webwallet.ledger.payee.PayeeRepository;
 import com.andrewcorp.webwallet.ledger.payee.PayeeService;
+import com.andrewcorp.webwallet.ledger.rule.RuleService;
 import com.andrewcorp.webwallet.ledger.tag.TagService;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction.SplitData;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionFilter;
@@ -34,16 +35,18 @@ public class TransactionService {
     private final PayeeRepository payees;
     private final PayeeService payeeService;
     private final TagService tagService;
+    private final RuleService ruleService;
 
     public TransactionService(TransactionRepository transactions, AccountRepository accounts,
                               CategoryRepository categories, PayeeRepository payees, PayeeService payeeService,
-                              TagService tagService) {
+                              TagService tagService, RuleService ruleService) {
         this.transactions = transactions;
         this.accounts = accounts;
         this.categories = categories;
         this.payees = payees;
         this.payeeService = payeeService;
         this.tagService = tagService;
+        this.ruleService = ruleService;
     }
 
     @Transactional(readOnly = true)
@@ -67,13 +70,23 @@ public class TransactionService {
     @Transactional
     public TransactionResponse update(Long userId, Long id, TransactionRequest request) {
         Transaction transaction = find(userId, id);
+        Category before = singleCategory(transaction);
         apply(userId, transaction, request);
+        Category after = singleCategory(transaction);
+        // A corrected category of a payee is applied to its later imported operations
+        if (after != null && transaction.getPayee() != null && (before == null || !before.getId().equals(after.getId()))) {
+            ruleService.learn(userId, transaction.getPayee(), after);
+        }
         return TransactionResponse.from(transaction);
     }
 
     @Transactional
     public void delete(Long userId, Long id) {
         transactions.delete(find(userId, id));
+    }
+
+    private static Category singleCategory(Transaction transaction) {
+        return transaction.getSplits().size() == 1 ? transaction.getSplits().get(0).getCategory() : null;
     }
 
     private Transaction find(Long userId, Long id) {
