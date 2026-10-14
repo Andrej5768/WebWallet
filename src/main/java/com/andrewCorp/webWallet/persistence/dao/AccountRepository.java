@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import java.util.List;
 
 public interface AccountRepository extends JpaRepository<Account, Long> {
-    Account findByName(String name);
+    Account findByNameAndWalletId(String name, Long walletId);
 
     List<Account> findAllByWalletId(Long id);
 

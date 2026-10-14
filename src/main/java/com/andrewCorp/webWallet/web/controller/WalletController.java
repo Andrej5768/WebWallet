@@ -12,10 +12,12 @@ import com.andrewCorp.webWallet.web.dto.CategoryCreationDto;
 import com.andrewCorp.webWallet.web.dto.TransactionCreationDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.ModelAndView;
 
 import java.math.BigDecimal;
@@ -23,6 +25,8 @@ import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Controller
 @RequestMapping("/")
@@ -81,9 +85,16 @@ public class WalletController {
 
     @PostMapping(value = "accounts/saveAll")
     public String saveAccounts(@ModelAttribute AccountsCreationDto form, Model model) {
+        Wallet wallet = getWalletFromContext();
+        for (Account account : form.getAccounts()) {
+            if (account.getId() != null) {
+                getOwnedAccount(account.getId(), wallet);
+            }
+            account.setWallet(wallet);
+        }
         accountRepository.saveAll(form.getAccounts());
 
-        model.addAttribute("accounts", accountRepository.findAllByWalletId(getWalletFromContext().getId()));
+        model.addAttribute("accounts", accountRepository.findAllByWalletId(wallet.getId()));
 
         return "redirect:/accounts/all";
     }
@@ -132,7 +143,7 @@ public class WalletController {
 
     @GetMapping(value = "/account/{id}/transactions")
     public String showAccountTransactions(@PathVariable(name = "id") Long id, Model model) {
-        Account account = accountRepository.getReferenceById(id);
+        Account account = getOwnedAccount(id, getWalletFromContext());
         model.addAttribute("transactions", transactionRepository.findTransactionsByAccountId(account.getId()));
         model.addAttribute("accounts", accountRepository.findAllByWalletId(account.getWallet().getId()));
         model.addAttribute("types", TransactionType.values());
@@ -157,7 +168,7 @@ public class WalletController {
     @GetMapping(value = "transactions/edit")
     public String showTransactionsEditForm(Model model) {
         List<Transaction> transactions = new ArrayList<>();
-        transactionRepository.findAll()
+        transactionRepository.findTransactionsByWalletId(getWalletFromContext().getId())
                 .iterator()
                 .forEachRemaining(transactions::add);
 
@@ -169,7 +180,8 @@ public class WalletController {
 
     @PostMapping(value = "transactions/update/{id}")
     public String updateTransaction(@ModelAttribute Transaction transaction, Model model, @PathVariable(name = "id") Long id) {
-        Transaction transactionFromDb = transactionRepository.getReferenceById(id);
+        Wallet wallet = getWalletFromContext();
+        Transaction transactionFromDb = getOwnedTransaction(id, wallet);
 
         if (transaction.getDate() != null) {
             transactionFromDb.setDate(transaction.getDate());
@@ -181,7 +193,7 @@ public class WalletController {
             transactionFromDb.setAmount(transaction.getAmount());
         }
         if (transaction.getAccount() != null) {
-            transactionFromDb.setAccount(transaction.getAccount());
+            transactionFromDb.setAccount(getOwnedAccount(transaction.getAccount().getId(), wallet));
         }
 
         transactionRepository.saveAndFlush(transactionFromDb);
@@ -191,9 +203,19 @@ public class WalletController {
 
     @PostMapping(value = "transactions/saveAll")
     public String saveTransactions(@ModelAttribute TransactionCreationDto form, Model model) {
+        Wallet wallet = getWalletFromContext();
+        for (Transaction transaction : form.getTransactions()) {
+            if (transaction.getId() != null) {
+                getOwnedTransaction(transaction.getId(), wallet);
+            }
+            if (transaction.getAccount() != null) {
+                transaction.setAccount(getOwnedAccount(transaction.getAccount().getId(), wallet));
+            }
+            transaction.setWallet(wallet);
+        }
         transactionRepository.saveAll(form.getTransactions());
 
-        model.addAttribute("transactions", transactionRepository.findAll());
+        model.addAttribute("transactions", transactionRepository.findTransactionsByWalletId(wallet.getId()));
 
         model.addAttribute("types", TransactionType.values());
 
@@ -215,7 +237,7 @@ public class WalletController {
 //            transactionFromDB.se TODO
         }
         transactionFromDB.setAmount(BigDecimal.valueOf(Double.parseDouble(amount)));
-        transactionFromDB.setAccount(accountRepository.findByName(account));
+        transactionFromDB.setAccount(accountRepository.findByNameAndWalletId(account, getWalletFromContext().getId()));
         transactionFromDB.setType(TransactionType.valueOf(transactionType));
         if (remark != null) {
             transactionFromDB.setRemark(remark);
@@ -233,7 +255,7 @@ public class WalletController {
 
     @GetMapping(value = "transactions/delete/{id}")
     public String updateTransaction(Model model, @PathVariable(name = "id") Long id) {
-        Transaction transactionFromDb = transactionRepository.getReferenceById(id);
+        Transaction transactionFromDb = getOwnedTransaction(id, getWalletFromContext());
 
         transactionRepository.delete(transactionFromDb);
 
@@ -244,5 +266,18 @@ public class WalletController {
     private Wallet getWalletFromContext() {
         final User user = userService.findUserByEmail(((User) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getEmail());
         return user.getWallet();
+    }
+
+    // Responds with 404 instead of 403 to not reveal that the account exists
+    private Account getOwnedAccount(Long id, Wallet wallet) {
+        return Optional.ofNullable(id).flatMap(accountRepository::findById)
+                .filter(account -> account.getWallet() != null && Objects.equals(account.getWallet().getId(), wallet.getId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    private Transaction getOwnedTransaction(Long id, Wallet wallet) {
+        return Optional.ofNullable(id).flatMap(transactionRepository::findById)
+                .filter(transaction -> transaction.getWallet() != null && Objects.equals(transaction.getWallet().getId(), wallet.getId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 }
