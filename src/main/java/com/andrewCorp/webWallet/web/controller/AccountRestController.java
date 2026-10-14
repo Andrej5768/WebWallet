@@ -42,6 +42,6 @@ public class AccountRestController {
 
     @DeleteMapping("{id}")
     public void delete(@PathVariable String id) {
-        accountRepository.delete(accountRepository.getReferenceById(Long.getLong(id)));
+        accountRepository.delete(accountRepository.getReferenceById(Long.parseLong(id)));
     }
 }
