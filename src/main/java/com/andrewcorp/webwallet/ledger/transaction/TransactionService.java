@@ -104,6 +104,12 @@ public class TransactionService {
 
     private void apply(Long userId, Transaction transaction, TransactionRequest request) {
         Account account = account(userId, request.accountId(), "accountId");
+        // A bank operation belongs to its account: moved elsewhere, the transaction no longer stands for it, and the
+        // operation must be imported again
+        if (transaction.getAccount() != null
+                && !transaction.getAccount().getId().equals(account.getId())) {
+            transaction.setBankId(null);
+        }
         transaction.setType(request.type());
         transaction.setDate(request.date());
         transaction.setAccount(account);
@@ -145,6 +151,10 @@ public class TransactionService {
             }
             toAmount = request.amount();
         }
+        if (transaction.getToAccount() != null
+                && !transaction.getToAccount().getId().equals(toAccount.getId())) {
+            transaction.setToBankId(null);
+        }
         transaction.setToAccount(toAccount);
         transaction.setToAmount(toAmount);
         transaction.replaceSplits(List.of());
@@ -178,6 +188,8 @@ public class TransactionService {
         }
         transaction.setToAccount(null);
         transaction.setToAmount(null);
+        // No longer a transfer: the incoming half is a separate operation again
+        transaction.setToBankId(null);
         transaction.replaceSplits(splits);
     }
 

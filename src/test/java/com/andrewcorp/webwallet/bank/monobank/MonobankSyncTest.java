@@ -686,6 +686,76 @@ class MonobankSyncTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void reconnectAfterDisconnectReusesTheCreatedAccounts() throws Exception {
+        connect(LocalDate.now().minusDays(5));
+        Long jarAccount = linkedAccount("mono-jar").getId();
+        long accountCount = accounts.count();
+        mockMvc.perform(delete("/api/v1/banks/monobank").header("Authorization", auth))
+                .andExpect(status().isNoContent());
+
+        connect(LocalDate.now().minusDays(5));
+
+        assertThat(accounts.count()).isEqualTo(accountCount);
+        assertThat(linkedAccount("mono-jar").getId()).isEqualTo(jarAccount);
+    }
+
+    @Test
+    void settledAndCancelledHoldsAreUpdatedByTheNextSynchronization() throws Exception {
+        connect(LocalDate.now().minusDays(5));
+        unlinkAllBut("mono-black");
+        statements.put(
+                "mono-black",
+                List.of(
+                        new StatementItem(
+                                "op-hotel", hoursAgo(50), "Hotel", 7011, true, -100_00, -100_00, 980, 0, null, null),
+                        new StatementItem(
+                                "op-taxi", hoursAgo(49), "Taxi", 4121, true, -50_00, -50_00, 980, 0, null, null)));
+        syncAll();
+        assertThat(userTransactions()).hasSize(2);
+
+        // Later: the hotel settles with another amount, the taxi payment is cancelled
+        statements.put(
+                "mono-black",
+                List.of(new StatementItem(
+                        "op-hotel", hoursAgo(50), "Hotel", 7011, false, -120_00, -120_00, 980, 0, null, null)));
+        tx.executeWithoutResult(
+                status -> link("mono-black").setSyncedUntil(Instant.now().minus(10, ChronoUnit.MINUTES)));
+        syncAll();
+
+        assertThat(userTransactions()).singleElement().satisfies(hotel -> {
+            assertThat(hotel.getExternalId()).isEqualTo("op-hotel");
+            assertThat(hotel.getAmount()).isEqualByComparingTo("120");
+            assertThat(hotel.isHold()).isFalse();
+        });
+    }
+
+    @Test
+    void editingAMergedTransferReleasesTheOtherHalf() throws Exception {
+        statements.put("mono-black", List.of(item("op-out", hoursAgo(5), "На залізну картку", 4829, -100_000, 0)));
+        statements.put("mono-iron", List.of(item("op-in", hoursAgo(5), "З чорної картки", 4829, 100_000, 7_000_000)));
+        connect(LocalDate.now().minusDays(5));
+        syncAll();
+        Transaction transfer = userTransactions().get(0);
+
+        // The user decides it was a payment, not a transfer to the own card
+        mockMvc.perform(putJson(
+                        "/api/v1/transactions/" + transfer.getId(),
+                        Map.of(
+                                "type",
+                                "EXPENSE",
+                                "date",
+                                transfer.getDate().toString(),
+                                "accountId",
+                                existingCard.getId(),
+                                "amount",
+                                1000),
+                        auth))
+                .andExpect(status().isOk());
+        assertThat(transactions.findById(transfer.getId()).orElseThrow().getToBankId())
+                .isNull();
+    }
+
+    @Test
     void statusAndDisconnect() throws Exception {
         mockMvc.perform(get("/api/v1/banks/monobank").header("Authorization", auth))
                 .andExpect(status().isNotFound());

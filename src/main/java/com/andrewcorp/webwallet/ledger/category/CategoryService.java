@@ -110,7 +110,12 @@ public class CategoryService {
             }
         }
         category.setParentId(request.parentId());
-        category.setArchived(Boolean.TRUE.equals(request.archived()));
-        category.setSortOrder(request.sortOrder() != null ? request.sortOrder() : 0);
+        // The parent is always given (null for a top-level category); other omitted fields keep their values
+        if (request.archived() != null) {
+            category.setArchived(request.archived());
+        }
+        if (request.sortOrder() != null) {
+            category.setSortOrder(request.sortOrder());
+        }
     }
 }

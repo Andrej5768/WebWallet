@@ -31,6 +31,26 @@ class AccountControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void omittedFieldsKeepTheirValuesOnUpdate() throws Exception {
+        Map<String, Object> body = account("Card", "CREDIT_CARD", "UAH");
+        body.put("openingBalance", 1500);
+        body.put("creditLimit", 20000);
+        body.put("archived", true);
+        Long id = id(json(postJson("/api/v1/accounts", body, auth), 201));
+
+        mockMvc.perform(putJson("/api/v1/accounts/" + id, Map.of("name", "Renamed", "type", "CREDIT_CARD"), auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Renamed"))
+                .andExpect(jsonPath("$.openingBalance").value(1500))
+                .andExpect(jsonPath("$.creditLimit").value(20000))
+                .andExpect(jsonPath("$.archived").value(true));
+        // 0 removes the credit limit
+        mockMvc.perform(putJson(
+                        "/api/v1/accounts/" + id, Map.of("name", "Renamed", "type", "CARD", "creditLimit", 0), auth))
+                .andExpect(jsonPath("$.creditLimit").doesNotExist());
+    }
+
+    @Test
     void createAccountWithDefaults() throws Exception {
         Map<String, Object> card = json(postJson("/api/v1/accounts", account(" Mono ", "CARD", "UAH"), auth), 201);
 

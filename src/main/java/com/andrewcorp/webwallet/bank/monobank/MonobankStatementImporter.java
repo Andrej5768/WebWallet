@@ -21,7 +21,9 @@ import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
@@ -81,7 +83,7 @@ class MonobankStatementImporter {
 
         Optional<Transaction> known = matcher.findKnown(userId, item.id());
         if (known.isPresent()) {
-            updateHold(known.get(), type, amount, result);
+            updateHold(known.get(), item, type, amount, result);
             return;
         }
 
@@ -106,6 +108,7 @@ class MonobankStatementImporter {
         transaction.setSource(TransactionSource.MONOBANK);
         transaction.setExternalId(item.id());
         transaction.setBankId(item.id());
+        transaction.setHold(item.hold());
         transaction.setType(type);
         transaction.setDate(date);
         transaction.setAccount(account);
@@ -128,14 +131,16 @@ class MonobankStatementImporter {
     }
 
     /**
-     * A hold can change its amount when it is settled. A transaction the user split into several categories is left
-     * as it is: there is no way to tell which part changed.
+     * A hold can change its amount when it is settled. A transaction the user split into several categories keeps its
+     * amount: there is no way to tell which part changed.
      */
-    private static void updateHold(Transaction existing, TransactionType type, BigDecimal amount, Result result) {
-        if (existing.getSource() != TransactionSource.MONOBANK
-                || existing.getType() != type
-                || existing.getAmount().compareTo(amount) == 0
-                || existing.getSplits().size() > 1) {
+    private static void updateHold(
+            Transaction existing, StatementItem item, TransactionType type, BigDecimal amount, Result result) {
+        if (existing.getSource() != TransactionSource.MONOBANK || existing.getType() != type) {
+            return;
+        }
+        existing.setHold(existing.isHold() && item.hold());
+        if (existing.getAmount().compareTo(amount) == 0 || existing.getSplits().size() > 1) {
             return;
         }
         existing.setAmount(amount);
@@ -143,6 +148,21 @@ class MonobankStatementImporter {
                 .map(split -> new SplitData(split.getCategory(), amount, split.getComment()))
                 .toList());
         result.updated++;
+    }
+
+    /**
+     * Deletes the holds of the account that the bank no longer lists: the payment was cancelled. Only days fully
+     * inside the statement period are checked.
+     *
+     * @param items the complete statement of the account for the period
+     */
+    void removeCancelledHolds(Account account, Instant from, Instant to, List<StatementItem> items) {
+        Set<String> listed = items.stream().map(StatementItem::id).collect(Collectors.toSet());
+        LocalDate firstFullDay = from.atZone(BANK_ZONE).toLocalDate().plusDays(1);
+        LocalDate lastDay = to.atZone(BANK_ZONE).toLocalDate();
+        transactions.findHolds(account, TransactionSource.MONOBANK, firstFullDay, lastDay).stream()
+                .filter(hold -> !listed.contains(hold.getBankId()))
+                .forEach(transactions::delete);
     }
 
     private static Payee payee(PayeeService.Lookup payees, StatementItem item) {

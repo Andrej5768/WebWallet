@@ -31,6 +31,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             where t.userId = :userId and (t.bankId = :bankId or t.toBankId = :bankId) order by t.id""")
     List<Transaction> findByBankId(Long userId, String bankId);
 
+    /** Unsettled card payments imported from the source into the account in the period. */
+    @Query("""
+            select t from Transaction t
+            where t.account = :account and t.source = :source and t.hold = true and t.date between :from and :to""")
+    List<Transaction> findHolds(Account account, TransactionSource source, LocalDate from, LocalDate to);
+
     /** Expenses or incomes of the account with this amount around the date, not yet matched to a bank operation. */
     @Query("""
             select t from Transaction t

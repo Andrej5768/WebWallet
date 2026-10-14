@@ -115,13 +115,29 @@ public class AccountService {
                 account, balances(userId).getOrDefault(account.getId(), account.getOpeningBalance()));
     }
 
+    /**
+     * Optional fields that are omitted keep their value (the defaults of a new account), so that a client changing
+     * the name does not reset e.g. the opening balance aligned with a bank. A credit limit or interest rate of 0
+     * removes it.
+     */
     private static void apply(Account account, AccountRequest request) {
-        account.setInBudget(
-                request.inBudget() != null ? request.inBudget() : request.type().inBudgetByDefault());
-        account.setArchived(Boolean.TRUE.equals(request.archived()));
-        account.setOpeningBalance(request.openingBalance() != null ? request.openingBalance() : BigDecimal.ZERO);
-        account.setCreditLimit(request.creditLimit());
-        account.setInterestRate(request.interestRate());
-        account.setSortOrder(request.sortOrder() != null ? request.sortOrder() : 0);
+        if (request.inBudget() != null) {
+            account.setInBudget(request.inBudget());
+        }
+        if (request.archived() != null) {
+            account.setArchived(request.archived());
+        }
+        if (request.openingBalance() != null) {
+            account.setOpeningBalance(request.openingBalance());
+        }
+        if (request.creditLimit() != null) {
+            account.setCreditLimit(request.creditLimit().signum() == 0 ? null : request.creditLimit());
+        }
+        if (request.interestRate() != null) {
+            account.setInterestRate(request.interestRate().signum() == 0 ? null : request.interestRate());
+        }
+        if (request.sortOrder() != null) {
+            account.setSortOrder(request.sortOrder());
+        }
     }
 }

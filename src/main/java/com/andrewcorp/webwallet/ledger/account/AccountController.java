@@ -48,7 +48,9 @@ public class AccountController {
         return accountService.create(userId, request);
     }
 
-    @Operation(summary = "Update an account; the currency cannot be changed")
+    @Operation(
+            summary = "Update an account; the currency cannot be changed",
+            description = "Omitted optional fields keep their values; a credit limit or interest rate of 0 removes it")
     @PutMapping("/{id}")
     public AccountResponse update(
             @CurrentUserId Long userId, @PathVariable Long id, @Valid @RequestBody AccountRequest request) {
