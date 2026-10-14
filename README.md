@@ -71,7 +71,7 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local
 Or run everything in containers:
 
 ```bash
-cp .env.example .env   # set JWT_SECRET, e.g. `openssl rand -base64 32`
+cp .env.example .env   # set JWT_SECRET, ENCRYPTION_KEY (`openssl rand -base64 32`) and DB_PASSWORD
 docker compose --profile app up -d --build
 ```
 
