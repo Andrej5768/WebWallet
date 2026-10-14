@@ -44,6 +44,17 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     List<Transaction> findTransferCounterparts(Long userId, TransactionSource source, TransactionType type,
                                                BigDecimal amount, LocalDate date, Short mcc, Collection<Account> accounts);
 
+    /**
+     * Expenses or incomes on other accounts of the same currency that may be the other half of a transfer between own
+     * accounts, possibly with a fee (the amount in the given range).
+     */
+    @Query("""
+            select t from Transaction t
+            where t.userId = :userId and t.type = :type and t.account <> :account and t.account.currency = :currency
+              and t.date between :from and :to and t.amount between :minAmount and :maxAmount""")
+    List<Transaction> findTransferCandidates(Long userId, TransactionType type, Account account, String currency,
+                                             LocalDate from, LocalDate to, BigDecimal minAmount, BigDecimal maxAmount);
+
     /** Category of the latest categorized transaction with this payee, to categorize new ones the same way. */
     @Query("""
             select s.category from TransactionSplit s join s.transaction t

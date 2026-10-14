@@ -112,8 +112,8 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 - [x] Daily NBU exchange rates
 - [ ] Import pipeline: parsing → normalization → deduplication → auto-categorization
 - [x] Monobank synchronization (personal token stored encrypted, statements, webhook, MCC)
-- [ ] PrivatBank PDF statement parser ([notes](docs/imports/privatbank-pdf.md))
-- [x] Zen Money export import ([notes](docs/imports/zenmoney.md))
+- [x] PrivatBank PDF statement parser
+- [x] Zen Money export import
 - [ ] Auto-categorization rules
 - [ ] Envelope budget: assigned / activity / available per month and category, roll-over,
       overspending, credit card payments

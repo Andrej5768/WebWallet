@@ -7,6 +7,8 @@ import java.util.List;
  * Summary of an import.
  *
  * @param transactionsSkipped already imported earlier or deleted in the source
+ * @param transactionsMatched existing transactions (entered manually or imported from elsewhere) recognized as the
+ *                            imported operations instead of creating duplicates
  * @param warnings            records that could not be imported as is, at most {@value #MAX_WARNINGS}
  */
 public record ImportResult(
@@ -16,6 +18,7 @@ public record ImportResult(
         int payeesCreated,
         int transactionsImported,
         int transactionsSkipped,
+        int transactionsMatched,
         List<String> warnings) {
 
     public static final int MAX_WARNINGS = 100;
@@ -29,6 +32,7 @@ public record ImportResult(
         public int payeesCreated;
         public int transactionsImported;
         public int transactionsSkipped;
+        public int transactionsMatched;
         private final List<String> warnings = new ArrayList<>();
 
         public void warn(String warning) {
@@ -39,7 +43,7 @@ public record ImportResult(
 
         public ImportResult build() {
             return new ImportResult(accountsCreated, accountsUpdated, categoriesCreated, payeesCreated,
-                    transactionsImported, transactionsSkipped, List.copyOf(warnings));
+                    transactionsImported, transactionsSkipped, transactionsMatched, List.copyOf(warnings));
         }
     }
 }

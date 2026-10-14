@@ -2,16 +2,15 @@ package com.andrewcorp.webwallet.bank.monobank;
 
 import com.andrewcorp.webwallet.bank.monobank.MonobankClient.StatementItem;
 import com.andrewcorp.webwallet.ledger.account.Account;
-import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.payee.Payee;
 import com.andrewcorp.webwallet.ledger.payee.PayeeService;
+import com.andrewcorp.webwallet.ledger.transaction.CategorySuggester;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction.SplitData;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSource;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -40,10 +39,12 @@ class MonobankStatementImporter {
 
     private final TransactionRepository transactions;
     private final PayeeService payees;
+    private final CategorySuggester categories;
 
-    MonobankStatementImporter(TransactionRepository transactions, PayeeService payees) {
+    MonobankStatementImporter(TransactionRepository transactions, PayeeService payees, CategorySuggester categories) {
         this.transactions = transactions;
         this.payees = payees;
+        this.categories = categories;
     }
 
     /**
@@ -117,7 +118,7 @@ class MonobankStatementImporter {
         Payee payee = payee(userId, item);
         transaction.setPayee(payee);
         CategoryKind kind = type == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
-        transaction.replaceSplits(List.of(new SplitData(learnedCategory(userId, payee, kind), amount, null)));
+        transaction.replaceSplits(List.of(new SplitData(categories.suggest(userId, payee, kind), amount, null)));
         transactions.save(transaction);
         result.imported++;
     }
@@ -166,15 +167,6 @@ class MonobankStatementImporter {
         String name = item.counterName() != null && !item.counterName().isBlank() ? item.counterName() : item.description();
         String trimmed = truncate(name, MAX_PAYEE_LENGTH);
         return trimmed == null ? null : payees.findOrCreate(userId, trimmed);
-    }
-
-    private Category learnedCategory(Long userId, Payee payee, CategoryKind kind) {
-        if (payee == null || payee.getId() == null) {
-            return null;
-        }
-        return transactions.findCategoriesUsedForPayee(userId, payee, kind, PageRequest.of(0, 1)).stream()
-                .findFirst()
-                .orElse(null);
     }
 
     private static Short mcc(StatementItem item) {
