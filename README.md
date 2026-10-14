@@ -117,7 +117,7 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 - [x] Auto-categorization rules
 - [x] Envelope budget: assigned / activity / available per month and category, roll-over,
       overspending, credit card payments
-- [ ] Reports: spending by category, income vs. expenses, net worth, payees
+- [x] Reports: spending by category, income vs. expenses, net worth, payees
 
 ### Phase 2 — Web client (separate repository)
 - [ ] React + TypeScript app with an API client generated from the OpenAPI spec
