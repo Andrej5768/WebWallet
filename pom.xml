@@ -21,6 +21,8 @@
         <java.version>21</java.version>
         <postgresql.version>42.7.14</postgresql.version>
         <springdoc.version>3.1.1</springdoc.version>
+        <pdfbox.version>3.0.8</pdfbox.version>
+        <bouncycastle.version>1.86</bouncycastle.version>
         <jacoco.version>0.8.14</jacoco.version>
         <jacoco.minimum.line.coverage>0.75</jacoco.minimum.line.coverage>
     </properties>
@@ -91,6 +93,19 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- Bank statements: PDF text extraction and unwrapping of signed (CMS) files -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
         </dependency>
 
         <!-- test -->
