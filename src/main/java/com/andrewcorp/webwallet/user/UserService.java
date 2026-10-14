@@ -27,6 +27,7 @@ public class UserService {
         user.setFirstName(request.firstName().trim());
         user.setLastName(request.lastName().trim());
         user.setLocale(request.locale());
+        user.setBaseCurrency(request.baseCurrency());
         return user;
     }
 }

@@ -13,10 +13,11 @@ public record UserResponse(
         Role role,
         boolean emailVerified,
         String locale,
+        String baseCurrency,
         Instant createdAt) {
 
     public static UserResponse from(User user) {
         return new UserResponse(user.getId(), user.getEmail(), user.getFirstName(), user.getLastName(), user.getRole(),
-                user.isEmailVerified(), user.getLocale(), user.getCreatedAt());
+                user.isEmailVerified(), user.getLocale(), user.getBaseCurrency(), user.getCreatedAt());
     }
 }

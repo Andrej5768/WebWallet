@@ -10,6 +10,7 @@ import com.andrewcorp.webwallet.auth.token.UserTokenType;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.config.AppProperties;
+import com.andrewcorp.webwallet.ledger.category.DefaultCategories;
 import com.andrewcorp.webwallet.mail.AuthMailEvent;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
@@ -34,13 +35,14 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher events;
     private final AppProperties.Auth properties;
+    private final DefaultCategories defaultCategories;
     private final Clock clock;
     /** Compared against when the user does not exist, so that response time does not reveal registered emails. */
     private final String dummyPasswordHash;
 
     public AuthService(UserRepository users, UserTokenRepository userTokens, TokenService tokenService,
                        LoginAttemptService loginAttempts, PasswordEncoder passwordEncoder, ApplicationEventPublisher events,
-                       AppProperties properties, Clock clock) {
+                       AppProperties properties, DefaultCategories defaultCategories, Clock clock) {
         this.users = users;
         this.userTokens = userTokens;
         this.tokenService = tokenService;
@@ -48,6 +50,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.events = events;
         this.properties = properties.auth();
+        this.defaultCategories = defaultCategories;
         this.clock = clock;
         this.dummyPasswordHash = passwordEncoder.encode(TokenHasher.newToken());
     }
@@ -60,6 +63,7 @@ public class AuthService {
         }
         User user = users.save(new User(email, passwordEncoder.encode(request.password()),
                 request.firstName().trim(), request.lastName().trim(), supportedLanguage(locale)));
+        defaultCategories.create(user.getId(), Locale.forLanguageTag(user.getLocale()));
         sendToken(user, UserTokenType.EMAIL_VERIFICATION);
         return user;
     }

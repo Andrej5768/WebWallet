@@ -71,10 +71,11 @@ class UserControllerTest extends AbstractIntegrationTest {
     void updateProfile() throws Exception {
         mockMvc.perform(put("/api/v1/me").header("Authorization", bearer(tokens))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(Map.of("firstName", " Jane ", "lastName", "Smith", "locale", "uk"))))
+                        .content(jsonMapper.writeValueAsString(Map.of("firstName", " Jane ", "lastName", "Smith", "locale", "uk", "baseCurrency", "USD"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.firstName").value("Jane"))
-                .andExpect(jsonPath("$.locale").value("uk"));
+                .andExpect(jsonPath("$.locale").value("uk"))
+                .andExpect(jsonPath("$.baseCurrency").value("USD"));
 
         User updated = users.findById(user.getId()).orElseThrow();
         assertThat(updated.getLastName()).isEqualTo("Smith");
@@ -85,7 +86,7 @@ class UserControllerTest extends AbstractIntegrationTest {
     void updateProfileRejectsUnsupportedLocale() throws Exception {
         mockMvc.perform(put("/api/v1/me").header("Authorization", bearer(tokens))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(Map.of("firstName", "Jane", "lastName", "Smith", "locale", "de"))))
+                        .content(jsonMapper.writeValueAsString(Map.of("firstName", "Jane", "lastName", "Smith", "locale", "de", "baseCurrency", "UAH"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("locale"));
     }

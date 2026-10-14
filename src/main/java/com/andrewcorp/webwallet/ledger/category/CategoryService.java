@@ -1,0 +1,97 @@
+package com.andrewcorp.webwallet.ledger.category;
+
+import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.ledger.category.dto.CategoryRequest;
+import com.andrewcorp.webwallet.ledger.category.dto.CategoryResponse;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+@Service
+public class CategoryService {
+
+    private final CategoryRepository categories;
+    private final TransactionRepository transactions;
+
+    public CategoryService(CategoryRepository categories, TransactionRepository transactions) {
+        this.categories = categories;
+        this.transactions = transactions;
+    }
+
+    /** All categories of the user as a tree: top-level categories with their subcategories. */
+    @Transactional(readOnly = true)
+    public List<CategoryResponse> tree(Long userId) {
+        List<Category> all = categories.findByUserIdOrderBySortOrderAscNameAsc(userId);
+        Map<Long, List<Category>> childrenByParent = all.stream()
+                .filter(category -> category.getParentId() != null)
+                .collect(Collectors.groupingBy(Category::getParentId));
+        return all.stream()
+                .filter(category -> category.getParentId() == null)
+                .map(parent -> CategoryResponse.from(parent, childrenByParent.getOrDefault(parent.getId(), List.of()).stream()
+                        .map(child -> CategoryResponse.from(child, List.of()))
+                        .toList()))
+                .toList();
+    }
+
+    @Transactional
+    public CategoryResponse create(Long userId, CategoryRequest request) {
+        Category category = new Category(userId, null, request.name().trim(), request.kind());
+        apply(userId, category, request);
+        return CategoryResponse.from(categories.save(category), List.of());
+    }
+
+    @Transactional
+    public CategoryResponse update(Long userId, Long id, CategoryRequest request) {
+        Category category = find(userId, id);
+        category.setName(request.name().trim());
+        category.setKind(request.kind());
+        apply(userId, category, request);
+        List<Category> children = categories.findByParentId(category.getId());
+        // Subcategories always have the kind of their parent
+        children.forEach(child -> child.setKind(category.getKind()));
+        return CategoryResponse.from(category, children.stream().map(child -> CategoryResponse.from(child, List.of())).toList());
+    }
+
+    /** Only unused categories without subcategories can be deleted; others should be archived. */
+    @Transactional
+    public void delete(Long userId, Long id) {
+        Category category = find(userId, id);
+        if (categories.existsByParentId(category.getId()) || transactions.existsForCategory(category.getId())) {
+            throw new ApiException(ErrorCode.RESOURCE_IN_USE);
+        }
+        categories.delete(category);
+    }
+
+    @Transactional(readOnly = true)
+    public Category find(Long userId, Long id) {
+        return categories.findByIdAndUserId(id, userId).orElseThrow(ApiException::notFound);
+    }
+
+    private void apply(Long userId, Category category, CategoryRequest request) {
+        if (request.parentId() != null) {
+            if (Objects.equals(request.parentId(), category.getId())) {
+                throw ApiException.invalid("parentId", "error.category.parent");
+            }
+            Category parent = categories.findByIdAndUserId(request.parentId(), userId)
+                    .orElseThrow(() -> ApiException.invalid("parentId", "error.category.parent"));
+            if (parent.getParentId() != null) {
+                throw ApiException.invalid("parentId", "error.category.parent");
+            }
+            if (category.getId() != null && categories.existsByParentId(category.getId())) {
+                throw ApiException.invalid("parentId", "error.category.hasChildren");
+            }
+            if (parent.getKind() != request.kind()) {
+                throw ApiException.invalid("kind", "error.category.kind");
+            }
+        }
+        category.setParentId(request.parentId());
+        category.setArchived(Boolean.TRUE.equals(request.archived()));
+        category.setSortOrder(request.sortOrder() != null ? request.sortOrder() : 0);
+    }
+}
