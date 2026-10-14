@@ -185,7 +185,7 @@ public class TransactionService {
         return accounts.findByIdAndUserId(id, userId).orElseThrow(() -> ApiException.invalid(field, "error.notFound"));
     }
 
-    /** Null id means uncategorized. */
+    /** Null id means uncategorized. An income may have an expense category: it is a refund of that spending. */
     private Category category(Long userId, Long id, CategoryKind kind, String field) {
         if (id == null) {
             return null;
@@ -193,7 +193,8 @@ public class TransactionService {
         Category category = categories
                 .findByIdAndUserId(id, userId)
                 .orElseThrow(() -> ApiException.invalid(field, "error.notFound"));
-        if (category.getKind() != kind) {
+        boolean refund = kind == CategoryKind.INCOME && category.getKind() == CategoryKind.EXPENSE;
+        if (category.getKind() != kind && !refund) {
             throw ApiException.invalid(field, "error.category.kind");
         }
         return category;

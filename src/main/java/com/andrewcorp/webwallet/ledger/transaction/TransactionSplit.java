@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 
@@ -18,8 +19,10 @@ import java.math.BigDecimal;
 @Table(name = "transaction_splits")
 public class TransactionSplit {
 
+    /** Ids are allocated in blocks, so that the inserts of an import can be batched. */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "transaction_splits_id")
+    @SequenceGenerator(name = "transaction_splits_id", sequenceName = "transaction_splits_seq", allocationSize = 50)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

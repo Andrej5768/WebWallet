@@ -2,7 +2,6 @@ package com.andrewcorp.webwallet.ledger.transaction;
 
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionFilter;
 import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -25,11 +24,10 @@ final class TransactionSpecifications {
                 predicates.add(cb.lessThanOrEqualTo(root.get("date"), filter.to()));
             }
             if (filter.accountId() != null) {
-                // Left join: an inner join on the target account would drop everything but transfers
-                Join<Object, Object> toAccount = root.join("toAccount", JoinType.LEFT);
+                // The foreign key columns are compared directly, without joining the accounts
                 predicates.add(cb.or(
                         cb.equal(root.get("account").get("id"), filter.accountId()),
-                        cb.equal(toAccount.get("id"), filter.accountId())));
+                        cb.equal(root.get("toAccount").get("id"), filter.accountId())));
             }
             if (filter.type() != null) {
                 predicates.add(cb.equal(root.get("type"), filter.type()));

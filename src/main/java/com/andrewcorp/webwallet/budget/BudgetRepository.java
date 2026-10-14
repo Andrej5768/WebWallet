@@ -5,6 +5,7 @@ import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,20 +18,24 @@ public interface BudgetRepository extends JpaRepository<BudgetAssignment, Long> 
 
     Optional<BudgetAssignment> findByUserIdAndMonthAndCategory(Long userId, LocalDate month, Category category);
 
-    /** Expense and income parts of transactions on budget accounts. */
+    boolean existsByCategoryIdIn(Collection<Long> categoryIds);
+
+    /** Expense and income parts of transactions on budget accounts, summed per day, currency and category. */
     @Query("""
             select t.date as date, a.currency as currency, t.type as type, c.id as categoryId, c.kind as kind,
-                   s.amount as amount
+                   sum(s.amount) as amount
             from TransactionSplit s join s.transaction t join t.account a left join s.category c
-            where t.userId = :userId and a.inBudget = true and t.type <> :transfer and t.date <= :until""")
+            where t.userId = :userId and a.inBudget = true and t.type <> :transfer and t.date <= :until
+            group by t.date, a.currency, t.type, c.id, c.kind""")
     List<SplitRow> findBudgetSplits(Long userId, LocalDate until, TransactionType transfer);
 
-    /** Transfers between a budget account and an account outside the budget. */
+    /** Transfers between a budget account and an account outside the budget, summed per day and currencies. */
     @Query("""
-            select t.date as date, a.currency as currency, a.inBudget as fromBudget, t.amount as amount,
-                   ta.currency as toCurrency, t.toAmount as toAmount
+            select t.date as date, a.currency as currency, a.inBudget as fromBudget, sum(t.amount) as amount,
+                   ta.currency as toCurrency, sum(t.toAmount) as toAmount
             from Transaction t join t.account a join t.toAccount ta
-            where t.userId = :userId and t.type = :transfer and a.inBudget <> ta.inBudget and t.date <= :until""")
+            where t.userId = :userId and t.type = :transfer and a.inBudget <> ta.inBudget and t.date <= :until
+            group by t.date, a.currency, a.inBudget, ta.currency""")
     List<TransferRow> findBudgetBoundaryTransfers(Long userId, LocalDate until, TransactionType transfer);
 
     interface SplitRow {

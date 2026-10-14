@@ -112,6 +112,21 @@ class CategoryControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void kindOfUsedCategoryCannotChange() throws Exception {
+        Long parent = id(json(postJson("/api/v1/categories", category("Trips", "EXPENSE", null), auth), 201));
+        Long child = id(json(postJson("/api/v1/categories", category("Tickets", "EXPENSE", parent), auth), 201));
+        mockMvc.perform(putJson("/api/v1/budget/2026-10/categories/" + child, Map.of("assigned", 100), auth))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(putJson("/api/v1/categories/" + parent, category("Trips", "INCOME", null), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("kind"));
+        // Other changes are allowed
+        mockMvc.perform(putJson("/api/v1/categories/" + parent, category("Journeys", "EXPENSE", null), auth))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void deleteOnlyUnusedCategoriesWithoutChildren() throws Exception {
         Long parent = id(json(postJson("/api/v1/categories", category("Travel", "EXPENSE", null), auth), 201));
         Long child = id(json(postJson("/api/v1/categories", category("Hotels", "EXPENSE", parent), auth), 201));

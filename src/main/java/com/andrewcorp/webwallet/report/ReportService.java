@@ -16,7 +16,7 @@ import com.andrewcorp.webwallet.report.ReportDtos.NetWorthResponse;
 import com.andrewcorp.webwallet.report.ReportDtos.PayeeSpending;
 import com.andrewcorp.webwallet.report.ReportDtos.PayeesResponse;
 import com.andrewcorp.webwallet.report.ReportDtos.SpendingResponse;
-import com.andrewcorp.webwallet.report.ReportRepository.MovementRow;
+import com.andrewcorp.webwallet.report.ReportRepository.MonthChange;
 import com.andrewcorp.webwallet.report.ReportRepository.PayeeRow;
 import com.andrewcorp.webwallet.report.ReportRepository.SplitRow;
 import com.andrewcorp.webwallet.user.UserService;
@@ -31,6 +31,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,10 +72,10 @@ public class ReportService {
         Map<Long, BigDecimal> byCategory = new HashMap<>();
         BigDecimal uncategorized = BigDecimal.ZERO;
         for (SplitRow row : reports.findSplits(userId, from, to, TransactionType.TRANSFER)) {
-            if (row.getType() != TransactionType.EXPENSE) {
+            if (kind(row) != CategoryKind.EXPENSE) {
                 continue;
             }
-            BigDecimal amount = converter.convert(row.getAmount(), row.getCurrency(), row.getDate());
+            BigDecimal amount = signed(row, converter.convert(row.getAmount(), row.getCurrency(), row.getDate()));
             if (row.getCategoryId() == null) {
                 uncategorized = uncategorized.add(amount);
             } else {
@@ -118,7 +121,7 @@ public class ReportService {
                     row.getPayeeId(),
                     converter.convert(row.getAmount(), row.getCurrency(), row.getDate()),
                     BigDecimal::add);
-            counts.merge(row.getPayeeId(), 1, Integer::sum);
+            counts.merge(row.getPayeeId(), (int) row.getTransactions(), Integer::sum);
         }
         List<PayeeSpending> payees = amounts.entrySet().stream()
                 .map(entry -> new PayeeSpending(
@@ -137,9 +140,9 @@ public class ReportService {
             byMonth.put(month, new BigDecimal[] {BigDecimal.ZERO, BigDecimal.ZERO});
         }
         for (SplitRow row : reports.findSplits(userId, from, to, TransactionType.TRANSFER)) {
-            BigDecimal amount = converter.convert(row.getAmount(), row.getCurrency(), row.getDate());
+            BigDecimal amount = signed(row, converter.convert(row.getAmount(), row.getCurrency(), row.getDate()));
             BigDecimal[] totals = byMonth.get(YearMonth.from(row.getDate()));
-            int index = row.getType() == TransactionType.INCOME ? 0 : 1;
+            int index = kind(row) == CategoryKind.INCOME ? 0 : 1;
             totals[index] = totals[index].add(amount);
         }
         List<MonthIncomeExpense> months = byMonth.entrySet().stream()
@@ -170,16 +173,20 @@ public class ReportService {
             accountsById.put(account.getId(), account);
             balances.put(account.getId(), account.getOpeningBalance());
         }
-        List<MovementRow> movements = new ArrayList<>(reports.findMovements(userId, to));
-        movements.sort(Comparator.comparing(MovementRow::getDate));
+        TreeMap<YearMonth, List<MonthChange>> pending = new TreeMap<>();
+        Stream.concat(reports.findSourceChanges(userId, to).stream(), reports.findTargetChanges(userId, to).stream())
+                .forEach(change -> pending.computeIfAbsent(
+                                YearMonth.of(change.getYear(), change.getMonth()), m -> new ArrayList<>())
+                        .add(change));
 
         List<MonthNetWorth> months = new ArrayList<>();
-        int next = 0;
         for (YearMonth month = YearMonth.from(from); !month.isAfter(YearMonth.from(to)); month = month.plusMonths(1)) {
             LocalDate end = month.atEndOfMonth();
-            while (next < movements.size() && !movements.get(next).getDate().isAfter(end)) {
-                apply(movements.get(next++), balances);
-            }
+            SortedMap<YearMonth, List<MonthChange>> due = pending.headMap(month, true);
+            due.values()
+                    .forEach(changes -> changes.forEach(
+                            change -> balances.merge(change.getAccountId(), change.getChange(), BigDecimal::add)));
+            due.clear();
             LocalDate rateDate = end.isAfter(today) ? today : end;
             BigDecimal assets = BigDecimal.ZERO;
             BigDecimal liabilities = BigDecimal.ZERO;
@@ -197,14 +204,21 @@ public class ReportService {
         return new NetWorthResponse(converter.target(), months, converter.unconverted());
     }
 
-    private static void apply(MovementRow movement, Map<Long, BigDecimal> balances) {
-        BigDecimal change = movement.getType() == TransactionType.INCOME
-                ? movement.getAmount()
-                : movement.getAmount().negate();
-        balances.merge(movement.getAccountId(), change, BigDecimal::add);
-        if (movement.getToAccountId() != null) {
-            balances.merge(movement.getToAccountId(), movement.getToAmount(), BigDecimal::add);
+    /**
+     * Whether a part counts as spending or income: by its category, so that a refund (an income in an expense
+     * category) reduces the spending; without a category, by the transaction type.
+     */
+    private static CategoryKind kind(SplitRow row) {
+        if (row.getKind() != null) {
+            return row.getKind();
         }
+        return row.getType() == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
+    }
+
+    /** Positive when the type agrees with the kind, negative for a refund or a returned income. */
+    private static BigDecimal signed(SplitRow row, BigDecimal amount) {
+        boolean income = row.getType() == TransactionType.INCOME;
+        return income == (kind(row) == CategoryKind.INCOME) ? amount : amount.negate();
     }
 
     private CurrencyConverter converter(Long userId) {
