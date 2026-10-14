@@ -96,6 +96,7 @@ public class PrivatBankImporter {
             importRecord(account, statement, record, key, suggestions, payeeLookup, result);
             imported.add(key);
         }
+        result.payeesCreated = payeeLookup.created();
         // The history before the statement is not imported into a new account
         if (result.accountsCreated > 0 && statement.closingBalance() != null) {
             accountService.alignBalance(account, statement.closingBalance());

@@ -56,6 +56,9 @@ public class BankAccountLink {
 
     private BigDecimal bankBalance;
 
+    /** Credit limit of the card at the bank; the bank balance of a credit card includes it. */
+    private BigDecimal bankCreditLimit;
+
     /** Whether the opening balance of the account was aligned with the bank, which is done only once. */
     private boolean balanceAligned;
 
@@ -135,6 +138,14 @@ public class BankAccountLink {
 
     public void setBalanceAligned(boolean balanceAligned) {
         this.balanceAligned = balanceAligned;
+    }
+
+    public BigDecimal getBankCreditLimit() {
+        return bankCreditLimit;
+    }
+
+    public void setBankCreditLimit(BigDecimal bankCreditLimit) {
+        this.bankCreditLimit = bankCreditLimit;
     }
 
     public BigDecimal getBankBalance() {

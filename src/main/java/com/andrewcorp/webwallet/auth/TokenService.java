@@ -108,7 +108,6 @@ public class TokenService {
                 .subject(user.getId().toString())
                 .issuedAt(now)
                 .expiresAt(now.plus(properties.accessTokenTtl()))
-                .claim("email", user.getEmail())
                 .claim(ROLES_CLAIM, List.of(user.getRole().name()))
                 .claim(TOKEN_VERSION_CLAIM, user.getTokenVersion())
                 .build();

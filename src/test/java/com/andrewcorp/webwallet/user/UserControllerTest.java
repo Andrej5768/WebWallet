@@ -161,4 +161,37 @@ class UserControllerTest extends AbstractIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_CURRENT_PASSWORD"));
     }
+
+    @Test
+    void guessingTheCurrentPasswordIsLimited() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            mockMvc.perform(postJson(
+                                    "/api/v1/me/password",
+                                    Map.of("currentPassword", "wrong" + i, "newPassword", "newPassword123"))
+                            .header("Authorization", bearer(tokens)))
+                    .andExpect(status().isBadRequest());
+        }
+
+        mockMvc.perform(postJson(
+                                "/api/v1/me/password",
+                                Map.of("currentPassword", PASSWORD, "newPassword", "newPassword123"))
+                        .header("Authorization", bearer(tokens)))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void baseCurrencyCannotChangeWhileTheBudgetHasMoney() throws Exception {
+        Long category = id(
+                json(postJson("/api/v1/categories", Map.of("name", "Food", "kind", "EXPENSE"), bearer(tokens)), 201));
+        mockMvc.perform(putJson(
+                        "/api/v1/budget/2026-10/categories/" + category, Map.of("assigned", 100), bearer(tokens)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(putJson(
+                        "/api/v1/me",
+                        Map.of("firstName", "Jane", "lastName", "Smith", "locale", "en", "baseCurrency", "USD"),
+                        bearer(tokens)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("baseCurrency"));
+    }
 }

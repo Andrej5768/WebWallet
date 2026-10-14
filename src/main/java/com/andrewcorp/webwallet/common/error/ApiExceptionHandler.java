@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -51,6 +52,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                             .toList());
         }
         return ResponseEntity.status(ex.code().status()).body(problem);
+    }
+
+    /** E.g. two requests creating the same name at once; the message would contain the values, so it is not logged. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ProblemDetail> handleConflict(DataIntegrityViolationException ex) {
+        log.warn(
+                "Data integrity violation: {}",
+                ex.getMostSpecificCause().getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetails.of(ErrorCode.CONFLICT));
     }
 
     @ExceptionHandler(Exception.class)

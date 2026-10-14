@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.io.IOException;
 import java.io.InputStream;
 import org.springframework.http.MediaType;
@@ -58,5 +59,5 @@ public class ZenMoneyImportController {
         return importer.importDump(userId, dump);
     }
 
-    public record TokenRequest(@NotBlank String token) {}
+    public record TokenRequest(@NotBlank @Size(max = 200) String token) {}
 }

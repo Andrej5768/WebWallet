@@ -1,5 +1,6 @@
 package com.andrewcorp.webwallet.user;
 
+import com.andrewcorp.webwallet.budget.BudgetRepository;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.user.dto.UpdateProfileRequest;
@@ -10,9 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository users;
+    private final BudgetRepository budget;
 
-    public UserService(UserRepository users) {
+    public UserService(UserRepository users, BudgetRepository budget) {
         this.users = users;
+        this.budget = budget;
     }
 
     /** The access token may outlive a deleted user, which is treated as unauthenticated. */
@@ -27,6 +30,10 @@ public class UserService {
         user.setFirstName(request.firstName().trim());
         user.setLastName(request.lastName().trim());
         user.setLocale(request.locale());
+        // Budget assignments are amounts in the base currency: they would silently change their value
+        if (!user.getBaseCurrency().equals(request.baseCurrency()) && budget.existsByUserId(id)) {
+            throw ApiException.invalid("baseCurrency", "error.user.baseCurrencyInUse");
+        }
         user.setBaseCurrency(request.baseCurrency());
         return user;
     }

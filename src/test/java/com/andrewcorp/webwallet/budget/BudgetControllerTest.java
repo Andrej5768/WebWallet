@@ -199,8 +199,10 @@ class BudgetControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(putJson("/api/v1/budget/2026-10/categories/" + salary, Map.of("assigned", 1), auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("categoryId"));
+        // A negative amount takes money out of the envelope, back to ready to assign
         mockMvc.perform(putJson("/api/v1/budget/2026-10/categories/" + groceries, Map.of("assigned", -1), auth))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk());
+        assertThat(amount(row(month("2026-10"), groceries), "assigned")).isEqualByComparingTo("-1");
         mockMvc.perform(putJson(
                         "/api/v1/budget/2026-10/categories/" + groceries, Map.of("assigned", 1), loginNewUser()))
                 .andExpect(status().isNotFound());

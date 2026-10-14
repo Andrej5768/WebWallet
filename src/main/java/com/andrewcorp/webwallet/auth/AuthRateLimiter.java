@@ -19,12 +19,15 @@ public class AuthRateLimiter {
     private final AttemptCounter failedLoginsByAccount;
     private final AttemptCounter emailRequestsByIp;
     private final AttemptCounter emailRequestsByAddress;
+    /** Wrong current passwords when changing the password, e.g. with a stolen access token. */
+    private final AttemptCounter failedPasswordChecksByUser;
 
     public AuthRateLimiter(AppProperties properties) {
         AppProperties.Auth auth = properties.auth();
         this.failedLoginsByIp = new AttemptCounter(auth.maxFailedLogins(), auth.loginBlockDuration());
         this.failedLoginsByAccount = new AttemptCounter(auth.maxFailedLogins(), auth.accountBlockDuration());
         this.emailRequestsByIp = new AttemptCounter(auth.maxEmailRequestsPerIp(), auth.emailRequestWindow());
+        this.failedPasswordChecksByUser = new AttemptCounter(auth.maxFailedLogins(), auth.accountBlockDuration());
         this.emailRequestsByAddress = new AttemptCounter(auth.maxEmailRequestsPerAddress(), auth.emailRequestWindow());
     }
 
@@ -42,6 +45,16 @@ public class AuthRateLimiter {
     /** Forgets the failures of the account only: signing in to one account must not unblock the IP for others. */
     public void loginSucceeded(String email) {
         failedLoginsByAccount.reset(email);
+    }
+
+    public void checkPasswordChange(Long userId) {
+        if (failedPasswordChecksByUser.isExceeded(userId.toString())) {
+            throw new ApiException(ErrorCode.TOO_MANY_ATTEMPTS);
+        }
+    }
+
+    public void passwordCheckFailed(Long userId) {
+        failedPasswordChecksByUser.record(userId.toString());
     }
 
     /** Counts a request that may send an email, rejecting it when the IP or the address made too many. */
@@ -84,5 +97,6 @@ public class AuthRateLimiter {
         failedLoginsByAccount.resetAll();
         emailRequestsByIp.resetAll();
         emailRequestsByAddress.resetAll();
+        failedPasswordChecksByUser.resetAll();
     }
 }

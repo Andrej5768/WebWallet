@@ -90,7 +90,7 @@ public class MonobankController {
             // The operation was imported concurrently; the synchronization picks up anything missed
             log.warn(
                     "Monobank webhook operation was not imported: {}",
-                    e.getMostSpecificCause().getMessage());
+                    e.getMostSpecificCause().getClass().getSimpleName());
         }
     }
 

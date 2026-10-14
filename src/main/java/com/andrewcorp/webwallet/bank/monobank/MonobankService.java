@@ -52,6 +52,9 @@ public class MonobankService {
     static final Duration SYNC_INTERVAL = Duration.ofMinutes(5);
 
     private static final int DEFAULT_HISTORY_DAYS = 31;
+    /** Each month of history takes a request a minute; years of it would block the synchronization for hours. */
+    private static final int MAX_HISTORY_YEARS = 3;
+
     private static final String WEBHOOK_PATH = "/api/v1/banks/monobank/webhook/";
 
     private final BankConnectionRepository connections;
@@ -94,6 +97,12 @@ public class MonobankService {
      * response does not hold a database connection.
      */
     public ConnectionResponse connect(Long userId, ConnectRequest request) {
+        if (request.since() != null
+                && request.since()
+                        .isBefore(LocalDate.now(clock.withZone(MonobankStatementImporter.BANK_ZONE))
+                                .minusYears(MAX_HISTORY_YEARS))) {
+            throw ApiException.invalid("since", "error.bank.since");
+        }
         ClientInfo info = client.clientInfo(request.token());
         return tx.execute(status -> saveConnection(userId, request, info));
     }
@@ -295,7 +304,7 @@ public class MonobankService {
             if (!target.isBefore(now)) {
                 items.stream()
                         .max(Comparator.comparingLong(StatementItem::time))
-                        .ifPresent(newest -> link.setBankBalance(ownFunds(link.getAccount(), newest.balance())));
+                        .ifPresent(newest -> link.setBankBalance(ownFunds(link, newest.balance())));
                 alignCreatedAccount(link);
             }
         }
@@ -310,7 +319,7 @@ public class MonobankService {
                 .filter(link -> link.getAccount() != null)
                 .ifPresent(link -> {
                     importer.importItems(link.getAccount(), List.of(item));
-                    link.setBankBalance(ownFunds(link.getAccount(), item.balance()));
+                    link.setBankBalance(ownFunds(link, item.balance()));
                 });
     }
 
@@ -363,9 +372,8 @@ public class MonobankService {
                     });
             link.setAccount(account);
         }
-        // For a credit card the bank balance includes the credit limit
-        link.setBankBalance(
-                Currencies.fromMinorUnits(bankAccount.balance(), currency).subtract(creditLimit));
+        link.setBankCreditLimit(creditLimit);
+        link.setBankBalance(ownFunds(link, bankAccount.balance()));
         links.save(link);
     }
 
@@ -453,9 +461,10 @@ public class MonobankService {
                 .orElseThrow(ApiException::notFound);
     }
 
-    private static BigDecimal ownFunds(Account account, long balanceMinorUnits) {
-        BigDecimal balance = Currencies.fromMinorUnits(balanceMinorUnits, account.getCurrency());
-        return account.getCreditLimit() == null ? balance : balance.subtract(account.getCreditLimit());
+    /** For a credit card the bank balance includes the credit limit; the own funds are without it. */
+    private static BigDecimal ownFunds(BankAccountLink link, long balanceMinorUnits) {
+        BigDecimal balance = Currencies.fromMinorUnits(balanceMinorUnits, link.getCurrency());
+        return link.getBankCreditLimit() == null ? balance : balance.subtract(link.getBankCreditLimit());
     }
 
     private static Instant min(Instant a, Instant b) {
