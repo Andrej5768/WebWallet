@@ -1,5 +1,6 @@
 package com.andrewCorp.webWallet.persistence.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import tools.jackson.databind.annotation.JsonSerialize;
 
 import jakarta.persistence.*;
@@ -20,6 +21,8 @@ public class Account implements Serializable {
 
     private BigDecimal amount;
 
+    // Wallet references its accounts back, serializing it would recurse endlessly
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "wallet_id")
     private Wallet wallet;
