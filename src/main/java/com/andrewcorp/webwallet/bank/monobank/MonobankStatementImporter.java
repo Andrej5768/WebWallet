@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 /**
@@ -32,6 +33,9 @@ class MonobankStatementImporter {
     static final ZoneId BANK_ZONE = ZoneId.of("Europe/Kyiv");
     /** Money transfers; transfers between own cards come as a pair of such operations. */
     private static final short TRANSFER_MCC = 4829;
+
+    /** Operation ids are used in queries and as external ids; anything else is not from Monobank. */
+    static final Pattern ITEM_ID = Pattern.compile("[A-Za-z0-9_-]{1,100}");
 
     private static final int MATCH_DAYS = 3;
     private static final int MAX_PAYEE_LENGTH = 200;
@@ -61,7 +65,9 @@ class MonobankStatementImporter {
     }
 
     private void importItem(Account account, Collection<Account> ownAccounts, StatementItem item, Result result) {
-        if (item.amount() == 0) {
+        if (item.amount() == 0
+                || item.id() == null
+                || !ITEM_ID.matcher(item.id()).matches()) {
             return;
         }
         Long userId = account.getUserId();

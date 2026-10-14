@@ -71,6 +71,15 @@ class PdfTextTest {
     }
 
     @Test
+    void tooManyPagesOrTooMuchText() {
+        assertThatThrownBy(() -> new PdfText(1, 1000).extract(pdf))
+                .isInstanceOfSatisfying(
+                        ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_IMPORT_FILE));
+        assertThatThrownBy(() -> new PdfText(10, 20).extract(pdf)).isInstanceOf(ApiException.class);
+        assertThat(new PdfText(2, 1000).extract(pdf)).contains("Statement page two");
+    }
+
+    @Test
     void notAPdf() {
         assertThatThrownBy(() -> pdfText.extract("hello".getBytes(StandardCharsets.US_ASCII)))
                 .isInstanceOfSatisfying(

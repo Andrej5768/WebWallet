@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
@@ -25,7 +26,9 @@ import org.springframework.stereotype.Component;
 public class PrivatStatementParser {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-    private static final String NUMBER = "(-?\\d{1,3}(?:[ \\n]\\d{3})*,\\d\\d)";
+    // Possessive quantifiers and a bounded length of details keep matching linear on malformed input
+    private static final String NUMBER = "(-?\\d{1,3}(?:[ \\n]\\d{3})*+,\\d\\d)";
+    private static final int MAX_DETAILS_LENGTH = 1000;
     private static final String HEADER_NUMBER = "(-?\\d{1,3}(?: \\d{3})*,\\d\\d)";
     private static final String RECORD_START = "\\d\\d\\.\\d\\d\\.\\d{4}\\n\\d\\d:\\d\\d\\n";
 
@@ -36,7 +39,8 @@ public class PrivatStatementParser {
     private static final Pattern RECORD = Pattern.compile(
             "(\\d\\d\\.\\d\\d\\.\\d{4})\\n(\\d\\d:\\d\\d)\\n(?:(\\d{6}\\*+\\d{4})\\n?)?Угода[^\\n]*\\nвід[^\\n]*\\n"
                     // Details may not run into the next record
-                    + "((?:(?!\\n" + RECORD_START + ").)*?)[ \\n]" + NUMBER + "\\n([A-Z]{3})[ \\n]"
+                    + "((?:(?!\\n" + RECORD_START + ").){0," + MAX_DETAILS_LENGTH + "}?)[ \\n]" + NUMBER
+                    + "\\n([A-Z]{3})[ \\n]"
                     + NUMBER + "[ \\n]" + NUMBER + "[ \\n]" + NUMBER + "[ \\n]" + NUMBER,
             Pattern.DOTALL);
     private static final Pattern RECORD_ANCHOR = Pattern.compile("(?m)^\\d\\d\\.\\d\\d\\.\\d{4}\\n\\d\\d:\\d\\d$");
@@ -110,8 +114,15 @@ public class PrivatStatementParser {
     private static String body(String text) {
         int tableStart = text.indexOf(TABLE_HEADER_END);
         String table = tableStart < 0 ? text : text.substring(tableStart + TABLE_HEADER_END.length());
-        String withoutPageBreaks = PAGE_BREAK.matcher(table).replaceAll("");
-        return withoutPageBreaks.replaceAll("[ \\t]+\\n", "\n").replaceAll("\\n{2,}", "\n");
+        // Trailing spaces and empty lines are dropped line by line: a regular expression would be quadratic on long
+        // runs of spaces
+        return PAGE_BREAK
+                .matcher(table)
+                .replaceAll("")
+                .lines()
+                .map(String::stripTrailing)
+                .filter(line -> !line.isEmpty())
+                .collect(Collectors.joining("\n", "", "\n"));
     }
 
     /** Every record starts with a date line and a time line; each of them must have been parsed. */

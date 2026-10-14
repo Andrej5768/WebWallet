@@ -215,7 +215,8 @@ public class BudgetService {
                     sum(rows, CategoryRow::assigned),
                     sum(rows, CategoryRow::activity),
                     sum(rows, CategoryRow::available),
-                    rows);
+                    rows,
+                    converter.unconverted());
         }
 
         private CategoryRow row(
