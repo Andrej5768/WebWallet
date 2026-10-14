@@ -774,6 +774,13 @@ class MonobankSyncTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk());
         assertThat(transactions.findById(transfer.getId()).orElseThrow().getToBankId())
                 .isNull();
+        laterSync("mono-black");
+        laterSync("mono-iron");
+        assertThat(connection().getLastError()).isNull();
+        // The money still arrived on the other card: the status shows the missing income of that card
+        mockMvc.perform(get("/api/v1/banks/monobank").header("Authorization", auth))
+                .andExpect(jsonPath("$.accounts[?(@.title == 'Monobank iron *7777')].difference")
+                        .value(1000.0));
     }
 
     @Test
@@ -823,6 +830,75 @@ class MonobankSyncTest extends AbstractIntegrationTest {
             assertThat(refund.getType()).isEqualTo(TransactionType.INCOME);
             assertThat(refund.getSplits().get(0).getCategory().getId()).isEqualTo(groceries);
         });
+    }
+
+    /** Lets the time of one synchronization interval pass, so that the next one requests the recent days again. */
+    private void laterSync(String externalId) {
+        tx.executeWithoutResult(
+                status -> link(externalId).setSyncedUntil(Instant.now().minus(10, ChronoUnit.MINUTES)));
+        syncAll();
+    }
+
+    @Test
+    void recentOperationsTheUserDeletedOrMovedDoNotComeBack() throws Exception {
+        connect(LocalDate.now().minusDays(5));
+        unlinkAllBut("mono-black");
+        Long otherAccount = accounts.save(new Account(user.getId(), "Cash", AccountType.CASH, "UAH"))
+                .getId();
+        statements.put(
+                "mono-black",
+                List.of(
+                        item("op-duplicate", hoursAgo(30), "Shop", 5411, -10_000, 0),
+                        item("op-moved", hoursAgo(20), "Cafe", 5812, -25_000, 0),
+                        item("op-fixed", hoursAgo(10), "Taxi", 4121, -5_000, 0)));
+        syncAll();
+        List<Transaction> imported = userTransactions();
+
+        mockMvc.perform(delete("/api/v1/transactions/"
+                                + find(imported, "op-duplicate").getId())
+                        .header("Authorization", auth))
+                .andExpect(status().isNoContent());
+        Transaction moved = find(imported, "op-moved");
+        mockMvc.perform(putJson(
+                        "/api/v1/transactions/" + moved.getId(),
+                        Map.of(
+                                "type",
+                                "EXPENSE",
+                                "date",
+                                moved.getDate().toString(),
+                                "accountId",
+                                otherAccount,
+                                "amount",
+                                250),
+                        auth))
+                .andExpect(status().isOk());
+        // The user corrects the amount of an operation that is not a hold
+        Transaction fixed = find(imported, "op-fixed");
+        mockMvc.perform(putJson(
+                        "/api/v1/transactions/" + fixed.getId(),
+                        Map.of(
+                                "type",
+                                "EXPENSE",
+                                "date",
+                                fixed.getDate().toString(),
+                                "accountId",
+                                existingCard.getId(),
+                                "amount",
+                                55),
+                        auth))
+                .andExpect(status().isOk());
+
+        laterSync("mono-black");
+
+        List<Transaction> after = userTransactions();
+        assertThat(after).hasSize(2);
+        assertThat(after)
+                .filteredOn(t -> t.getId().equals(moved.getId()))
+                .singleElement()
+                .satisfies(t -> assertThat(t.getAccount().getId()).isEqualTo(otherAccount));
+        assertThat(transactions.findById(fixed.getId()).orElseThrow().getAmount())
+                .isEqualByComparingTo("55");
+        assertThat(connection().getLastError()).isNull();
     }
 
     @Test

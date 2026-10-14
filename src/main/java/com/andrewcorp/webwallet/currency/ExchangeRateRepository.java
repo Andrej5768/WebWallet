@@ -9,7 +9,15 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface ExchangeRateRepository extends JpaRepository<ExchangeRate, ExchangeRate.Key> {
 
-    List<ExchangeRate> findByCurrency(String currency);
+    /** Plain values rather than entities: thousands of them would be dirty-checked on every flush. */
+    @Query("select r.date as date, r.rate as rate from ExchangeRate r where r.currency = :currency")
+    List<RateRow> findRatesOf(String currency);
+
+    interface RateRow {
+        LocalDate getDate();
+
+        BigDecimal getRate();
+    }
 
     /** Concurrent loads of the same rates do not fail on the primary key. */
     @Modifying

@@ -24,11 +24,14 @@ public class CurrencyConverter {
     private static final int MAX_RATE_AGE_DAYS = 7;
     /** Each load covers about a year, so this bounds the NBU requests of one conversion of a long history. */
     private static final int MAX_LOADS_PER_CURRENCY = 10;
+    /** Bounds the NBU requests of one conversion over all currencies, e.g. of accounts in many currencies. */
+    private static final int MAX_LOADS = 20;
 
     private final ExchangeRateService rates;
     private final String target;
     private final Map<String, NavigableMap<LocalDate, BigDecimal>> stored = new HashMap<>();
     private final Map<String, Integer> loads = new HashMap<>();
+    private int totalLoads;
     private final Set<String> unconverted = new TreeSet<>();
 
     CurrencyConverter(ExchangeRateService rates, String target) {
@@ -74,13 +77,19 @@ public class CurrencyConverter {
         NavigableMap<LocalDate, BigDecimal> known = stored.computeIfAbsent(currency, rates::storedRates);
         Map.Entry<LocalDate, BigDecimal> rate = known.floorEntry(day);
         boolean recent = rate != null && ChronoUnit.DAYS.between(rate.getKey(), day) <= MAX_RATE_AGE_DAYS;
-        if (!recent
-                && loads.merge(currency, 1, Integer::sum) <= MAX_LOADS_PER_CURRENCY
-                && rates.loadFrom(currency, day)) {
+        if (!recent && mayLoad(currency) && rates.loadFrom(currency, day)) {
             known = rates.storedRates(currency);
             stored.put(currency, known);
             rate = known.floorEntry(day);
         }
         return Optional.ofNullable(rate).map(Map.Entry::getValue);
+    }
+
+    private boolean mayLoad(String currency) {
+        if (totalLoads >= MAX_LOADS || loads.merge(currency, 1, Integer::sum) > MAX_LOADS_PER_CURRENCY) {
+            return false;
+        }
+        totalLoads++;
+        return true;
     }
 }

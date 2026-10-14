@@ -169,6 +169,7 @@ public class OperationMatcher {
         BigDecimal otherAmount = transfer.getAmount();
         String otherBankId = transfer.getBankId();
         transfer.setType(TransactionType.TRANSFER);
+        transfer.setHold(false);
         transfer.replaceSplits(List.of());
         transfer.setPayee(null);
         if (type == TransactionType.EXPENSE) {

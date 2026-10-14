@@ -82,6 +82,10 @@ public class PrivatBankImporter {
         // Oldest first, so that the categories learned from earlier operations apply to later ones
         BigDecimal balanceBefore = statement.openingBalance();
         for (PrivatStatement.Record record : statement.records().reversed()) {
+            if (record.date().isBefore(Transaction.MIN_DATE) || record.date().isAfter(Transaction.MAX_DATE)) {
+                result.warn("Operation of " + record.date() + " skipped: implausible date");
+                continue;
+            }
             String key = key(statement, record);
             if (chargedSeparately(record, balanceBefore)) {
                 importFee(account, record, key + "|fee", imported, suggestions, result);
