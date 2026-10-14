@@ -61,7 +61,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.locale").value("uk"));
 
-        assertThat(lastMail().getSubject()).isEqualTo("Підтвердіть email");
+        assertThat(lastMail().getSubject()).isEqualTo("Підтвердження електронної пошти");
     }
 
     @Test
