@@ -7,7 +7,6 @@ import com.andrewcorp.webwallet.auth.dto.RegisterRequest;
 import com.andrewcorp.webwallet.auth.dto.ResetPasswordRequest;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.dto.VerifyEmailRequest;
-import com.andrewcorp.webwallet.user.dto.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,11 +32,13 @@ public class AuthController {
         this.tokenService = tokenService;
     }
 
-    @Operation(summary = "Register a new user and send an email verification link")
+    @Operation(
+            summary = "Register a new user and send an email verification link",
+            description = "The response is the same when the email is taken; the owner gets an email instead")
     @PostMapping("/register")
-    @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse register(@Valid @RequestBody RegisterRequest request, Locale locale) {
-        return UserResponse.from(authService.register(request, locale));
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void register(@Valid @RequestBody RegisterRequest request, Locale locale, HttpServletRequest httpRequest) {
+        authService.register(request, locale, httpRequest.getRemoteAddr());
     }
 
     @Operation(summary = "Confirm the email address with the token from the verification email")
@@ -50,8 +51,8 @@ public class AuthController {
     @Operation(summary = "Send the email verification link again")
     @PostMapping("/resend-verification")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public void resendVerification(@Valid @RequestBody EmailRequest request) {
-        authService.resendVerification(request.email());
+    public void resendVerification(@Valid @RequestBody EmailRequest request, HttpServletRequest httpRequest) {
+        authService.resendVerification(request.email(), httpRequest.getRemoteAddr());
     }
 
     @Operation(summary = "Sign in with email and password")
@@ -76,8 +77,8 @@ public class AuthController {
     @Operation(summary = "Send a password reset link")
     @PostMapping("/forgot-password")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public void forgotPassword(@Valid @RequestBody EmailRequest request) {
-        authService.forgotPassword(request.email());
+    public void forgotPassword(@Valid @RequestBody EmailRequest request, HttpServletRequest httpRequest) {
+        authService.forgotPassword(request.email(), httpRequest.getRemoteAddr());
     }
 
     @Operation(summary = "Set a new password with the token from the password reset email")

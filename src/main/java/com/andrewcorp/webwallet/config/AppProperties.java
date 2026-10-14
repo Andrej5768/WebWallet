@@ -27,9 +27,19 @@ public record AppProperties(
             @NotNull Duration accessTokenTtl,
             @NotNull Duration refreshTokenTtl) {}
 
+    /**
+     * @param maxFailedLogins failed logins after which the client IP is blocked for {@code loginBlockDuration}
+     *     and the account for {@code accountBlockDuration}
+     * @param maxEmailRequestsPerAddress requests that send an email (registration, verification, password reset)
+     *     per address within {@code emailRequestWindow}
+     */
     public record Auth(
             @NotNull Duration emailVerificationTtl,
             @NotNull Duration passwordResetTtl,
             @Positive int maxFailedLogins,
-            @NotNull Duration loginBlockDuration) {}
+            @NotNull Duration loginBlockDuration,
+            @NotNull Duration accountBlockDuration,
+            @Positive int maxEmailRequestsPerAddress,
+            @Positive int maxEmailRequestsPerIp,
+            @NotNull Duration emailRequestWindow) {}
 }

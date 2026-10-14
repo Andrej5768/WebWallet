@@ -1,5 +1,6 @@
 package com.andrewcorp.webwallet.config;
 
+import com.andrewcorp.webwallet.auth.AccessTokenValidator;
 import com.andrewcorp.webwallet.auth.TokenService;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.common.error.ProblemDetails;
@@ -23,6 +24,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -135,12 +137,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    public JwtDecoder jwtDecoder(SecretKey jwtSecretKey, AppProperties properties) {
+    public JwtDecoder jwtDecoder(
+            SecretKey jwtSecretKey, AppProperties properties, AccessTokenValidator accessTokenValidator) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey)
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
-        decoder.setJwtValidator(
-                JwtValidators.createDefaultWithIssuer(properties.jwt().issuer()));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(properties.jwt().issuer()), accessTokenValidator));
         return decoder;
     }
 

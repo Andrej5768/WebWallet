@@ -7,18 +7,21 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
+import com.andrewcorp.webwallet.user.Role;
 import com.andrewcorp.webwallet.user.User;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 class AuthControllerTest extends AbstractIntegrationTest {
 
@@ -37,40 +40,51 @@ class AuthControllerTest extends AbstractIntegrationTest {
     @Test
     void registerCreatesUnverifiedUserAndSendsVerificationEmail() throws Exception {
         mockMvc.perform(postJson("/api/v1/auth/register", registration("John@Test.com")))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.email").value("john@test.com"))
-                .andExpect(jsonPath("$.firstName").value("John"))
-                .andExpect(jsonPath("$.role").value("USER"))
-                .andExpect(jsonPath("$.emailVerified").value(false))
-                .andExpect(jsonPath("$.locale").value("en"))
-                .andExpect(jsonPath("$.password").doesNotExist());
+                .andExpect(status().isAccepted())
+                .andExpect(content().string(""));
 
         User user = users.findByEmail("john@test.com").orElseThrow();
         assertThat(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).isTrue();
+        assertThat(user.getFirstName()).isEqualTo("John");
+        assertThat(user.getRole()).isEqualTo(Role.USER);
+        assertThat(user.isEmailVerified()).isFalse();
+        assertThat(user.getLocale()).isEqualTo("en");
 
         SimpleMailMessage mail = lastMail();
         assertThat(mail.getTo()).containsExactly("john@test.com");
         assertThat(mail.getSubject()).isEqualTo("Confirm your email");
-        assertThat(mail.getText()).contains("Hello, John!", "http://localhost:5173/verify-email?token=", "24 hours");
+        // The token is in the fragment, which is not sent to servers
+        assertThat(mail.getText()).contains("Hello!", "http://localhost:5173/verify-email#token=", "24 hours");
+        // The address may belong to someone else, so the mail contains nothing entered at registration
+        assertThat(mail.getText()).doesNotContain("John");
     }
 
     @Test
     void registerUsesUkrainianForEmailsWhenRequested() throws Exception {
         mockMvc.perform(postJson("/api/v1/auth/register", registration("uk@test.com"))
                         .header("Accept-Language", "uk-UA"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.locale").value("uk"));
+                .andExpect(status().isAccepted());
 
+        assertThat(users.findByEmail("uk@test.com").orElseThrow().getLocale()).isEqualTo("uk");
         assertThat(lastMail().getSubject()).isEqualTo("Підтвердження електронної пошти");
     }
 
     @Test
-    void registerWithTakenEmailIsConflict() throws Exception {
-        createUser("taken@test.com", true);
+    void registerWithTakenEmailLooksTheSameAndNotifiesTheOwner() throws Exception {
+        User owner = createUser("taken@test.com", true);
 
         mockMvc.perform(postJson("/api/v1/auth/register", registration("TAKEN@test.com")))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("EMAIL_TAKEN"));
+                .andExpect(status().isAccepted())
+                .andExpect(content().string(""));
+
+        SimpleMailMessage mail = lastMail();
+        assertThat(mail.getTo()).containsExactly("taken@test.com");
+        assertThat(mail.getSubject()).isEqualTo("You already have an account");
+        assertThat(mail.getText()).contains("http://localhost:5173/forgot-password");
+        // The existing account is not changed
+        assertThat(users.findByEmail("taken@test.com").orElseThrow().getPasswordHash())
+                .isEqualTo(owner.getPasswordHash());
+        assertThat(users.count()).isOne();
     }
 
     @Test
@@ -90,7 +104,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
         doThrow(new MailSendException("SMTP down")).when(mailSender).send(any(SimpleMailMessage.class));
 
         mockMvc.perform(postJson("/api/v1/auth/register", registration("nomail@test.com")))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         assertThat(users.findByEmail("nomail@test.com")).isPresent();
     }
@@ -219,6 +233,95 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.code").value("TOO_MANY_ATTEMPTS"));
     }
 
+    @Test
+    void accountIsBlockedAfterTooManyFailedLoginsFromDifferentIps() throws Exception {
+        createUser("target@test.com", true);
+
+        for (int i = 0; i < 10; i++) {
+            mockMvc.perform(withIp(
+                            postJson("/api/v1/auth/login", Map.of("email", "target@test.com", "password", "wrong")),
+                            "10.0.0." + i))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(withIp(
+                        postJson("/api/v1/auth/login", Map.of("email", "target@test.com", "password", PASSWORD)),
+                        "10.0.1.1"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_ATTEMPTS"));
+        // Other accounts are not affected
+        createUser("other@test.com", true);
+        mockMvc.perform(withIp(
+                        postJson("/api/v1/auth/login", Map.of("email", "other@test.com", "password", PASSWORD)),
+                        "10.0.1.1"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void signingInToOwnAccountDoesNotUnblockTheIp() throws Exception {
+        createUser("own@test.com", true);
+        String ip = "10.4.5.6";
+
+        for (int i = 0; i < 10; i++) {
+            String email = "victim" + i + "@test.com";
+            mockMvc.perform(withIp(postJson("/api/v1/auth/login", Map.of("email", email, "password", "wrong")), ip))
+                    .andExpect(status().isUnauthorized());
+            if (i == 5) {
+                mockMvc.perform(withIp(
+                                postJson("/api/v1/auth/login", Map.of("email", "own@test.com", "password", PASSWORD)),
+                                ip))
+                        .andExpect(status().isOk());
+            }
+        }
+
+        mockMvc.perform(withIp(
+                        postJson("/api/v1/auth/login", Map.of("email", "own@test.com", "password", PASSWORD)), ip))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    private static MockHttpServletRequestBuilder withIp(MockHttpServletRequestBuilder request, String ip) {
+        return request.with(r -> {
+            r.setRemoteAddr(ip);
+            return r;
+        });
+    }
+
+    @Test
+    void requestsThatSendEmailsAreLimitedPerAddress() throws Exception {
+        createUser("flood@test.com", true);
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(withIp(
+                            postJson("/api/v1/auth/forgot-password", Map.of("email", "flood@test.com")), "10.0.2." + i))
+                    .andExpect(status().isAccepted());
+        }
+
+        mockMvc.perform(withIp(postJson("/api/v1/auth/forgot-password", Map.of("email", "flood@test.com")), "10.0.3.1"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_REQUESTS"));
+        // The limit does not depend on whether the account exists
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(postJson("/api/v1/auth/resend-verification", Map.of("email", "nobody@test.com")))
+                    .andExpect(status().isAccepted());
+        }
+        mockMvc.perform(postJson("/api/v1/auth/register", registration("nobody@test.com")))
+                .andExpect(status().isTooManyRequests());
+        assertThat(users.findByEmail("nobody@test.com")).isEmpty();
+    }
+
+    @Test
+    void requestsThatSendEmailsAreLimitedPerIp() throws Exception {
+        for (int i = 0; i < 20; i++) {
+            mockMvc.perform(withIp(
+                            postJson("/api/v1/auth/forgot-password", Map.of("email", "user" + i + "@test.com")),
+                            "10.0.4.1"))
+                    .andExpect(status().isAccepted());
+        }
+
+        mockMvc.perform(withIp(postJson("/api/v1/auth/register", registration("fresh@test.com")), "10.0.4.1"))
+                .andExpect(status().isTooManyRequests());
+    }
+
     // refresh and logout
 
     @Test
@@ -302,7 +405,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 .andExpect(status().isAccepted());
         SimpleMailMessage mail = lastMail();
         assertThat(mail.getSubject()).isEqualTo("Password reset");
-        assertThat(mail.getText()).contains("/reset-password?token=", "60 minutes");
+        assertThat(mail.getText()).contains("/reset-password#token=", "60 minutes");
 
         mockMvc.perform(postJson(
                         "/api/v1/auth/reset-password",
@@ -314,8 +417,10 @@ class AuthControllerTest extends AbstractIntegrationTest {
                 .isTrue();
         // Following the link proves ownership of the email address
         assertThat(user.isEmailVerified()).isTrue();
-        // Existing sessions are ended
+        // Existing sessions are ended, including the access tokens
         mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", oldSession.refreshToken())))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(oldSession)))
                 .andExpect(status().isUnauthorized());
     }
 

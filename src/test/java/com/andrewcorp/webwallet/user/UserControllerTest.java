@@ -114,8 +114,42 @@ class UserControllerTest extends AbstractIntegrationTest {
                 .isTrue();
         mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", otherSession.refreshToken())))
                 .andExpect(status().isUnauthorized());
+        // Access tokens issued before the change stop working at once, not when they expire
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(otherSession)))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(tokens)))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(newTokens)))
+                .andExpect(status().isOk());
         mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", newTokens.refreshToken())))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void changePasswordVoidsPasswordResetLinks() throws Exception {
+        mockMvc.perform(postJson("/api/v1/auth/forgot-password", Map.of("email", user.getEmail())))
+                .andExpect(status().isAccepted());
+        String resetToken = tokenFromLastMail();
+
+        mockMvc.perform(postJson(
+                                "/api/v1/me/password",
+                                Map.of("currentPassword", PASSWORD, "newPassword", "newPassword123"))
+                        .header("Authorization", bearer(tokens)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(postJson(
+                        "/api/v1/auth/reset-password", Map.of("token", resetToken, "newPassword", "otherPassword123")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+    }
+
+    @Test
+    void disabledUserLosesAccessAtOnce() throws Exception {
+        user.setEnabled(false);
+        users.save(user);
+
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(tokens)))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

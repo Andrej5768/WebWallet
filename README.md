@@ -75,14 +75,17 @@ cp .env.example .env   # set JWT_SECRET, e.g. `openssl rand -base64 32`
 docker compose --profile app up -d --build
 ```
 
-- API: http://localhost:8080/api/v1, Swagger UI: http://localhost:8080/swagger-ui.html
+- API: http://localhost:8080/api/v1, Swagger UI: http://localhost:8080/swagger-ui.html (enabled by the `local`
+  profile or `API_DOCS_ENABLED=true`)
 - Emails sent by the backend (verification, password reset): http://localhost:8025
 - Tests: `mvn verify` (needs Docker for Testcontainers)
 - Formatting: `mvn spotless:apply` (palantir-java-format); CI fails on unformatted code (`mvn spotless:check`)
 
 Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`,
 `ENCRYPTION_KEY` (encrypts bank tokens), `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`,
-`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `APP_PUBLIC_URL` (enables bank webhooks)
+`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `APP_PUBLIC_URL` (enables bank webhooks), `TRUSTED_PROXIES`
+(a regular expression of reverse proxy addresses allowed to set `X-Forwarded-For`, loopback by default),
+`API_DOCS_ENABLED`
 (see `src/main/resources/application.properties`).
 
 ## Development workflow

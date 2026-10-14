@@ -45,7 +45,7 @@ class CategoryControllerTest extends AbstractIntegrationTest {
                                         "lastName",
                                         "B"))
                         .header("Accept-Language", "uk"))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
         var user = users.findByEmail("cat@test.com").orElseThrow();
         user.setEmailVerified(true);
         users.save(user);
