@@ -80,7 +80,8 @@ docker compose --profile app up -d --build
 - Tests: `mvn verify` (needs Docker for Testcontainers)
 
 Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`,
-`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`
+`ENCRYPTION_KEY` (encrypts bank tokens), `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`,
+`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `APP_PUBLIC_URL` (enables bank webhooks)
 (see `src/main/resources/application.properties`).
 
 ## Development workflow
@@ -106,13 +107,13 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 - [x] Ukrainian and English localization only
 
 ### Phase 1 — Finance MVP (enough to move off Zen Money)
-- [ ] New domain model: accounts, two-level categories, tags, payees, transactions with transfer legs
+- [x] New domain model: accounts, two-level categories, tags, payees, transactions with transfer legs
       and splits, money as amount + ISO currency
-- [ ] Daily NBU exchange rates
+- [x] Daily NBU exchange rates
 - [ ] Import pipeline: parsing → normalization → deduplication → auto-categorization
-- [ ] Monobank synchronization (personal token stored encrypted, statements, webhook, MCC)
+- [x] Monobank synchronization (personal token stored encrypted, statements, webhook, MCC)
 - [ ] PrivatBank PDF statement parser ([notes](docs/imports/privatbank-pdf.md))
-- [ ] Zen Money export import ([notes](docs/imports/zenmoney.md))
+- [x] Zen Money export import ([notes](docs/imports/zenmoney.md))
 - [ ] Auto-categorization rules
 - [ ] Envelope budget: assigned / activity / available per month and category, roll-over,
       overspending, credit card payments
