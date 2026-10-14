@@ -14,8 +14,7 @@ final class Currencies {
             .filter(currency -> currency.getNumericCode() > 0)
             .collect(Collectors.toMap(Currency::getNumericCode, Currency::getCurrencyCode, (first, second) -> first));
 
-    private Currencies() {
-    }
+    private Currencies() {}
 
     /** ISO alphabetic code, or null for an unknown numeric code. */
     static String byNumericCode(int numericCode) {

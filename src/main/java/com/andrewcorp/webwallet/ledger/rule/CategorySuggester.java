@@ -4,12 +4,11 @@ import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.payee.Payee;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Component;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Component;
 
 /**
  * Suggests a category for an imported operation: by the most specific matching categorization rule, otherwise by the
@@ -38,13 +37,13 @@ public class CategorySuggester {
     }
 
     /** Only the rules, for categorizing existing transactions. */
-    Optional<Category> byRule(List<CategorizationRule> userRules, Payee payee, Short mcc, String bankCategory,
-                              CategoryKind kind) {
+    Optional<Category> byRule(
+            List<CategorizationRule> userRules, Payee payee, Short mcc, String bankCategory, CategoryKind kind) {
         return userRules.stream()
-                .filter(rule -> rule.getCategory().getKind() == kind && !rule.getCategory().isArchived())
+                .filter(rule -> rule.getCategory().getKind() == kind
+                        && !rule.getCategory().isArchived())
                 .filter(rule -> rule.matches(payee, mcc, bankCategory))
-                .max(Comparator.comparingInt(CategorizationRule::specificity)
-                        .thenComparing(CategorizationRule::getId))
+                .max(Comparator.comparingInt(CategorizationRule::specificity).thenComparing(CategorizationRule::getId))
                 .map(CategorizationRule::getCategory);
     }
 
@@ -52,6 +51,7 @@ public class CategorySuggester {
         if (payee == null || payee.getId() == null) {
             return Optional.empty();
         }
-        return transactions.findCategoriesUsedForPayee(userId, payee, kind, PageRequest.of(0, 1)).stream().findFirst();
+        return transactions.findCategoriesUsedForPayee(userId, payee, kind, PageRequest.of(0, 1)).stream()
+                .findFirst();
     }
 }

@@ -1,7 +1,6 @@
 package com.andrewcorp.webwallet.ledger.transaction.dto;
 
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
-
 import java.time.LocalDate;
 
 /**
@@ -17,5 +16,4 @@ public record TransactionFilter(
         Long categoryId,
         TransactionType type,
         Long payeeId,
-        Long tagId) {
-}
+        Long tagId) {}

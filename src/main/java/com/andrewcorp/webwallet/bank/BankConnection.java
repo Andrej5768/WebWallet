@@ -9,7 +9,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-
 import java.time.Instant;
 
 /**
@@ -48,8 +47,7 @@ public class BankConnection {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected BankConnection() {
-    }
+    protected BankConnection() {}
 
     public BankConnection(Long userId, BankProvider provider, String encryptedToken, String webhookSecret) {
         this.userId = userId;

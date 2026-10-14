@@ -13,5 +13,4 @@ public record CategoryRequest(
         @NotNull CategoryKind kind,
         Long parentId,
         Boolean archived,
-        Integer sortOrder) {
-}
+        Integer sortOrder) {}

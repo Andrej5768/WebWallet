@@ -8,8 +8,7 @@ import jakarta.validation.constraints.Size;
 
 public final class RuleDtos {
 
-    private RuleDtos() {
-    }
+    private RuleDtos() {}
 
     /**
      * At least one condition is required; every given condition must match.
@@ -23,8 +22,7 @@ public final class RuleDtos {
             Long payeeId,
             @Size(max = 200) String payeePattern,
             @Min(0) @Max(9999) Short mcc,
-            @Size(max = 100) String bankCategory) {
-    }
+            @Size(max = 100) String bankCategory) {}
 
     /**
      * @param learned created automatically when the category of a transaction was changed manually
@@ -39,12 +37,19 @@ public final class RuleDtos {
             boolean learned) {
 
         static RuleResponse from(CategorizationRule rule) {
-            return new RuleResponse(rule.getId(), rule.getCategory().getId(),
-                    rule.getPayee() == null ? null : new NamedResponse(rule.getPayee().getId(), rule.getPayee().getName()),
-                    rule.getPayeePattern(), rule.getMcc(), rule.getBankCategory(), rule.isLearned());
+            return new RuleResponse(
+                    rule.getId(),
+                    rule.getCategory().getId(),
+                    rule.getPayee() == null
+                            ? null
+                            : new NamedResponse(
+                                    rule.getPayee().getId(), rule.getPayee().getName()),
+                    rule.getPayeePattern(),
+                    rule.getMcc(),
+                    rule.getBankCategory(),
+                    rule.isLearned());
         }
     }
 
-    public record ApplyResponse(int categorized) {
-    }
+    public record ApplyResponse(int categorized) {}
 }

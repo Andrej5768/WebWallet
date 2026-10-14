@@ -1,18 +1,17 @@
 package com.andrewcorp.webwallet.ledger;
 
-import com.andrewcorp.webwallet.AbstractIntegrationTest;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class TransactionControllerTest extends AbstractIntegrationTest {
 
@@ -36,8 +35,12 @@ class TransactionControllerTest extends AbstractIntegrationTest {
     }
 
     private Long account(String name, String type, String currency, double openingBalance) throws Exception {
-        return id(json(postJson("/api/v1/accounts", Map.of("name", name, "type", type, "currency", currency,
-                "openingBalance", openingBalance), auth), 201));
+        return id(json(
+                postJson(
+                        "/api/v1/accounts",
+                        Map.of("name", name, "type", type, "currency", currency, "openingBalance", openingBalance),
+                        auth),
+                201));
     }
 
     private Long category(String name, String kind, Long parentId) throws Exception {
@@ -51,7 +54,8 @@ class TransactionControllerTest extends AbstractIntegrationTest {
     }
 
     private double balance(Long account) throws Exception {
-        return ((Number) json(get("/api/v1/accounts/" + account).header("Authorization", auth), 200).get("balance"))
+        return ((Number) json(get("/api/v1/accounts/" + account).header("Authorization", auth), 200)
+                        .get("balance"))
                 .doubleValue();
     }
 
@@ -80,8 +84,22 @@ class TransactionControllerTest extends AbstractIntegrationTest {
 
         assertThat(balance(card)).isEqualTo(749.5);
         // The payee was created and is reused by name, ignoring case
-        json(postJson("/api/v1/transactions", Map.of("type", "EXPENSE", "date", "2026-10-02", "accountId", card,
-                "amount", 1, "payeeName", "SILPO"), auth), 201);
+        json(
+                postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "EXPENSE",
+                                "date",
+                                "2026-10-02",
+                                "accountId",
+                                card,
+                                "amount",
+                                1,
+                                "payeeName",
+                                "SILPO"),
+                        auth),
+                201);
         mockMvc.perform(get("/api/v1/payees").header("Authorization", auth))
                 .andExpect(jsonPath("$.length()").value(1));
     }
@@ -96,9 +114,11 @@ class TransactionControllerTest extends AbstractIntegrationTest {
     @Test
     void splitExpense() throws Exception {
         Map<String, Object> body = expense(card, 300);
-        body.put("splits", List.of(
-                Map.of("categoryId", groceries, "amount", 200, "comment", "food"),
-                Map.of("categoryId", food, "amount", 100)));
+        body.put(
+                "splits",
+                List.of(
+                        Map.of("categoryId", groceries, "amount", 200, "comment", "food"),
+                        Map.of("categoryId", food, "amount", 100)));
 
         mockMvc.perform(postJson("/api/v1/transactions", body, auth))
                 .andExpect(status().isCreated())
@@ -114,7 +134,8 @@ class TransactionControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(postJson("/api/v1/transactions", body, auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("splits"))
-                .andExpect(jsonPath("$.errors[0].message").value("Split amounts must sum up to the transaction amount"));
+                .andExpect(
+                        jsonPath("$.errors[0].message").value("Split amounts must sum up to the transaction amount"));
     }
 
     @Test
@@ -136,8 +157,17 @@ class TransactionControllerTest extends AbstractIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("categoryId"));
 
-        Map<String, Object> income = new HashMap<>(Map.of("type", "INCOME", "date", "2026-10-01", "accountId", card,
-                "amount", 5000, "splits", List.of(Map.of("categoryId", groceries, "amount", 5000))));
+        Map<String, Object> income = new HashMap<>(Map.of(
+                "type",
+                "INCOME",
+                "date",
+                "2026-10-01",
+                "accountId",
+                card,
+                "amount",
+                5000,
+                "splits",
+                List.of(Map.of("categoryId", groceries, "amount", 5000))));
         mockMvc.perform(postJson("/api/v1/transactions", income, auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("splits[0].categoryId"));
@@ -145,8 +175,22 @@ class TransactionControllerTest extends AbstractIntegrationTest {
 
     @Test
     void incomeIncreasesBalance() throws Exception {
-        json(postJson("/api/v1/transactions", Map.of("type", "INCOME", "date", "2026-10-01", "accountId", card,
-                "amount", 5000, "categoryId", salary), auth), 201);
+        json(
+                postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "INCOME",
+                                "date",
+                                "2026-10-01",
+                                "accountId",
+                                card,
+                                "amount",
+                                5000,
+                                "categoryId",
+                                salary),
+                        auth),
+                201);
 
         assertThat(balance(card)).isEqualTo(6000);
     }
@@ -172,8 +216,20 @@ class TransactionControllerTest extends AbstractIntegrationTest {
 
     @Test
     void transferInSameCurrencyDefaultsToSameAmount() throws Exception {
-        mockMvc.perform(postJson("/api/v1/transactions", Map.of("type", "TRANSFER", "date", "2026-10-01",
-                        "accountId", card, "amount", 300, "toAccountId", cash), auth))
+        mockMvc.perform(postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "TRANSFER",
+                                "date",
+                                "2026-10-01",
+                                "accountId",
+                                card,
+                                "amount",
+                                300,
+                                "toAccountId",
+                                cash),
+                        auth))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.toAccountId").value(cash))
                 .andExpect(jsonPath("$.toAmount").value(300))
@@ -186,8 +242,24 @@ class TransactionControllerTest extends AbstractIntegrationTest {
 
     @Test
     void transferWithFee() throws Exception {
-        json(postJson("/api/v1/transactions", Map.of("type", "TRANSFER", "date", "2026-10-01",
-                "accountId", card, "amount", 1000, "toAccountId", cash, "toAmount", 960), auth), 201);
+        json(
+                postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "TRANSFER",
+                                "date",
+                                "2026-10-01",
+                                "accountId",
+                                card,
+                                "amount",
+                                1000,
+                                "toAccountId",
+                                cash,
+                                "toAmount",
+                                960),
+                        auth),
+                201);
 
         assertThat(balance(card)).isZero();
         assertThat(balance(cash)).isEqualTo(960);
@@ -195,32 +267,100 @@ class TransactionControllerTest extends AbstractIntegrationTest {
 
     @Test
     void crossCurrencyTransferRequiresTargetAmount() throws Exception {
-        mockMvc.perform(postJson("/api/v1/transactions", Map.of("type", "TRANSFER", "date", "2026-10-01",
-                        "accountId", card, "amount", 449, "toAccountId", usdAccount), auth))
+        mockMvc.perform(postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "TRANSFER",
+                                "date",
+                                "2026-10-01",
+                                "accountId",
+                                card,
+                                "amount",
+                                449,
+                                "toAccountId",
+                                usdAccount),
+                        auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("toAmount"));
 
-        json(postJson("/api/v1/transactions", Map.of("type", "TRANSFER", "date", "2026-10-01",
-                "accountId", card, "amount", 449, "toAccountId", usdAccount, "toAmount", 10), auth), 201);
+        json(
+                postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "TRANSFER",
+                                "date",
+                                "2026-10-01",
+                                "accountId",
+                                card,
+                                "amount",
+                                449,
+                                "toAccountId",
+                                usdAccount,
+                                "toAmount",
+                                10),
+                        auth),
+                201);
         assertThat(balance(usdAccount)).isEqualTo(10);
     }
 
     @Test
     void transferValidation() throws Exception {
-        mockMvc.perform(postJson("/api/v1/transactions", Map.of("type", "TRANSFER", "date", "2026-10-01",
-                        "accountId", card, "amount", 1), auth))
+        mockMvc.perform(postJson(
+                        "/api/v1/transactions",
+                        Map.of("type", "TRANSFER", "date", "2026-10-01", "accountId", card, "amount", 1),
+                        auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("toAccountId"));
-        mockMvc.perform(postJson("/api/v1/transactions", Map.of("type", "TRANSFER", "date", "2026-10-01",
-                        "accountId", card, "amount", 1, "toAccountId", card), auth))
+        mockMvc.perform(postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "TRANSFER",
+                                "date",
+                                "2026-10-01",
+                                "accountId",
+                                card,
+                                "amount",
+                                1,
+                                "toAccountId",
+                                card),
+                        auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("toAccountId"));
-        mockMvc.perform(postJson("/api/v1/transactions", Map.of("type", "TRANSFER", "date", "2026-10-01",
-                        "accountId", card, "amount", 1, "toAccountId", cash, "categoryId", food), auth))
+        mockMvc.perform(postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "TRANSFER",
+                                "date",
+                                "2026-10-01",
+                                "accountId",
+                                card,
+                                "amount",
+                                1,
+                                "toAccountId",
+                                cash,
+                                "categoryId",
+                                food),
+                        auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("splits"));
-        mockMvc.perform(postJson("/api/v1/transactions", Map.of("type", "EXPENSE", "date", "2026-10-01",
-                        "accountId", card, "amount", 1, "toAccountId", cash), auth))
+        mockMvc.perform(postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "EXPENSE",
+                                "date",
+                                "2026-10-01",
+                                "accountId",
+                                card,
+                                "amount",
+                                1,
+                                "toAccountId",
+                                cash),
+                        auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("toAccountId"));
     }
@@ -228,8 +368,8 @@ class TransactionControllerTest extends AbstractIntegrationTest {
     @Test
     void foreignReferencesAreRejected() throws Exception {
         String otherAuth = loginNewUser();
-        Long foreignAccount = id(json(postJson("/api/v1/accounts",
-                Map.of("name", "x", "type", "CASH", "currency", "UAH"), otherAuth), 201));
+        Long foreignAccount = id(json(
+                postJson("/api/v1/accounts", Map.of("name", "x", "type", "CASH", "currency", "UAH"), otherAuth), 201));
         Long foreignTag = id(json(postJson("/api/v1/tags", Map.of("name", "x"), otherAuth), 201));
         Long foreignPayee = id(json(postJson("/api/v1/payees", Map.of("name", "x"), otherAuth), 201));
 
@@ -255,7 +395,8 @@ class TransactionControllerTest extends AbstractIntegrationTest {
 
     @Test
     void bodyValidation() throws Exception {
-        mockMvc.perform(postJson("/api/v1/transactions", Map.of("type", "EXPENSE", "accountId", card, "amount", -5), auth))
+        mockMvc.perform(postJson(
+                        "/api/v1/transactions", Map.of("type", "EXPENSE", "accountId", card, "amount", -5), auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
                 .andExpect(jsonPath("$.errors.length()").value(2));
@@ -269,16 +410,40 @@ class TransactionControllerTest extends AbstractIntegrationTest {
         body.put("categoryId", food);
         Long id = id(json(postJson("/api/v1/transactions", body, auth), 201));
 
-        mockMvc.perform(putJson("/api/v1/transactions/" + id, Map.of("type", "TRANSFER", "date", "2026-10-03",
-                        "accountId", card, "amount", 100, "toAccountId", cash), auth))
+        mockMvc.perform(putJson(
+                        "/api/v1/transactions/" + id,
+                        Map.of(
+                                "type",
+                                "TRANSFER",
+                                "date",
+                                "2026-10-03",
+                                "accountId",
+                                card,
+                                "amount",
+                                100,
+                                "toAccountId",
+                                cash),
+                        auth))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.type").value("TRANSFER"))
                 .andExpect(jsonPath("$.date").value("2026-10-03"))
                 .andExpect(jsonPath("$.splits.length()").value(0));
         assertThat(balance(cash)).isEqualTo(100);
 
-        mockMvc.perform(putJson("/api/v1/transactions/" + id, Map.of("type", "EXPENSE", "date", "2026-10-03",
-                        "accountId", card, "amount", 100, "categoryId", food), auth))
+        mockMvc.perform(putJson(
+                        "/api/v1/transactions/" + id,
+                        Map.of(
+                                "type",
+                                "EXPENSE",
+                                "date",
+                                "2026-10-03",
+                                "accountId",
+                                card,
+                                "amount",
+                                100,
+                                "categoryId",
+                                food),
+                        auth))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.toAccountId").doesNotExist())
                 .andExpect(jsonPath("$.splits[0].categoryId").value(food));
@@ -312,14 +477,42 @@ class TransactionControllerTest extends AbstractIntegrationTest {
         Long payee = id(json(postJson("/api/v1/payees", Map.of("name", "Silpo"), auth), 201));
         groceriesExpense.put("payeeId", payee);
         Long first = id(json(postJson("/api/v1/transactions", groceriesExpense, auth), 201));
-        Long second = id(json(postJson("/api/v1/transactions", Map.of("type", "TRANSFER", "date", "2026-10-01",
-                "accountId", card, "amount", 5, "toAccountId", cash), auth), 201));
-        Long third = id(json(postJson("/api/v1/transactions", Map.of("type", "INCOME", "date", "2026-10-05",
-                "accountId", cash, "amount", 7, "categoryId", salary), auth), 201));
+        Long second = id(json(
+                postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "TRANSFER",
+                                "date",
+                                "2026-10-01",
+                                "accountId",
+                                card,
+                                "amount",
+                                5,
+                                "toAccountId",
+                                cash),
+                        auth),
+                201));
+        Long third = id(json(
+                postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "INCOME",
+                                "date",
+                                "2026-10-05",
+                                "accountId",
+                                cash,
+                                "amount",
+                                7,
+                                "categoryId",
+                                salary),
+                        auth),
+                201));
         // Another user's transactions are never listed
         String otherAuth = loginNewUser();
-        Long otherAccount = id(json(postJson("/api/v1/accounts",
-                Map.of("name", "x", "type", "CASH", "currency", "UAH"), otherAuth), 201));
+        Long otherAccount = id(json(
+                postJson("/api/v1/accounts", Map.of("name", "x", "type", "CASH", "currency", "UAH"), otherAuth), 201));
         json(postJson("/api/v1/transactions", expense(otherAccount, 1), otherAuth), 201);
 
         assertThat(ids("")).containsExactly(third, second, first);
@@ -346,6 +539,7 @@ class TransactionControllerTest extends AbstractIntegrationTest {
     @SuppressWarnings("unchecked")
     private List<Long> ids(String query) throws Exception {
         Map<String, Object> page = json(get("/api/v1/transactions?" + query).header("Authorization", auth), 200);
-        return ((List<Map<String, Object>>) page.get("items")).stream().map(item -> id(item)).toList();
+        return ((List<Map<String, Object>>) page.get("items"))
+                .stream().map(item -> id(item)).toList();
     }
 }

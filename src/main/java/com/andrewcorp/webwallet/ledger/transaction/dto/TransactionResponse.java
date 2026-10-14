@@ -6,7 +6,6 @@ import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSource;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSplit;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,8 +33,11 @@ public record TransactionResponse(
     public record SplitResponse(Long id, Long categoryId, BigDecimal amount, String comment) {
 
         static SplitResponse from(TransactionSplit split) {
-            return new SplitResponse(split.getId(), split.getCategory() != null ? split.getCategory().getId() : null,
-                    split.getAmount(), split.getComment());
+            return new SplitResponse(
+                    split.getId(),
+                    split.getCategory() != null ? split.getCategory().getId() : null,
+                    split.getAmount(),
+                    split.getComment());
         }
     }
 
@@ -53,7 +55,9 @@ public record TransactionResponse(
                 transfer ? t.getToAccount().getCurrency() : null,
                 t.getOriginalAmount(),
                 t.getOriginalCurrency(),
-                t.getPayee() != null ? new NamedResponse(t.getPayee().getId(), t.getPayee().getName()) : null,
+                t.getPayee() != null
+                        ? new NamedResponse(t.getPayee().getId(), t.getPayee().getName())
+                        : null,
                 t.getComment(),
                 t.getSplits().stream().map(SplitResponse::from).toList(),
                 t.getTags().stream().map(Tag::getId).sorted().toList(),

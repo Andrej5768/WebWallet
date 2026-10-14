@@ -1,13 +1,12 @@
 package com.andrewcorp.webwallet.ledger.tag;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TagService {

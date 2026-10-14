@@ -6,18 +6,17 @@ import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import java.util.List;
+import java.util.Locale;
+import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver;
-
-import java.util.List;
-import java.util.Locale;
 
 @Configuration
 @EnableScheduling
@@ -49,9 +48,12 @@ public class WebConfig implements WebMvcConfigurer {
     public OpenAPI openApi() {
         return new OpenAPI()
                 .info(new Info().title("WebWallet API").version("v1"))
-                .components(new Components().addSecuritySchemes("bearer", new SecurityScheme()
-                        .type(SecurityScheme.Type.HTTP)
-                        .scheme("bearer")
-                        .bearerFormat("JWT")));
+                .components(new Components()
+                        .addSecuritySchemes(
+                                "bearer",
+                                new SecurityScheme()
+                                        .type(SecurityScheme.Type.HTTP)
+                                        .scheme("bearer")
+                                        .bearerFormat("JWT")));
     }
 }

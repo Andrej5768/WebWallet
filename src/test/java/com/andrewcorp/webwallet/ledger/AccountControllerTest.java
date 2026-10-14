@@ -1,18 +1,17 @@
 package com.andrewcorp.webwallet.ledger;
 
-import com.andrewcorp.webwallet.AbstractIntegrationTest;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.HashMap;
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import java.util.HashMap;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class AccountControllerTest extends AbstractIntegrationTest {
 
@@ -35,14 +34,16 @@ class AccountControllerTest extends AbstractIntegrationTest {
     void createAccountWithDefaults() throws Exception {
         Map<String, Object> card = json(postJson("/api/v1/accounts", account(" Mono ", "CARD", "UAH"), auth), 201);
 
-        assertThat(card).containsEntry("name", "Mono")
+        assertThat(card)
+                .containsEntry("name", "Mono")
                 .containsEntry("type", "CARD")
                 .containsEntry("currency", "UAH")
                 .containsEntry("inBudget", true)
                 .containsEntry("archived", false);
         assertThat(((Number) card.get("balance")).doubleValue()).isZero();
 
-        Map<String, Object> deposit = json(postJson("/api/v1/accounts", account("Deposit", "DEPOSIT", "USD"), auth), 201);
+        Map<String, Object> deposit =
+                json(postJson("/api/v1/accounts", account("Deposit", "DEPOSIT", "USD"), auth), 201);
         assertThat(deposit).containsEntry("inBudget", false);
     }
 
@@ -122,8 +123,12 @@ class AccountControllerTest extends AbstractIntegrationTest {
     void deleteOnlyWithoutTransactions() throws Exception {
         Long empty = id(json(postJson("/api/v1/accounts", account("Empty", "CASH", "UAH"), auth), 201));
         Long used = id(json(postJson("/api/v1/accounts", account("Used", "CASH", "UAH"), auth), 201));
-        json(postJson("/api/v1/transactions", Map.of("type", "EXPENSE", "date", "2026-10-01", "accountId", used,
-                "amount", 10), auth), 201);
+        json(
+                postJson(
+                        "/api/v1/transactions",
+                        Map.of("type", "EXPENSE", "date", "2026-10-01", "accountId", used, "amount", 10),
+                        auth),
+                201);
 
         mockMvc.perform(delete("/api/v1/accounts/" + empty).header("Authorization", auth))
                 .andExpect(status().isNoContent());

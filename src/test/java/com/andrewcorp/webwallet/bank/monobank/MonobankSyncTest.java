@@ -1,5 +1,18 @@
 package com.andrewcorp.webwallet.bank.monobank;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import com.andrewcorp.webwallet.bank.BankAccountLink;
 import com.andrewcorp.webwallet.bank.BankAccountLinkRepository;
@@ -26,15 +39,6 @@ import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSource;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.user.User;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.util.AopTestUtils;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.support.TransactionTemplate;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -44,19 +48,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.AopTestUtils;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class MonobankSyncTest extends AbstractIntegrationTest {
 
@@ -112,11 +111,24 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         card.setCardNumbers(List.of("1234"));
         existingCard = accounts.save(card);
 
-        when(client.clientInfo(TOKEN)).thenReturn(new ClientInfo("c1", "Test User", List.of(
-                new BankAccount("mono-black", 1_000_000, 0, "black", 980, List.of("537541******1234"), "UA1"),
-                new BankAccount("mono-iron", 6_000_000, 5_000_000, "iron", 980, List.of("444111******7777"), "UA2"),
-                new BankAccount("mono-usd", 10_000, 0, "white", 840, List.of("537541******5555"), "UA3")),
-                List.of(new Jar("mono-jar", "Trip", 980, 50_000))));
+        when(client.clientInfo(TOKEN))
+                .thenReturn(new ClientInfo(
+                        "c1",
+                        "Test User",
+                        List.of(
+                                new BankAccount(
+                                        "mono-black", 1_000_000, 0, "black", 980, List.of("537541******1234"), "UA1"),
+                                new BankAccount(
+                                        "mono-iron",
+                                        6_000_000,
+                                        5_000_000,
+                                        "iron",
+                                        980,
+                                        List.of("444111******7777"),
+                                        "UA2"),
+                                new BankAccount(
+                                        "mono-usd", 10_000, 0, "white", 840, List.of("537541******5555"), "UA3")),
+                        List.of(new Jar("mono-jar", "Trip", 980, 50_000))));
         when(client.statement(eq(TOKEN), anyString(), any(), any()))
                 .thenAnswer(invocation -> statements.getOrDefault(invocation.<String>getArgument(1), List.of()));
     }
@@ -128,11 +140,14 @@ class MonobankSyncTest extends AbstractIntegrationTest {
     }
 
     private BankConnection connection() {
-        return connections.findByUserIdAndProvider(user.getId(), BankProvider.MONOBANK).orElseThrow();
+        return connections
+                .findByUserIdAndProvider(user.getId(), BankProvider.MONOBANK)
+                .orElseThrow();
     }
 
     private BankAccountLink link(String externalId) {
-        return links.findByConnectionAndExternalAccountId(connection(), externalId).orElseThrow();
+        return links.findByConnectionAndExternalAccountId(connection(), externalId)
+                .orElseThrow();
     }
 
     private Account linkedAccount(String externalId) {
@@ -155,14 +170,16 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         return Instant.now().minus(hours, ChronoUnit.HOURS).getEpochSecond();
     }
 
-    private static StatementItem item(String id, long time, String description, Integer mcc, long amount, long balance) {
+    private static StatementItem item(
+            String id, long time, String description, Integer mcc, long amount, long balance) {
         return new StatementItem(id, time, description, mcc, false, amount, amount, 980, balance, null, null);
     }
 
     private List<Transaction> userTransactions() {
         return tx.execute(status -> {
             List<Transaction> all = transactions.findAll().stream()
-                    .filter(t -> t.getUserId().equals(user.getId())).toList();
+                    .filter(t -> t.getUserId().equals(user.getId()))
+                    .toList();
             // Touch lazy associations inside the transaction
             all.forEach(t -> {
                 t.getAccount().getId();
@@ -234,12 +251,34 @@ class MonobankSyncTest extends AbstractIntegrationTest {
 
     @Test
     void importsOperations() throws Exception {
-        statements.put("mono-black", List.of(
-                new StatementItem("op-income", hoursAgo(30), "Salary", 4829, false, 500_000, 500_000, 980, 1_500_000,
-                        null, "ACME LLC"),
-                item("op-silpo", hoursAgo(20), "Silpo", 5411, -30_051, 1_469_949),
-                new StatementItem("op-steam", hoursAgo(10), "Steam", 5816, false, -90_498, -2_000, 840, 1_379_451,
-                        "game", null)));
+        statements.put(
+                "mono-black",
+                List.of(
+                        new StatementItem(
+                                "op-income",
+                                hoursAgo(30),
+                                "Salary",
+                                4829,
+                                false,
+                                500_000,
+                                500_000,
+                                980,
+                                1_500_000,
+                                null,
+                                "ACME LLC"),
+                        item("op-silpo", hoursAgo(20), "Silpo", 5411, -30_051, 1_469_949),
+                        new StatementItem(
+                                "op-steam",
+                                hoursAgo(10),
+                                "Steam",
+                                5816,
+                                false,
+                                -90_498,
+                                -2_000,
+                                840,
+                                1_379_451,
+                                "game",
+                                null)));
         connect(LocalDate.now().minusDays(5));
 
         assertThat(syncAll()).isEqualTo(4);
@@ -268,7 +307,10 @@ class MonobankSyncTest extends AbstractIntegrationTest {
     }
 
     private static Transaction find(List<Transaction> transactions, String externalId) {
-        return transactions.stream().filter(t -> externalId.equals(t.getExternalId())).findFirst().orElseThrow();
+        return transactions.stream()
+                .filter(t -> externalId.equals(t.getExternalId()))
+                .findFirst()
+                .orElseThrow();
     }
 
     @Test
@@ -290,20 +332,27 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         manual.setAmount(new BigDecimal("250"));
         Long manualId = transactions.save(manual).getId();
 
-        statements.put("mono-black", List.of(
-                item("op-zen", hoursAgo(24), "Shop", 5411, -10_000, 0),
-                item("op-manual", hoursAgo(20), "Cafe", 5812, -25_000, 0),
-                new StatementItem("op-hold", hoursAgo(10), "Hotel", 7011, true, -100_00, -100_00, 980, 0, null, null)));
+        statements.put(
+                "mono-black",
+                List.of(
+                        item("op-zen", hoursAgo(24), "Shop", 5411, -10_000, 0),
+                        item("op-manual", hoursAgo(20), "Cafe", 5812, -25_000, 0),
+                        new StatementItem(
+                                "op-hold", hoursAgo(10), "Hotel", 7011, true, -100_00, -100_00, 980, 0, null, null)));
         connect(LocalDate.now().minusDays(5));
         syncAll();
 
         assertThat(userTransactions()).hasSize(3);
-        assertThat(transactions.findById(manualId).orElseThrow().getBankReference()).isEqualTo("op-manual");
+        assertThat(transactions.findById(manualId).orElseThrow().getBankReference())
+                .isEqualTo("op-manual");
 
         // The hold is settled with another amount; a repeated synchronization updates it
-        statements.put("mono-black", List.of(
-                item("op-zen", hoursAgo(24), "Shop", 5411, -10_000, 0),
-                new StatementItem("op-hold", hoursAgo(10), "Hotel", 7011, false, -120_00, -120_00, 980, 0, null, null)));
+        statements.put(
+                "mono-black",
+                List.of(
+                        item("op-zen", hoursAgo(24), "Shop", 5411, -10_000, 0),
+                        new StatementItem(
+                                "op-hold", hoursAgo(10), "Hotel", 7011, false, -120_00, -120_00, 980, 0, null, null)));
         resync("mono-black");
 
         List<Transaction> after = userTransactions();
@@ -333,7 +382,8 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         assertThat(imported).singleElement().satisfies(transfer -> {
             assertThat(transfer.getType()).isEqualTo(TransactionType.TRANSFER);
             assertThat(transfer.getAccount().getId()).isEqualTo(existingCard.getId());
-            assertThat(transfer.getToAccount().getId()).isEqualTo(linkedAccount("mono-iron").getId());
+            assertThat(transfer.getToAccount().getId())
+                    .isEqualTo(linkedAccount("mono-iron").getId());
             assertThat(transfer.getToAmount()).isEqualByComparingTo("1000");
             assertThat(transfer.getSplits()).isEmpty();
         });
@@ -374,7 +424,12 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         connect(LocalDate.now().minusDays(5));
         syncAll();
 
-        assertThat(find(userTransactions(), "op-uber").getSplits().get(0).getCategory().getId()).isEqualTo(taxi.getId());
+        assertThat(find(userTransactions(), "op-uber")
+                        .getSplits()
+                        .get(0)
+                        .getCategory()
+                        .getId())
+                .isEqualTo(taxi.getId());
     }
 
     @Test
@@ -419,9 +474,11 @@ class MonobankSyncTest extends AbstractIntegrationTest {
 
     @Test
     void balanceOfCreatedAccountMatchesTheBank() throws Exception {
-        statements.put("mono-iron", List.of(
-                item("op-1", hoursAgo(30), "Shop", 5411, -50_000, 6_500_000),
-                item("op-2", hoursAgo(10), "Shop", 5411, -20_000, 6_480_000)));
+        statements.put(
+                "mono-iron",
+                List.of(
+                        item("op-1", hoursAgo(30), "Shop", 5411, -50_000, 6_500_000),
+                        item("op-2", hoursAgo(10), "Shop", 5411, -20_000, 6_480_000)));
         connect(LocalDate.now().minusDays(5));
 
         syncAll();
@@ -430,7 +487,8 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         // Own funds: 64 800 on the card minus the 50 000 credit limit
         assertThat(accountService.balances(user.getId()).get(iron.getId())).isEqualByComparingTo("14800");
         // An existing account is not adjusted
-        assertThat(accountService.balances(user.getId()).get(existingCard.getId())).isEqualByComparingTo("0");
+        assertThat(accountService.balances(user.getId()).get(existingCard.getId()))
+                .isEqualByComparingTo("0");
     }
 
     // webhook
@@ -441,21 +499,70 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         String secret = connection().getWebhookSecret();
 
         mockMvc.perform(get("/api/v1/banks/monobank/webhook/" + secret)).andExpect(status().isOk());
-        mockMvc.perform(postJson("/api/v1/banks/monobank/webhook/" + secret, Map.of("type", "StatementItem",
-                        "data", Map.of("account", "mono-black", "statementItem", Map.of(
-                                "id", "op-push", "time", hoursAgo(1), "description", "Coffee", "mcc", 5814,
-                                "hold", true, "amount", -6_500, "operationAmount", -6_500, "currencyCode", 980,
-                                "balance", 993_500)))))
+        mockMvc.perform(postJson(
+                        "/api/v1/banks/monobank/webhook/" + secret,
+                        Map.of(
+                                "type",
+                                "StatementItem",
+                                "data",
+                                Map.of(
+                                        "account",
+                                        "mono-black",
+                                        "statementItem",
+                                        Map.of(
+                                                "id",
+                                                "op-push",
+                                                "time",
+                                                hoursAgo(1),
+                                                "description",
+                                                "Coffee",
+                                                "mcc",
+                                                5814,
+                                                "hold",
+                                                true,
+                                                "amount",
+                                                -6_500,
+                                                "operationAmount",
+                                                -6_500,
+                                                "currencyCode",
+                                                980,
+                                                "balance",
+                                                993_500)))))
                 .andExpect(status().isOk());
         // Unknown secrets and accounts are ignored
-        mockMvc.perform(postJson("/api/v1/banks/monobank/webhook/unknown", Map.of("type", "StatementItem",
-                        "data", Map.of("account", "mono-black", "statementItem", Map.of(
-                                "id", "op-other", "time", hoursAgo(1), "description", "Coffee", "mcc", 5814,
-                                "hold", false, "amount", -100, "operationAmount", -100, "currencyCode", 980,
-                                "balance", 0)))))
+        mockMvc.perform(postJson(
+                        "/api/v1/banks/monobank/webhook/unknown",
+                        Map.of(
+                                "type",
+                                "StatementItem",
+                                "data",
+                                Map.of(
+                                        "account",
+                                        "mono-black",
+                                        "statementItem",
+                                        Map.of(
+                                                "id",
+                                                "op-other",
+                                                "time",
+                                                hoursAgo(1),
+                                                "description",
+                                                "Coffee",
+                                                "mcc",
+                                                5814,
+                                                "hold",
+                                                false,
+                                                "amount",
+                                                -100,
+                                                "operationAmount",
+                                                -100,
+                                                "currencyCode",
+                                                980,
+                                                "balance",
+                                                0)))))
                 .andExpect(status().isOk());
 
-        assertThat(userTransactions()).singleElement()
+        assertThat(userTransactions())
+                .singleElement()
                 .satisfies(t -> assertThat(t.getAmount()).isEqualByComparingTo("65"));
         assertThat(link("mono-black").getBankBalance()).isEqualByComparingTo("9935");
     }
@@ -472,7 +579,11 @@ class MonobankSyncTest extends AbstractIntegrationTest {
             ReflectionTestUtils.setField(target, "publicUrl", "");
         }
 
-        verify(client).setWebhook(TOKEN, "https://wallet.test/api/v1/banks/monobank/webhook/" + connection().getWebhookSecret());
+        verify(client)
+                .setWebhook(
+                        TOKEN,
+                        "https://wallet.test/api/v1/banks/monobank/webhook/"
+                                + connection().getWebhookSecret());
         mockMvc.perform(get("/api/v1/banks/monobank").header("Authorization", auth))
                 .andExpect(jsonPath("$.webhook").value(true));
     }
@@ -486,13 +597,17 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         Account usdAccount = linkedAccount("mono-usd");
         Account otherUah = accounts.save(new Account(user.getId(), "Other", AccountType.CARD, "UAH"));
 
-        mockMvc.perform(putJson("/api/v1/banks/monobank/accounts/" + blackLink, Map.of("accountId", usdAccount.getId()), auth))
+        mockMvc.perform(putJson(
+                        "/api/v1/banks/monobank/accounts/" + blackLink, Map.of("accountId", usdAccount.getId()), auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("accountId"));
-        mockMvc.perform(putJson("/api/v1/banks/monobank/accounts/" + blackLink,
-                        Map.of("accountId", linkedAccount("mono-iron").getId()), auth))
+        mockMvc.perform(putJson(
+                        "/api/v1/banks/monobank/accounts/" + blackLink,
+                        Map.of("accountId", linkedAccount("mono-iron").getId()),
+                        auth))
                 .andExpect(status().isBadRequest());
-        mockMvc.perform(putJson("/api/v1/banks/monobank/accounts/" + blackLink, Map.of("accountId", otherUah.getId()), auth))
+        mockMvc.perform(putJson(
+                        "/api/v1/banks/monobank/accounts/" + blackLink, Map.of("accountId", otherUah.getId()), auth))
                 .andExpect(status().isOk());
         assertThat(linkedAccount("mono-black").getId()).isEqualTo(otherUah.getId());
 
@@ -529,9 +644,11 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         // The connection request was just made
         assertThat(service.connectionsReadyForRequest()).isEmpty();
 
-        tx.executeWithoutResult(status -> connection().setLastRequestAt(Instant.now().minus(2, ChronoUnit.MINUTES)));
+        tx.executeWithoutResult(
+                status -> connection().setLastRequestAt(Instant.now().minus(2, ChronoUnit.MINUTES)));
         doThrow(new ApiException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE))
-                .when(client).statement(anyString(), anyString(), any(), any());
+                .when(client)
+                .statement(anyString(), anyString(), any(), any());
         task.sync();
 
         assertThat(connection().getLastError()).isEqualTo("EXTERNAL_SERVICE_UNAVAILABLE");

@@ -1,11 +1,10 @@
 package com.andrewcorp.webwallet.ledger.rule;
 
 import com.andrewcorp.webwallet.ledger.payee.Payee;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 public interface CategorizationRuleRepository extends JpaRepository<CategorizationRule, Long> {
 

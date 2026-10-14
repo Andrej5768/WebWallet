@@ -53,7 +53,8 @@ public class AuthMailListener {
         mail.setFrom(properties.mail().from());
         mail.setTo(event.email());
         mail.setSubject(messages.getMessage(prefix + ".subject", null, event.locale()));
-        mail.setText(messages.getMessage(prefix + ".body", new Object[]{event.firstName(), link, validity}, event.locale()));
+        mail.setText(messages.getMessage(
+                prefix + ".body", new Object[] {event.firstName(), link, validity}, event.locale()));
         try {
             mailSender.send(mail);
         } catch (MailException e) {

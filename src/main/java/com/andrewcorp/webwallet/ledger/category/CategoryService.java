@@ -5,13 +5,12 @@ import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.ledger.category.dto.CategoryRequest;
 import com.andrewcorp.webwallet.ledger.category.dto.CategoryResponse;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CategoryService {
@@ -33,9 +32,11 @@ public class CategoryService {
                 .collect(Collectors.groupingBy(Category::getParentId));
         return all.stream()
                 .filter(category -> category.getParentId() == null)
-                .map(parent -> CategoryResponse.from(parent, childrenByParent.getOrDefault(parent.getId(), List.of()).stream()
-                        .map(child -> CategoryResponse.from(child, List.of()))
-                        .toList()))
+                .map(parent -> CategoryResponse.from(
+                        parent,
+                        childrenByParent.getOrDefault(parent.getId(), List.of()).stream()
+                                .map(child -> CategoryResponse.from(child, List.of()))
+                                .toList()))
                 .toList();
     }
 
@@ -55,7 +56,11 @@ public class CategoryService {
         List<Category> children = categories.findByParentId(category.getId());
         // Subcategories always have the kind of their parent
         children.forEach(child -> child.setKind(category.getKind()));
-        return CategoryResponse.from(category, children.stream().map(child -> CategoryResponse.from(child, List.of())).toList());
+        return CategoryResponse.from(
+                category,
+                children.stream()
+                        .map(child -> CategoryResponse.from(child, List.of()))
+                        .toList());
     }
 
     /** Only unused categories without subcategories can be deleted; others should be archived. */
@@ -78,7 +83,8 @@ public class CategoryService {
             if (Objects.equals(request.parentId(), category.getId())) {
                 throw ApiException.invalid("parentId", "error.category.parent");
             }
-            Category parent = categories.findByIdAndUserId(request.parentId(), userId)
+            Category parent = categories
+                    .findByIdAndUserId(request.parentId(), userId)
                     .orElseThrow(() -> ApiException.invalid("parentId", "error.category.parent"));
             if (parent.getParentId() != null) {
                 throw ApiException.invalid("parentId", "error.category.parent");

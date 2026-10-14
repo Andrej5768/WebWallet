@@ -1,15 +1,14 @@
 package com.andrewcorp.webwallet.ledger;
 
-import com.andrewcorp.webwallet.AbstractIntegrationTest;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
-import java.util.Map;
-
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import java.util.Map;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tags and payees have the same API. */
 class TagAndPayeeControllerTest extends AbstractIntegrationTest {
@@ -43,9 +42,7 @@ class TagAndPayeeControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(putJson(url + "/" + id, Map.of("name", "Stolen"), otherAuth))
                 .andExpect(status().isNotFound());
 
-        mockMvc.perform(delete(url + "/" + id).header("Authorization", auth))
-                .andExpect(status().isNoContent());
-        mockMvc.perform(delete(url + "/" + id).header("Authorization", auth))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(delete(url + "/" + id).header("Authorization", auth)).andExpect(status().isNoContent());
+        mockMvc.perform(delete(url + "/" + id).header("Authorization", auth)).andExpect(status().isNotFound());
     }
 }

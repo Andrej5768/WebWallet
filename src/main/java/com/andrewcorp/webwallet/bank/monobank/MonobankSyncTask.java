@@ -20,7 +20,9 @@ public class MonobankSyncTask {
         this.monobank = monobank;
     }
 
-    @Scheduled(fixedDelayString = "${app.monobank.sync-delay:15s}", initialDelayString = "${app.monobank.sync-delay:15s}")
+    @Scheduled(
+            fixedDelayString = "${app.monobank.sync-delay:15s}",
+            initialDelayString = "${app.monobank.sync-delay:15s}")
     public void sync() {
         for (Long connectionId : monobank.connectionsReadyForRequest()) {
             try {

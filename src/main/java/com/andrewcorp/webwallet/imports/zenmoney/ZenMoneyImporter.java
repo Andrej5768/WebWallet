@@ -20,9 +20,6 @@ import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
 import jakarta.persistence.EntityManager;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -31,6 +28,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Imports accounts, categories, payees and transactions from a Zen Money dump. Imported records keep their Zen Money
@@ -43,6 +42,7 @@ public class ZenMoneyImporter {
     static final String SOURCE = "ZENMONEY";
     /** Budget of the whole month, added on top of the category budgets in Zen Money. */
     private static final String TOTAL_BUDGET_TAG = "00000000-0000-0000-0000-000000000000";
+
     private static final int MAX_PAYEE_LENGTH = 200;
     private static final int MAX_COMMENT_LENGTH = 1000;
 
@@ -55,9 +55,15 @@ public class ZenMoneyImporter {
     private final BudgetRepository budget;
     private final EntityManager entityManager;
 
-    public ZenMoneyImporter(UserRepository users, AccountRepository accounts, AccountService accountService,
-                            CategoryRepository categories, PayeeRepository payees, TransactionRepository transactions,
-                            BudgetRepository budget, EntityManager entityManager) {
+    public ZenMoneyImporter(
+            UserRepository users,
+            AccountRepository accounts,
+            AccountService accountService,
+            CategoryRepository categories,
+            PayeeRepository payees,
+            TransactionRepository transactions,
+            BudgetRepository budget,
+            EntityManager entityManager) {
         this.users = users;
         this.accounts = accounts;
         this.accountService = accountService;
@@ -84,6 +90,7 @@ public class ZenMoneyImporter {
         private final Map<String, ZenMoneyDump.Tag> tagsById = new HashMap<>();
         /** Key: Zen Money tag id and the kind; a tag used for both expenses and income becomes two categories. */
         private final Map<String, Category> categoriesByKey = new HashMap<>();
+
         private final Map<String, String> merchantNames = new HashMap<>();
         private final Map<String, Payee> payeesByName = new HashMap<>();
 
@@ -141,7 +148,8 @@ public class ZenMoneyImporter {
             account.setArchived(Boolean.TRUE.equals(source.archive()));
             account.setCreditLimit(positive(source.creditLimit()));
             account.setInterestRate(positive(source.percent()));
-            account.setCardNumbers(source.syncID() == null || source.syncID().isEmpty() ? null : List.copyOf(source.syncID()));
+            account.setCardNumbers(
+                    source.syncID() == null || source.syncID().isEmpty() ? null : List.copyOf(source.syncID()));
             accountsById.put(source.id(), accounts.save(account));
         }
 
@@ -176,7 +184,8 @@ public class ZenMoneyImporter {
             transaction.setDate(LocalDate.parse(source.date()));
             transaction.setComment(truncate(source.comment(), MAX_COMMENT_LENGTH));
             transaction.setPayee(payee(source));
-            transaction.setBankReference(source.outcomeBankID() != null ? source.outcomeBankID() : source.incomeBankID());
+            transaction.setBankReference(
+                    source.outcomeBankID() != null ? source.outcomeBankID() : source.incomeBankID());
 
             boolean sameAccount = incomeAccount == outcomeAccount;
             if (!sameAccount && income.signum() > 0 && outcome.signum() > 0) {
@@ -200,9 +209,14 @@ public class ZenMoneyImporter {
             transaction.setType(isIncome ? TransactionType.INCOME : TransactionType.EXPENSE);
             transaction.setAccount(account);
             transaction.setAmount(net.abs());
-            original(transaction, account, isIncome ? source.opIncome() : source.opOutcome(),
+            original(
+                    transaction,
+                    account,
+                    isIncome ? source.opIncome() : source.opOutcome(),
                     isIncome ? source.opIncomeInstrument() : source.opOutcomeInstrument());
-            String tagId = source.tag() == null || source.tag().isEmpty() ? null : source.tag().get(0);
+            String tagId = source.tag() == null || source.tag().isEmpty()
+                    ? null
+                    : source.tag().get(0);
             transaction.replaceSplits(List.of(new SplitData(category(tagId, kind), net.abs(), null)));
             return transaction;
         }
@@ -210,8 +224,11 @@ public class ZenMoneyImporter {
         /** Monthly expense plans become envelope assignments of the month. */
         private void importBudgets() {
             for (ZenMoneyDump.Budget source : list(dump.budget())) {
-                if (source.tag() == null || TOTAL_BUDGET_TAG.equals(source.tag()) || source.outcome() == null
-                        || source.outcome().signum() <= 0 || source.date() == null) {
+                if (source.tag() == null
+                        || TOTAL_BUDGET_TAG.equals(source.tag())
+                        || source.outcome() == null
+                        || source.outcome().signum() <= 0
+                        || source.date() == null) {
                     continue;
                 }
                 Category category = category(source.tag(), CategoryKind.EXPENSE);
@@ -219,9 +236,10 @@ public class ZenMoneyImporter {
                     continue;
                 }
                 LocalDate month = LocalDate.parse(source.date()).withDayOfMonth(1);
-                budget.findByUserIdAndMonthAndCategory(userId, month, category).ifPresentOrElse(
-                        assignment -> assignment.setAmount(source.outcome()),
-                        () -> budget.save(new BudgetAssignment(userId, month, category, source.outcome())));
+                budget.findByUserIdAndMonthAndCategory(userId, month, category)
+                        .ifPresentOrElse(
+                                assignment -> assignment.setAmount(source.outcome()),
+                                () -> budget.save(new BudgetAssignment(userId, month, category, source.outcome())));
                 result.budgetsImported++;
             }
         }
@@ -246,11 +264,12 @@ public class ZenMoneyImporter {
             }
             // A tag is imported with its natural kind under its own id; a twin of the other kind gets a suffix
             String externalId = kind == naturalKind(tag) ? tag.id() : key;
-            Category category = categories.findByUserIdAndExternalSourceAndExternalId(userId, SOURCE, externalId)
+            Category category = categories
+                    .findByUserIdAndExternalSourceAndExternalId(userId, SOURCE, externalId)
                     .orElseGet(() -> {
                         Category parent = tag.parent() == null ? null : category(tag.parent(), kind);
-                        Category created = new Category(userId, parent == null ? null : parent.getId(),
-                                name(tag.title(), "Category"), kind);
+                        Category created = new Category(
+                                userId, parent == null ? null : parent.getId(), name(tag.title(), "Category"), kind);
                         created.setArchived(Boolean.TRUE.equals(tag.archive()));
                         created.setExternal(SOURCE, externalId);
                         result.categoriesCreated++;

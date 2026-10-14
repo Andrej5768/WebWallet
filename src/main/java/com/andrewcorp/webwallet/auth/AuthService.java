@@ -14,16 +14,15 @@ import com.andrewcorp.webwallet.ledger.category.DefaultCategories;
 import com.andrewcorp.webwallet.mail.AuthMailEvent;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
@@ -40,9 +39,16 @@ public class AuthService {
     /** Compared against when the user does not exist, so that response time does not reveal registered emails. */
     private final String dummyPasswordHash;
 
-    public AuthService(UserRepository users, UserTokenRepository userTokens, TokenService tokenService,
-                       LoginAttemptService loginAttempts, PasswordEncoder passwordEncoder, ApplicationEventPublisher events,
-                       AppProperties properties, DefaultCategories defaultCategories, Clock clock) {
+    public AuthService(
+            UserRepository users,
+            UserTokenRepository userTokens,
+            TokenService tokenService,
+            LoginAttemptService loginAttempts,
+            PasswordEncoder passwordEncoder,
+            ApplicationEventPublisher events,
+            AppProperties properties,
+            DefaultCategories defaultCategories,
+            Clock clock) {
         this.users = users;
         this.userTokens = userTokens;
         this.tokenService = tokenService;
@@ -61,8 +67,12 @@ public class AuthService {
         if (users.existsByEmail(email)) {
             throw new ApiException(ErrorCode.EMAIL_TAKEN);
         }
-        User user = users.save(new User(email, passwordEncoder.encode(request.password()),
-                request.firstName().trim(), request.lastName().trim(), supportedLanguage(locale)));
+        User user = users.save(new User(
+                email,
+                passwordEncoder.encode(request.password()),
+                request.firstName().trim(),
+                request.lastName().trim(),
+                supportedLanguage(locale)));
         defaultCategories.create(user.getId(), Locale.forLanguageTag(user.getLocale()));
         sendToken(user, UserTokenType.EMAIL_VERIFICATION);
         return user;
@@ -139,17 +149,19 @@ public class AuthService {
                 ? properties.emailVerificationTtl()
                 : properties.passwordResetTtl();
         String rawToken = TokenHasher.newToken();
-        userTokens.save(new UserToken(user, type, TokenHasher.hash(rawToken), clock.instant().plus(ttl)));
+        userTokens.save(new UserToken(
+                user, type, TokenHasher.hash(rawToken), clock.instant().plus(ttl)));
         AuthMailEvent.Type mailType = type == UserTokenType.EMAIL_VERIFICATION
                 ? AuthMailEvent.Type.EMAIL_VERIFICATION
                 : AuthMailEvent.Type.PASSWORD_RESET;
-        events.publishEvent(new AuthMailEvent(mailType, user.getEmail(), user.getFirstName(),
-                Locale.forLanguageTag(user.getLocale()), rawToken));
+        events.publishEvent(new AuthMailEvent(
+                mailType, user.getEmail(), user.getFirstName(), Locale.forLanguageTag(user.getLocale()), rawToken));
     }
 
     private UserToken useToken(String rawToken, UserTokenType type) {
         Instant now = clock.instant();
-        UserToken token = userTokens.findByTokenHashAndType(TokenHasher.hash(rawToken), type)
+        UserToken token = userTokens
+                .findByTokenHashAndType(TokenHasher.hash(rawToken), type)
                 .filter(candidate -> candidate.isUsable(now))
                 .orElseThrow(() -> new ApiException(ErrorCode.INVALID_TOKEN));
         token.markUsed(now);

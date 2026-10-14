@@ -1,9 +1,8 @@
 package com.andrewcorp.webwallet.ledger.category;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CategoryRepository extends JpaRepository<Category, Long> {
 
@@ -13,7 +12,8 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     boolean existsByParentId(Long parentId);
 
-    Optional<Category> findByUserIdAndExternalSourceAndExternalId(Long userId, String externalSource, String externalId);
+    Optional<Category> findByUserIdAndExternalSourceAndExternalId(
+            Long userId, String externalSource, String externalId);
 
     List<Category> findByParentId(Long parentId);
 }

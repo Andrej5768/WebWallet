@@ -1,7 +1,12 @@
 package com.andrewcorp.webwallet.imports.privatbank;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -12,12 +17,6 @@ import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 class PdfTextTest {
 
     private static byte[] pdf;
@@ -25,8 +24,9 @@ class PdfTextTest {
 
     @BeforeAll
     static void createPdf() throws Exception {
-        try (PDDocument document = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            for (String line : new String[]{"Statement page one", "Statement page two"}) {
+        try (PDDocument document = new PDDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            for (String line : new String[] {"Statement page one", "Statement page two"}) {
                 PDPage page = new PDPage();
                 document.addPage(page);
                 try (PDPageContentStream content = new PDPageContentStream(document, page)) {
@@ -50,7 +50,9 @@ class PdfTextTest {
     @Test
     void pdfWrappedInSignedContainer() throws Exception {
         // Privat24 statements come as a CMS / PKCS#7 container with the PDF inside
-        byte[] signed = new CMSSignedDataGenerator().generate(new CMSProcessableByteArray(pdf), true).getEncoded();
+        byte[] signed = new CMSSignedDataGenerator()
+                .generate(new CMSProcessableByteArray(pdf), true)
+                .getEncoded();
         assertThat(signed[0]).isEqualTo((byte) 0x30);
 
         assertThat(pdfText.extract(signed)).contains("Statement page one");
@@ -71,7 +73,8 @@ class PdfTextTest {
     @Test
     void notAPdf() {
         assertThatThrownBy(() -> pdfText.extract("hello".getBytes(StandardCharsets.US_ASCII)))
-                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_IMPORT_FILE));
+                .isInstanceOfSatisfying(
+                        ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_IMPORT_FILE));
         assertThatThrownBy(() -> pdfText.extract("%PDF-1.7 broken %%EOF".getBytes(StandardCharsets.US_ASCII)))
                 .isInstanceOf(ApiException.class);
     }

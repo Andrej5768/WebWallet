@@ -10,7 +10,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-
 import java.time.Instant;
 import java.util.Locale;
 
@@ -59,8 +58,7 @@ public class User {
     @Column(nullable = false)
     private Instant updatedAt;
 
-    protected User() {
-    }
+    protected User() {}
 
     public User(String email, String passwordHash, String firstName, String lastName, String locale) {
         this.email = normalizeEmail(email);

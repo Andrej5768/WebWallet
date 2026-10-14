@@ -13,11 +13,10 @@ import com.andrewcorp.webwallet.ledger.transaction.Transaction.SplitData;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSplit;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.Optional;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RuleService {
@@ -28,8 +27,12 @@ public class RuleService {
     private final TransactionRepository transactions;
     private final CategorySuggester suggester;
 
-    public RuleService(CategorizationRuleRepository rules, CategoryRepository categories, PayeeRepository payees,
-                       TransactionRepository transactions, CategorySuggester suggester) {
+    public RuleService(
+            CategorizationRuleRepository rules,
+            CategoryRepository categories,
+            PayeeRepository payees,
+            TransactionRepository transactions,
+            CategorySuggester suggester) {
         this.rules = rules;
         this.categories = categories;
         this.payees = payees;
@@ -39,7 +42,9 @@ public class RuleService {
 
     @Transactional(readOnly = true)
     public List<RuleResponse> list(Long userId) {
-        return rules.findByUserIdOrderByIdAsc(userId).stream().map(RuleResponse::from).toList();
+        return rules.findByUserIdOrderByIdAsc(userId).stream()
+                .map(RuleResponse::from)
+                .toList();
     }
 
     @Transactional
@@ -89,12 +94,14 @@ public class RuleService {
         }
         int categorized = 0;
         for (Transaction transaction : transactions.findUncategorized(userId)) {
-            CategoryKind kind = transaction.getType() == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
-            Optional<Category> category = suggester.byRule(userRules, transaction.getPayee(), transaction.getMcc(),
-                    transaction.getBankCategory(), kind);
+            CategoryKind kind =
+                    transaction.getType() == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
+            Optional<Category> category = suggester.byRule(
+                    userRules, transaction.getPayee(), transaction.getMcc(), transaction.getBankCategory(), kind);
             if (category.isPresent()) {
                 TransactionSplit split = transaction.getSplits().get(0);
-                transaction.replaceSplits(List.of(new SplitData(category.get(), split.getAmount(), split.getComment())));
+                transaction.replaceSplits(
+                        List.of(new SplitData(category.get(), split.getAmount(), split.getComment())));
                 categorized++;
             }
         }
@@ -102,20 +109,29 @@ public class RuleService {
     }
 
     private void apply(Long userId, CategorizationRule rule, RuleRequest request) {
-        boolean hasCondition = request.payeeId() != null || notBlank(request.payeePattern()) || request.mcc() != null
+        boolean hasCondition = request.payeeId() != null
+                || notBlank(request.payeePattern())
+                || request.mcc() != null
                 || notBlank(request.bankCategory());
         if (!hasCondition) {
             throw ApiException.invalid("payeeId", "error.rule.condition");
         }
-        rule.setPayee(request.payeeId() == null ? null : payees.findByIdAndUserId(request.payeeId(), userId)
-                .orElseThrow(() -> ApiException.invalid("payeeId", "error.notFound")));
-        rule.setPayeePattern(notBlank(request.payeePattern()) ? request.payeePattern().trim() : null);
+        rule.setPayee(
+                request.payeeId() == null
+                        ? null
+                        : payees.findByIdAndUserId(request.payeeId(), userId)
+                                .orElseThrow(() -> ApiException.invalid("payeeId", "error.notFound")));
+        rule.setPayeePattern(
+                notBlank(request.payeePattern()) ? request.payeePattern().trim() : null);
         rule.setMcc(request.mcc());
-        rule.setBankCategory(notBlank(request.bankCategory()) ? request.bankCategory().trim() : null);
+        rule.setBankCategory(
+                notBlank(request.bankCategory()) ? request.bankCategory().trim() : null);
     }
 
     private Category category(Long userId, Long id) {
-        return categories.findByIdAndUserId(id, userId).orElseThrow(() -> ApiException.invalid("categoryId", "error.notFound"));
+        return categories
+                .findByIdAndUserId(id, userId)
+                .orElseThrow(() -> ApiException.invalid("categoryId", "error.notFound"));
     }
 
     private static boolean notBlank(String value) {

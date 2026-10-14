@@ -1,11 +1,10 @@
 package com.andrewcorp.webwallet.common.crypto;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.Base64;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.util.Base64;
+import org.junit.jupiter.api.Test;
 
 class SecretCipherTest {
 

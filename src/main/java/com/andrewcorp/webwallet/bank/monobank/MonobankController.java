@@ -50,7 +50,8 @@ public class MonobankController {
     @Operation(summary = "Link a Monobank card or jar to another account, or stop synchronizing it with a null account")
     @SecurityRequirement(name = "bearer")
     @PutMapping("/accounts/{linkId}")
-    public ConnectionResponse link(@CurrentUserId Long userId, @PathVariable Long linkId, @RequestBody LinkRequest request) {
+    public ConnectionResponse link(
+            @CurrentUserId Long userId, @PathVariable Long linkId, @RequestBody LinkRequest request) {
         return monobank.link(userId, linkId, request.accountId());
     }
 
@@ -72,16 +73,16 @@ public class MonobankController {
     @Hidden
     @PostMapping("/webhook/{secret}")
     public void webhook(@PathVariable String secret, @RequestBody WebhookEvent event) {
-        if ("StatementItem".equals(event.type()) && event.data() != null && event.data().statementItem() != null) {
+        if ("StatementItem".equals(event.type())
+                && event.data() != null
+                && event.data().statementItem() != null) {
             monobank.handleWebhook(secret, event.data().account(), event.data().statementItem());
         }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record WebhookEvent(String type, WebhookData data) {
-    }
+    public record WebhookEvent(String type, WebhookData data) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record WebhookData(String account, StatementItem statementItem) {
-    }
+    public record WebhookData(String account, StatementItem statementItem) {}
 }

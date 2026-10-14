@@ -11,15 +11,14 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.time.Clock;
-import java.time.LocalDate;
-import java.time.YearMonth;
 
 /**
  * Without a period, reports cover the last 12 months including the current one.
@@ -42,37 +41,41 @@ public class ReportController {
 
     @Operation(summary = "Spending by category")
     @GetMapping("/spending")
-    public SpendingResponse spending(@CurrentUserId Long userId,
-                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+    public SpendingResponse spending(
+            @CurrentUserId Long userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         Period period = period(from, to);
         return reportService.spending(userId, period.from(), period.to());
     }
 
     @Operation(summary = "Spending by payee, largest first")
     @GetMapping("/payees")
-    public PayeesResponse payees(@CurrentUserId Long userId,
-                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-                                 @RequestParam(defaultValue = "20") @Min(1) @Max(200) int limit) {
+    public PayeesResponse payees(
+            @CurrentUserId Long userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(200) int limit) {
         Period period = period(from, to);
         return reportService.payees(userId, period.from(), period.to(), limit);
     }
 
     @Operation(summary = "Income and expenses per month and the savings rate")
     @GetMapping("/income-expense")
-    public IncomeExpenseResponse incomeExpense(@CurrentUserId Long userId,
-                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+    public IncomeExpenseResponse incomeExpense(
+            @CurrentUserId Long userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         Period period = period(from, to);
         return reportService.incomeExpense(userId, period.from(), period.to());
     }
 
     @Operation(summary = "Net worth at the end of every month: assets, liabilities and their sum")
     @GetMapping("/net-worth")
-    public NetWorthResponse netWorth(@CurrentUserId Long userId,
-                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+    public NetWorthResponse netWorth(
+            @CurrentUserId Long userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         Period period = period(from, to);
         return reportService.netWorth(userId, period.from(), period.to());
     }
@@ -90,6 +93,5 @@ public class ReportController {
         return new Period(start, end);
     }
 
-    private record Period(LocalDate from, LocalDate to) {
-    }
+    private record Period(LocalDate from, LocalDate to) {}
 }

@@ -40,6 +40,5 @@ public class ApiException extends RuntimeException {
     /**
      * @param messageKey key in messages.properties
      */
-    public record FieldViolation(String field, String messageKey) {
-    }
+    public record FieldViolation(String field, String messageKey) {}
 }

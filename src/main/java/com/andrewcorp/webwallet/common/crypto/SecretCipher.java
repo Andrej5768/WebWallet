@@ -1,17 +1,16 @@
 package com.andrewcorp.webwallet.common.crypto;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * Encrypts secrets stored in the database, such as bank API tokens, with AES-256-GCM.
@@ -32,7 +31,8 @@ public class SecretCipher {
     public SecretCipher(@Value("${app.encryption-key}") String base64Key) {
         byte[] bytes = Base64.getDecoder().decode(base64Key);
         if (bytes.length != KEY_BYTES) {
-            throw new IllegalStateException("app.encryption-key must be a Base64-encoded key of " + KEY_BYTES + " bytes");
+            throw new IllegalStateException(
+                    "app.encryption-key must be a Base64-encoded key of " + KEY_BYTES + " bytes");
         }
         this.key = new SecretKeySpec(bytes, "AES");
     }
@@ -45,8 +45,11 @@ public class SecretCipher {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
             byte[] encrypted = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(ByteBuffer.allocate(IV_BYTES + encrypted.length)
-                    .put(iv).put(encrypted).array());
+            return Base64.getEncoder()
+                    .encodeToString(ByteBuffer.allocate(IV_BYTES + encrypted.length)
+                            .put(iv)
+                            .put(encrypted)
+                            .array());
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Encryption failed", e);
         }

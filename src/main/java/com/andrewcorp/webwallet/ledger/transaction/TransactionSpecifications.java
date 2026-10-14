@@ -6,15 +6,13 @@ import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
-import org.springframework.data.jpa.domain.Specification;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.data.jpa.domain.Specification;
 
 final class TransactionSpecifications {
 
-    private TransactionSpecifications() {
-    }
+    private TransactionSpecifications() {}
 
     static Specification<Transaction> matching(Long userId, TransactionFilter filter) {
         return (root, query, cb) -> {
@@ -43,10 +41,12 @@ final class TransactionSpecifications {
                 Subquery<Long> splits = query.subquery(Long.class);
                 Root<TransactionSplit> split = splits.from(TransactionSplit.class);
                 Join<Object, Object> category = split.join("category");
-                splits.select(split.get("id")).where(
-                        cb.equal(split.get("transaction"), root),
-                        cb.or(cb.equal(category.get("id"), filter.categoryId()),
-                                cb.equal(category.get("parentId"), filter.categoryId())));
+                splits.select(split.get("id"))
+                        .where(
+                                cb.equal(split.get("transaction"), root),
+                                cb.or(
+                                        cb.equal(category.get("id"), filter.categoryId()),
+                                        cb.equal(category.get("parentId"), filter.categoryId())));
                 predicates.add(cb.exists(splits));
             }
             if (filter.tagId() != null) {

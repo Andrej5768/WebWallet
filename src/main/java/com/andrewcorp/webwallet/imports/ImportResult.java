@@ -45,8 +45,16 @@ public record ImportResult(
         }
 
         public ImportResult build() {
-            return new ImportResult(accountsCreated, accountsUpdated, categoriesCreated, payeesCreated,
-                    transactionsImported, transactionsSkipped, transactionsMatched, budgetsImported, List.copyOf(warnings));
+            return new ImportResult(
+                    accountsCreated,
+                    accountsUpdated,
+                    categoriesCreated,
+                    payeesCreated,
+                    transactionsImported,
+                    transactionsSkipped,
+                    transactionsMatched,
+                    budgetsImported,
+                    List.copyOf(warnings));
         }
     }
 }

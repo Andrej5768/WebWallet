@@ -1,10 +1,23 @@
 package com.andrewcorp.webwallet;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.andrewcorp.webwallet.auth.LoginAttemptService;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.currency.NbuClient;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,20 +35,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.RequestBuilder;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Runs against the full application with PostgreSQL in Testcontainers. Requests commit for real (no test
@@ -98,7 +97,9 @@ public abstract class AbstractIntegrationTest {
 
     protected TokenResponse login(String email, String password) throws Exception {
         String body = mockMvc.perform(postJson("/api/v1/auth/login", Map.of("email", email, "password", password)))
-                .andReturn().getResponse().getContentAsString();
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
         return jsonMapper.readValue(body, TokenResponse.class);
     }
 
@@ -112,14 +113,18 @@ public abstract class AbstractIntegrationTest {
     }
 
     protected MockHttpServletRequestBuilder putJson(String url, Object body, String authorization) {
-        return put(url).contentType(MediaType.APPLICATION_JSON).content(jsonMapper.writeValueAsString(body))
+        return put(url).contentType(MediaType.APPLICATION_JSON)
+                .content(jsonMapper.writeValueAsString(body))
                 .header("Authorization", authorization);
     }
 
     /** Performs the request, expects the status and returns the JSON response as a map. */
     @SuppressWarnings("unchecked")
     protected Map<String, Object> json(RequestBuilder request, int expectedStatus) throws Exception {
-        String body = mockMvc.perform(request).andExpect(status().is(expectedStatus)).andReturn().getResponse()
+        String body = mockMvc.perform(request)
+                .andExpect(status().is(expectedStatus))
+                .andReturn()
+                .getResponse()
                 .getContentAsString();
         return body.isEmpty() ? Map.of() : jsonMapper.readValue(body, Map.class);
     }

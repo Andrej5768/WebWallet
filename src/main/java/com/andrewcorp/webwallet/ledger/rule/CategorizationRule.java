@@ -12,7 +12,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-
 import java.time.Instant;
 import java.util.Locale;
 
@@ -52,8 +51,7 @@ public class CategorizationRule {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected CategorizationRule() {
-    }
+    protected CategorizationRule() {}
 
     public CategorizationRule(Long userId, Category category) {
         this.userId = userId;
@@ -70,8 +68,12 @@ public class CategorizationRule {
         if (payee != null && (operationPayee == null || !payee.getId().equals(operationPayee.getId()))) {
             return false;
         }
-        if (payeePattern != null && (operationPayee == null
-                || !operationPayee.getName().toLowerCase(Locale.ROOT).contains(payeePattern.toLowerCase(Locale.ROOT)))) {
+        if (payeePattern != null
+                && (operationPayee == null
+                        || !operationPayee
+                                .getName()
+                                .toLowerCase(Locale.ROOT)
+                                .contains(payeePattern.toLowerCase(Locale.ROOT)))) {
             return false;
         }
         if (mcc != null && !mcc.equals(operationMcc)) {
@@ -82,7 +84,10 @@ public class CategorizationRule {
 
     /** More specific rules win: a payee beats a name pattern, which beats an MCC, which beats a bank category. */
     public int specificity() {
-        return (payee != null ? 8 : 0) + (payeePattern != null ? 4 : 0) + (mcc != null ? 2 : 0) + (bankCategory != null ? 1 : 0);
+        return (payee != null ? 8 : 0)
+                + (payeePattern != null ? 4 : 0)
+                + (mcc != null ? 2 : 0)
+                + (bankCategory != null ? 1 : 0);
     }
 
     public Long getId() {

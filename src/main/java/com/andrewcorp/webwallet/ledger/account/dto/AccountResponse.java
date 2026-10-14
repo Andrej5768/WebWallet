@@ -2,7 +2,6 @@ package com.andrewcorp.webwallet.ledger.account.dto;
 
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountType;
-
 import java.math.BigDecimal;
 
 /**
@@ -22,8 +21,17 @@ public record AccountResponse(
         int sortOrder) {
 
     public static AccountResponse from(Account account, BigDecimal balance) {
-        return new AccountResponse(account.getId(), account.getName(), account.getType(), account.getCurrency(),
-                account.isInBudget(), account.isArchived(), account.getOpeningBalance(), balance, account.getCreditLimit(),
-                account.getInterestRate(), account.getSortOrder());
+        return new AccountResponse(
+                account.getId(),
+                account.getName(),
+                account.getType(),
+                account.getCurrency(),
+                account.isInBudget(),
+                account.isArchived(),
+                account.getOpeningBalance(),
+                balance,
+                account.getCreditLimit(),
+                account.getInterestRate(),
+                account.getSortOrder());
     }
 }

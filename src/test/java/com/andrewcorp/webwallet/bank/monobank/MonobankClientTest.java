@@ -1,18 +1,5 @@
 package com.andrewcorp.webwallet.bank.monobank;
 
-import com.andrewcorp.webwallet.common.error.ApiException;
-import com.andrewcorp.webwallet.common.error.ErrorCode;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestClient;
-
-import java.time.Instant;
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
@@ -21,6 +8,18 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+
+import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.error.ErrorCode;
+import java.time.Instant;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestClient;
 
 class MonobankClientTest {
 
@@ -53,7 +52,9 @@ class MonobankClientTest {
             assertThat(account.balance()).isEqualTo(1234567);
             assertThat(account.maskedPan()).containsExactly("537541******1234");
         });
-        assertThat(info.jars()).singleElement().satisfies(jar -> assertThat(jar.title()).isEqualTo("Trip"));
+        assertThat(info.jars())
+                .singleElement()
+                .satisfies(jar -> assertThat(jar.title()).isEqualTo("Trip"));
     }
 
     @Test
@@ -62,11 +63,10 @@ class MonobankClientTest {
                 .andRespond(withSuccess("""
                         [{"id": "op1", "time": 1790050000, "description": "Silpo", "mcc": 5411, "originalMcc": 5411,
                           "hold": false, "amount": -30051, "operationAmount": -30051, "currencyCode": 980,
-                          "commissionRate": 0, "cashbackAmount": 0, "balance": 1000000, "comment": "food"}]""",
-                        MediaType.APPLICATION_JSON));
+                          "commissionRate": 0, "cashbackAmount": 0, "balance": 1000000, "comment": "food"}]""", MediaType.APPLICATION_JSON));
 
-        List<MonobankClient.StatementItem> items = client.statement("token", "acc1",
-                Instant.ofEpochSecond(1790000000), Instant.ofEpochSecond(1790086400));
+        List<MonobankClient.StatementItem> items =
+                client.statement("token", "acc1", Instant.ofEpochSecond(1790000000), Instant.ofEpochSecond(1790086400));
 
         assertThat(items).singleElement().satisfies(item -> {
             assertThat(item.amount()).isEqualTo(-30051);
@@ -91,12 +91,15 @@ class MonobankClientTest {
     void errors() {
         server.expect(requestTo("https://mono.test/personal/client-info")).andRespond(withStatus(HttpStatus.FORBIDDEN));
         assertThatThrownBy(() -> client.clientInfo("bad"))
-                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_EXTERNAL_TOKEN));
+                .isInstanceOfSatisfying(
+                        ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_EXTERNAL_TOKEN));
 
         server.reset();
-        server.expect(requestTo("https://mono.test/personal/client-info")).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
+        server.expect(requestTo("https://mono.test/personal/client-info"))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
         assertThatThrownBy(() -> client.clientInfo("token"))
-                .isInstanceOfSatisfying(ApiException.class,
+                .isInstanceOfSatisfying(
+                        ApiException.class,
                         e -> assertThat(e.code()).isEqualTo(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE));
     }
 }

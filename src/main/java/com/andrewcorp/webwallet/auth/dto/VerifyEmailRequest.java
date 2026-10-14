@@ -2,5 +2,4 @@ package com.andrewcorp.webwallet.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
-public record VerifyEmailRequest(@NotBlank String token) {
-}
+public record VerifyEmailRequest(@NotBlank String token) {}

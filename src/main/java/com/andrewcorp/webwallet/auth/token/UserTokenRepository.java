@@ -1,12 +1,11 @@
 package com.andrewcorp.webwallet.auth.token;
 
 import com.andrewcorp.webwallet.user.User;
+import java.time.Instant;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-
-import java.time.Instant;
-import java.util.Optional;
 
 public interface UserTokenRepository extends JpaRepository<UserToken, Long> {
 

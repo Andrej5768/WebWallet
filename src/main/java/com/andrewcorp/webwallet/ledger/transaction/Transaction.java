@@ -22,7 +22,6 @@ import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -96,7 +95,8 @@ public class Transaction {
     private List<TransactionSplit> splits = new ArrayList<>();
 
     @ManyToMany
-    @JoinTable(name = "transaction_tags",
+    @JoinTable(
+            name = "transaction_tags",
             joinColumns = @JoinColumn(name = "transaction_id"),
             inverseJoinColumns = @JoinColumn(name = "tag_id"))
     private Set<Tag> tags = new HashSet<>();
@@ -107,8 +107,7 @@ public class Transaction {
     @Column(nullable = false)
     private Instant updatedAt;
 
-    protected Transaction() {
-    }
+    protected Transaction() {}
 
     public Transaction(Long userId) {
         this.userId = userId;
@@ -127,7 +126,8 @@ public class Transaction {
 
     public void replaceSplits(List<SplitData> newSplits) {
         splits.clear();
-        newSplits.forEach(split -> splits.add(new TransactionSplit(this, split.category(), split.amount(), split.comment())));
+        newSplits.forEach(
+                split -> splits.add(new TransactionSplit(this, split.category(), split.amount(), split.comment())));
     }
 
     public void replaceTags(Set<Tag> newTags) {
@@ -275,6 +275,5 @@ public class Transaction {
         return createdAt;
     }
 
-    public record SplitData(Category category, BigDecimal amount, String comment) {
-    }
+    public record SplitData(Category category, BigDecimal amount, String comment) {}
 }

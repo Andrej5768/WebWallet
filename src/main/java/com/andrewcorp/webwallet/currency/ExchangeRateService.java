@@ -2,12 +2,6 @@ package com.andrewcorp.webwallet.currency;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClientException;
-
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -16,6 +10,11 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
 
 /**
  * Converts amounts between currencies with the official NBU rates. Rates are cached in the database and loaded from
@@ -29,6 +28,7 @@ public class ExchangeRateService {
     private static final Logger log = LoggerFactory.getLogger(ExchangeRateService.class);
     /** NBU does not publish rates on some days; an older rate is used for up to this many days. */
     private static final int MAX_RATE_AGE_DAYS = 7;
+
     private static final int HISTORY_DAYS_TO_LOAD = 31;
 
     private final ExchangeRateRepository rates;

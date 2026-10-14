@@ -16,15 +16,14 @@ import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionFilter;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionRequest;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionRequest.SplitRequest;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionResponse;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TransactionService {
@@ -37,9 +36,14 @@ public class TransactionService {
     private final TagService tagService;
     private final RuleService ruleService;
 
-    public TransactionService(TransactionRepository transactions, AccountRepository accounts,
-                              CategoryRepository categories, PayeeRepository payees, PayeeService payeeService,
-                              TagService tagService, RuleService ruleService) {
+    public TransactionService(
+            TransactionRepository transactions,
+            AccountRepository accounts,
+            CategoryRepository categories,
+            PayeeRepository payees,
+            PayeeService payeeService,
+            TagService tagService,
+            RuleService ruleService) {
         this.transactions = transactions;
         this.accounts = accounts;
         this.categories = categories;
@@ -51,7 +55,8 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public Page<TransactionResponse> list(Long userId, TransactionFilter filter, Pageable pageable) {
-        return transactions.findAll(TransactionSpecifications.matching(userId, filter), pageable)
+        return transactions
+                .findAll(TransactionSpecifications.matching(userId, filter), pageable)
                 .map(TransactionResponse::from);
     }
 
@@ -74,7 +79,9 @@ public class TransactionService {
         apply(userId, transaction, request);
         Category after = singleCategory(transaction);
         // A corrected category of a payee is applied to its later imported operations
-        if (after != null && transaction.getPayee() != null && (before == null || !before.getId().equals(after.getId()))) {
+        if (after != null
+                && transaction.getPayee() != null
+                && (before == null || !before.getId().equals(after.getId()))) {
             ruleService.learn(userId, transaction.getPayee(), after);
         }
         return TransactionResponse.from(transaction);
@@ -86,7 +93,9 @@ public class TransactionService {
     }
 
     private static Category singleCategory(Transaction transaction) {
-        return transaction.getSplits().size() == 1 ? transaction.getSplits().get(0).getCategory() : null;
+        return transaction.getSplits().size() == 1
+                ? transaction.getSplits().get(0).getCategory()
+                : null;
     }
 
     private Transaction find(Long userId, Long id) {
@@ -124,7 +133,8 @@ public class TransactionService {
         if (Objects.equals(request.toAccountId(), request.accountId())) {
             throw ApiException.invalid("toAccountId", "error.transaction.sameAccount");
         }
-        if (request.categoryId() != null || (request.splits() != null && !request.splits().isEmpty())) {
+        if (request.categoryId() != null
+                || (request.splits() != null && !request.splits().isEmpty())) {
             throw ApiException.invalid("splits", "error.transaction.transferCategory");
         }
         Account toAccount = account(userId, request.toAccountId(), "toAccountId");
@@ -147,7 +157,8 @@ public class TransactionService {
         CategoryKind kind = request.type() == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
         List<SplitData> splits = new ArrayList<>();
         if (request.splits() == null || request.splits().isEmpty()) {
-            splits.add(new SplitData(category(userId, request.categoryId(), kind, "categoryId"), request.amount(), null));
+            splits.add(
+                    new SplitData(category(userId, request.categoryId(), kind, "categoryId"), request.amount(), null));
         } else {
             if (request.categoryId() != null) {
                 throw ApiException.invalid("categoryId", "error.transaction.categoryAndSplits");
@@ -155,8 +166,10 @@ public class TransactionService {
             BigDecimal total = BigDecimal.ZERO;
             for (int i = 0; i < request.splits().size(); i++) {
                 SplitRequest split = request.splits().get(i);
-                splits.add(new SplitData(category(userId, split.categoryId(), kind, "splits[" + i + "].categoryId"),
-                        split.amount(), split.comment()));
+                splits.add(new SplitData(
+                        category(userId, split.categoryId(), kind, "splits[" + i + "].categoryId"),
+                        split.amount(),
+                        split.comment()));
                 total = total.add(split.amount());
             }
             if (total.compareTo(request.amount()) != 0) {
@@ -177,7 +190,8 @@ public class TransactionService {
         if (id == null) {
             return null;
         }
-        Category category = categories.findByIdAndUserId(id, userId)
+        Category category = categories
+                .findByIdAndUserId(id, userId)
                 .orElseThrow(() -> ApiException.invalid(field, "error.notFound"));
         if (category.getKind() != kind) {
             throw ApiException.invalid(field, "error.category.kind");

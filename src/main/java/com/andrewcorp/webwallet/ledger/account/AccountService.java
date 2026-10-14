@@ -6,13 +6,12 @@ import com.andrewcorp.webwallet.ledger.account.dto.AccountRequest;
 import com.andrewcorp.webwallet.ledger.account.dto.AccountResponse;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository.AccountChange;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AccountService {
@@ -29,7 +28,8 @@ public class AccountService {
     public List<AccountResponse> list(Long userId) {
         Map<Long, BigDecimal> balances = balances(userId);
         return accounts.findByUserIdOrderBySortOrderAscIdAsc(userId).stream()
-                .map(account -> AccountResponse.from(account, balances.getOrDefault(account.getId(), account.getOpeningBalance())))
+                .map(account -> AccountResponse.from(
+                        account, balances.getOrDefault(account.getId(), account.getOpeningBalance())))
                 .toList();
     }
 
@@ -89,11 +89,13 @@ public class AccountService {
     }
 
     private AccountResponse toResponse(Long userId, Account account) {
-        return AccountResponse.from(account, balances(userId).getOrDefault(account.getId(), account.getOpeningBalance()));
+        return AccountResponse.from(
+                account, balances(userId).getOrDefault(account.getId(), account.getOpeningBalance()));
     }
 
     private static void apply(Account account, AccountRequest request) {
-        account.setInBudget(request.inBudget() != null ? request.inBudget() : request.type().inBudgetByDefault());
+        account.setInBudget(
+                request.inBudget() != null ? request.inBudget() : request.type().inBudgetByDefault());
         account.setArchived(Boolean.TRUE.equals(request.archived()));
         account.setOpeningBalance(request.openingBalance() != null ? request.openingBalance() : BigDecimal.ZERO);
         account.setCreditLimit(request.creditLimit());

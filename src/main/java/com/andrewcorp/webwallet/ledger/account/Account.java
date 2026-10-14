@@ -10,12 +10,11 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "accounts")
@@ -71,8 +70,7 @@ public class Account {
     @Column(nullable = false)
     private Instant updatedAt;
 
-    protected Account() {
-    }
+    protected Account() {}
 
     public Account(Long userId, String name, AccountType type, String currency) {
         this.userId = userId;

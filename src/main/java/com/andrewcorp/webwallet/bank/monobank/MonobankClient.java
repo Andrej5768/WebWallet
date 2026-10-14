@@ -3,6 +3,10 @@ package com.andrewcorp.webwallet.bank.monobank;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
@@ -10,11 +14,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Supplier;
 
 /**
  * Client of the Monobank personal API (https://api.monobank.ua/docs/). Amounts are in minor units. The API allows
@@ -28,12 +27,14 @@ public class MonobankClient {
 
     private final RestClient restClient;
 
-    public MonobankClient(RestClient.Builder builder, @Value("${app.monobank.base-url:https://api.monobank.ua}") String baseUrl) {
+    public MonobankClient(
+            RestClient.Builder builder, @Value("${app.monobank.base-url:https://api.monobank.ua}") String baseUrl) {
         this.restClient = builder.baseUrl(baseUrl).build();
     }
 
     public ClientInfo clientInfo(String token) {
-        return call(() -> restClient.get()
+        return call(() -> restClient
+                .get()
                 .uri("/personal/client-info")
                 .header("X-Token", token)
                 .retrieve()
@@ -44,17 +45,18 @@ public class MonobankClient {
      * Operations of the account between the two moments, newest first. The period may not exceed 31 days and 1 hour.
      */
     public List<StatementItem> statement(String token, String accountId, Instant from, Instant to) {
-        return call(() -> restClient.get()
+        return call(() -> restClient
+                .get()
                 .uri("/personal/statement/{account}/{from}/{to}", accountId, from.getEpochSecond(), to.getEpochSecond())
                 .header("X-Token", token)
                 .retrieve()
-                .body(new ParameterizedTypeReference<List<StatementItem>>() {
-                }));
+                .body(new ParameterizedTypeReference<List<StatementItem>>() {}));
     }
 
     /** Monobank checks the URL with a GET request and then posts every new operation to it. */
     public void setWebhook(String token, String url) {
-        call(() -> restClient.post()
+        call(() -> restClient
+                .post()
                 .uri("/personal/webhook")
                 .header("X-Token", token)
                 .body(Map.of("webHookUrl", url))
@@ -76,22 +78,25 @@ public class MonobankClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record ClientInfo(String clientId, String name, List<BankAccount> accounts, List<Jar> jars) {
-    }
+    public record ClientInfo(String clientId, String name, List<BankAccount> accounts, List<Jar> jars) {}
 
     /**
      * @param currencyCode ISO 4217 numeric code
      * @param maskedPan    masked card numbers, e.g. {@code 537541******1234}
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record BankAccount(String id, long balance, long creditLimit, String type, int currencyCode,
-                              List<String> maskedPan, String iban) {
-    }
+    public record BankAccount(
+            String id,
+            long balance,
+            long creditLimit,
+            String type,
+            int currencyCode,
+            List<String> maskedPan,
+            String iban) {}
 
     /** A savings jar ("банка"). */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Jar(String id, String title, int currencyCode, long balance) {
-    }
+    public record Jar(String id, String title, int currencyCode, long balance) {}
 
     /**
      * @param time            unix time in seconds
@@ -101,8 +106,16 @@ public class MonobankClient {
      * @param balance         account balance after the operation, minor units
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record StatementItem(String id, long time, String description, Integer mcc, boolean hold, long amount,
-                                long operationAmount, int currencyCode, long balance, String comment,
-                                String counterName) {
-    }
+    public record StatementItem(
+            String id,
+            long time,
+            String description,
+            Integer mcc,
+            boolean hold,
+            long amount,
+            long operationAmount,
+            int currencyCode,
+            long balance,
+            String comment,
+            String counterName) {}
 }

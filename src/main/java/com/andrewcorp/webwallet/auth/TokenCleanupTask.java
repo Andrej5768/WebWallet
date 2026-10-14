@@ -2,15 +2,14 @@ package com.andrewcorp.webwallet.auth;
 
 import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
 import com.andrewcorp.webwallet.auth.token.UserTokenRepository;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
 
 /**
  * Removes expired and used tokens. Revoked refresh tokens are kept until they expire, so that reuse of a stolen
@@ -38,6 +37,7 @@ public class TokenCleanupTask {
         Instant before = clock.instant().minus(RETENTION);
         int removedUserTokens = userTokens.deleteStale(before);
         int removedRefreshTokens = refreshTokens.deleteExpired(before);
-        log.info("Removed {} stale email tokens and {} expired refresh tokens", removedUserTokens, removedRefreshTokens);
+        log.info(
+                "Removed {} stale email tokens and {} expired refresh tokens", removedUserTokens, removedRefreshTokens);
     }
 }
