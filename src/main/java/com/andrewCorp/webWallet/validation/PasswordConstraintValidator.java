@@ -5,6 +5,7 @@ import org.passay.DefaultPasswordValidator;
 import org.passay.PasswordData;
 import org.passay.PasswordValidator;
 import org.passay.ValidationResult;
+import org.passay.resolver.PropertiesMessageResolver;
 import org.passay.rule.LengthRule;
 
 import jakarta.validation.ConstraintValidator;
@@ -21,7 +22,8 @@ public class PasswordConstraintValidator implements ConstraintValidator<ValidPas
     @Override
     public boolean isValid(final String password, final ConstraintValidatorContext context) {
         // @formatter:off
-        final PasswordValidator validator = new DefaultPasswordValidator(Arrays.asList(
+        // Passay 2 resolves no messages unless a MessageResolver is given explicitly
+        final PasswordValidator validator = new DefaultPasswordValidator(new PropertiesMessageResolver(), Arrays.asList(
             new LengthRule(8, 30)//,
 //            new UppercaseCharacterRule(1),
 //            new DigitCharacterRule(1),
