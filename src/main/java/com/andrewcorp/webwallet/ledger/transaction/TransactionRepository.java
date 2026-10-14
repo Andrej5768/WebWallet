@@ -108,14 +108,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             from Transaction t where t.userId = :userId and t.toAccount is not null group by t.toAccount.id""")
     List<AccountChange> transferIncome(Long userId);
 
-    @Query("select count(t) > 0 from Transaction t where t.account.id = :accountId or t.toAccount.id = :accountId")
-    boolean existsForAccount(Long accountId);
+    boolean existsByAccountIdOrToAccountId(Long accountId, Long toAccountId);
 
-    @Query("select count(s) > 0 from TransactionSplit s where s.category.id = :categoryId")
-    boolean existsForCategory(Long categoryId);
+    /** Ids of all bank operations of the user, to recognize many operations of an import at once. */
+    @Query("select t.bankId from Transaction t where t.userId = :userId and t.bankId is not null")
+    Set<String> findBankIds(Long userId);
 
-    @Query("select count(t) > 0 from Transaction t where t.payee.id = :payeeId")
-    boolean existsForPayee(Long payeeId);
+    @Query("select t.toBankId from Transaction t where t.userId = :userId and t.toBankId is not null")
+    Set<String> findToBankIds(Long userId);
 
     interface AccountChange {
 

@@ -25,6 +25,7 @@ class ReportControllerTest extends AbstractIntegrationTest {
     private ExchangeRateRepository rates;
 
     private String auth;
+    private Long card;
     private Long food;
     private Long groceries;
     private Long transport;
@@ -36,7 +37,7 @@ class ReportControllerTest extends AbstractIntegrationTest {
         rates.save(new ExchangeRate("USD", LocalDate.of(2026, 9, 8), new BigDecimal("40")));
         rates.save(new ExchangeRate("USD", LocalDate.of(2026, 9, 30), new BigDecimal("41")));
 
-        Long card = account("Card", "CARD", "UAH", 1000);
+        card = account("Card", "CARD", "UAH", 1000);
         Long credit = account("Credit", "CREDIT_CARD", "UAH", -500);
         Long dollars = account("Dollars", "CASH", "USD", 100);
         food = category("Food", "EXPENSE", null);
@@ -121,6 +122,17 @@ class ReportControllerTest extends AbstractIntegrationTest {
         Map<String, Object> groceriesRow = ((List<Map<String, Object>>) foodRow.get("children")).get(0);
         assertThat(((Number) groceriesRow.get("categoryId")).longValue()).isEqualTo(groceries);
         assertThat(amount(groceriesRow.get("amount"))).isEqualByComparingTo("2400");
+    }
+
+    @Test
+    void refundReducesSpendingInsteadOfCountingAsIncome() throws Exception {
+        transaction("INCOME", "2026-09-10", card, 200, groceries, "Silpo");
+
+        Map<String, Object> spending = report("spending" + PERIOD);
+        assertThat(amount(spending.get("total"))).isEqualByComparingTo("4000");
+        Map<String, Object> report = report("income-expense" + PERIOD);
+        assertThat(amount(report.get("income"))).isEqualByComparingTo("10000");
+        assertThat(amount(report.get("expense"))).isEqualByComparingTo("4000");
     }
 
     @Test

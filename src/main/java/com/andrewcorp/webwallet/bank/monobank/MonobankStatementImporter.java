@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.bank.monobank;
 
 import com.andrewcorp.webwallet.bank.monobank.MonobankClient.StatementItem;
 import com.andrewcorp.webwallet.common.util.Texts;
+import com.andrewcorp.webwallet.common.util.Zones;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.payee.Payee;
@@ -30,7 +31,7 @@ import org.springframework.stereotype.Component;
 @Component
 class MonobankStatementImporter {
 
-    static final ZoneId BANK_ZONE = ZoneId.of("Europe/Kyiv");
+    static final ZoneId BANK_ZONE = Zones.KYIV;
     /** Operation ids are used in queries and as external ids; anything else is not from Monobank. */
     static final Pattern ITEM_ID = Pattern.compile("[A-Za-z0-9_-]{1,100}");
 
@@ -55,15 +56,19 @@ class MonobankStatementImporter {
 
     /** @param account account the operations belong to */
     Result importItems(Account account, List<StatementItem> items) {
-        Result result = new Result();
+        Batch batch = new Batch(
+                account, categories.session(account.getUserId()), payees.lookup(account.getUserId()), new Result());
         // Oldest first, so that the categories learned from earlier operations apply to later ones
-        items.stream()
-                .sorted(Comparator.comparingLong(StatementItem::time))
-                .forEach(item -> importItem(account, item, result));
-        return result;
+        items.stream().sorted(Comparator.comparingLong(StatementItem::time)).forEach(item -> importItem(batch, item));
+        return batch.result();
     }
 
-    private void importItem(Account account, StatementItem item, Result result) {
+    private record Batch(
+            Account account, CategorySuggester.Session categories, PayeeService.Lookup payees, Result result) {}
+
+    private void importItem(Batch batch, StatementItem item) {
+        Account account = batch.account();
+        Result result = batch.result();
         if (item.amount() == 0
                 || item.id() == null
                 || !ITEM_ID.matcher(item.id()).matches()) {
@@ -113,11 +118,11 @@ class MonobankStatementImporter {
                     Currencies.fromMinorUnits(Math.abs(item.operationAmount()), operationCurrency));
             transaction.setOriginalCurrency(operationCurrency);
         }
-        Payee payee = payee(userId, item);
+        Payee payee = payee(batch.payees(), item);
         transaction.setPayee(payee);
         CategoryKind kind = type == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
         transaction.replaceSplits(
-                List.of(new SplitData(categories.suggest(userId, payee, mcc, null, kind), amount, null)));
+                List.of(new SplitData(batch.categories().suggest(payee, mcc, null, kind), amount, null)));
         transactions.save(transaction);
         result.imported++;
     }
@@ -140,11 +145,11 @@ class MonobankStatementImporter {
         result.updated++;
     }
 
-    private Payee payee(Long userId, StatementItem item) {
+    private static Payee payee(PayeeService.Lookup payees, StatementItem item) {
         String name =
                 item.counterName() != null && !item.counterName().isBlank() ? item.counterName() : item.description();
         String trimmed = Texts.truncate(name, MAX_PAYEE_LENGTH);
-        return trimmed == null ? null : payees.findOrCreate(userId, trimmed);
+        return trimmed == null ? null : payees.findOrCreate(trimmed);
     }
 
     private static Short mcc(StatementItem item) {

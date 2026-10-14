@@ -4,6 +4,7 @@ import com.andrewcorp.webwallet.auth.AccessTokenValidator;
 import com.andrewcorp.webwallet.auth.TokenService;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.common.error.ProblemDetails;
+import com.andrewcorp.webwallet.common.util.Zones;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Clock;
@@ -167,6 +168,6 @@ public class SecurityConfig {
 
     @Bean
     public Clock clock() {
-        return Clock.systemUTC();
+        return Clock.system(Zones.KYIV);
     }
 }

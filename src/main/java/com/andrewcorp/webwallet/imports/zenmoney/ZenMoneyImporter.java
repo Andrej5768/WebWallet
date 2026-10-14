@@ -13,7 +13,7 @@ import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
 import com.andrewcorp.webwallet.ledger.payee.Payee;
-import com.andrewcorp.webwallet.ledger.payee.PayeeRepository;
+import com.andrewcorp.webwallet.ledger.payee.PayeeService;
 import com.andrewcorp.webwallet.ledger.transaction.OperationMatcher;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction.SplitData;
@@ -22,18 +22,19 @@ import com.andrewcorp.webwallet.ledger.transaction.TransactionSource;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
+import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,25 +59,27 @@ public class ZenMoneyImporter {
     private static final Pattern CURRENCY = Pattern.compile("[A-Z]{3}");
     private static final LocalDate MIN_DATE = LocalDate.of(1900, 1, 1);
     private static final LocalDate MAX_DATE = LocalDate.of(2100, 1, 1);
+    /** Imported transactions are flushed and detached in chunks, so that a history of years fits in memory. */
+    private static final int FLUSH_EVERY = 500;
 
     private final UserRepository users;
     private final AccountRepository accounts;
     private final AccountService accountService;
     private final CategoryRepository categories;
-    private final PayeeRepository payees;
+    private final PayeeService payees;
     private final TransactionRepository transactions;
     private final BudgetRepository budget;
-    private final OperationMatcher matcher;
+    private final EntityManager entityManager;
 
     public ZenMoneyImporter(
             UserRepository users,
             AccountRepository accounts,
             AccountService accountService,
             CategoryRepository categories,
-            PayeeRepository payees,
+            PayeeService payees,
             TransactionRepository transactions,
             BudgetRepository budget,
-            OperationMatcher matcher) {
+            EntityManager entityManager) {
         this.users = users;
         this.accounts = accounts;
         this.accountService = accountService;
@@ -84,7 +87,7 @@ public class ZenMoneyImporter {
         this.payees = payees;
         this.transactions = transactions;
         this.budget = budget;
-        this.matcher = matcher;
+        this.entityManager = entityManager;
     }
 
     @Transactional
@@ -108,7 +111,7 @@ public class ZenMoneyImporter {
         private final Map<String, Category> categoriesByKey = new HashMap<>();
 
         private final Map<String, String> merchantNames = new HashMap<>();
-        private final Map<String, Payee> payeesByName = new HashMap<>();
+        private PayeeService.Lookup payeeLookup;
 
         Run(Long userId, ZenMoneyDump dump) {
             this.userId = userId;
@@ -122,13 +125,14 @@ public class ZenMoneyImporter {
                     .forEach(instrument -> currencies.put(instrument.id(), instrument.shortTitle()));
             Lists.orEmpty(dump.tag()).forEach(tag -> tagsById.put(tag.id(), tag));
             Lists.orEmpty(dump.merchant()).forEach(merchant -> merchantNames.put(merchant.id(), merchant.title()));
-            payees.findByUserIdOrderByNameAsc(userId).forEach(payee -> payeesByName.put(key(payee.getName()), payee));
+            payeeLookup = payees.lookup(userId);
 
             importBaseCurrency();
             Lists.orEmpty(dump.account()).forEach(this::importAccount);
             importTransactions();
             importBudgets();
             alignBalances();
+            result.payeesCreated = payeeLookup.created();
             return result.build();
         }
 
@@ -178,18 +182,30 @@ public class ZenMoneyImporter {
 
         private void importTransactions() {
             Set<String> imported = transactions.findExternalIds(userId, TransactionSource.ZENMONEY);
+            Set<String> bankIds = new HashSet<>(transactions.findBankIds(userId));
+            bankIds.addAll(transactions.findToBankIds(userId));
             for (ZenMoneyDump.Transaction source : Lists.orEmpty(dump.transaction())) {
                 if (Boolean.TRUE.equals(source.deleted()) || imported.contains(source.id())) {
                     result.transactionsSkipped++;
                     continue;
                 }
                 Transaction transaction = toTransaction(source);
-                if (transaction != null && isImportedFromBank(transaction)) {
+                if (transaction == null) {
+                    continue;
+                }
+                if (bankIds.contains(transaction.getBankId()) || bankIds.contains(transaction.getToBankId())) {
                     // Already imported from the bank directly (Monobank, PrivatBank)
                     result.transactionsSkipped++;
-                } else if (transaction != null) {
-                    transactions.save(transaction);
-                    result.transactionsImported++;
+                    continue;
+                }
+                transactions.save(transaction);
+                Stream.of(transaction.getBankId(), transaction.getToBankId())
+                        .filter(Objects::nonNull)
+                        .forEach(bankIds::add);
+                if (++result.transactionsImported % FLUSH_EVERY == 0) {
+                    // The accounts, categories and payees kept by this import stay usable as references
+                    entityManager.flush();
+                    entityManager.clear();
                 }
             }
         }
@@ -342,16 +358,7 @@ public class ZenMoneyImporter {
             if (name == null || name.isBlank()) {
                 return null;
             }
-            String trimmed = Texts.truncate(name, MAX_PAYEE_LENGTH);
-            return payeesByName.computeIfAbsent(key(trimmed), k -> {
-                result.payeesCreated++;
-                return payees.save(new Payee(userId, trimmed));
-            });
-        }
-
-        private boolean isImportedFromBank(Transaction transaction) {
-            return matcher.findKnown(userId, transaction.getBankId()).isPresent()
-                    || matcher.findKnown(userId, transaction.getToBankId()).isPresent();
+            return payeeLookup.findOrCreate(Texts.truncate(name, MAX_PAYEE_LENGTH));
         }
 
         /**
@@ -368,7 +375,8 @@ public class ZenMoneyImporter {
                         || source.balance().abs().compareTo(MAX_AMOUNT) >= 0) {
                     continue;
                 }
-                accountService.alignBalance(account, source.balance());
+                // The entity may have been detached while importing the transactions
+                accountService.alignBalance(accounts.getReferenceById(account.getId()), source.balance());
             }
         }
     }
@@ -425,9 +433,5 @@ public class ZenMoneyImporter {
 
     private static String name(String name, String fallback) {
         return name == null || name.isBlank() ? fallback : Texts.truncate(name, 100);
-    }
-
-    private static String key(String name) {
-        return name.toLowerCase(Locale.ROOT);
     }
 }

@@ -1,10 +1,12 @@
 package com.andrewcorp.webwallet.ledger.category;
 
+import com.andrewcorp.webwallet.budget.BudgetRepository;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.ledger.category.dto.CategoryRequest;
 import com.andrewcorp.webwallet.ledger.category.dto.CategoryResponse;
-import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionSplitRepository;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -16,11 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class CategoryService {
 
     private final CategoryRepository categories;
-    private final TransactionRepository transactions;
+    private final TransactionSplitRepository splits;
+    private final BudgetRepository budget;
 
-    public CategoryService(CategoryRepository categories, TransactionRepository transactions) {
+    public CategoryService(CategoryRepository categories, TransactionSplitRepository splits, BudgetRepository budget) {
         this.categories = categories;
-        this.transactions = transactions;
+        this.splits = splits;
+        this.budget = budget;
     }
 
     /** All categories of the user as a tree: top-level categories with their subcategories. */
@@ -50,10 +54,19 @@ public class CategoryService {
     @Transactional
     public CategoryResponse update(Long userId, Long id, CategoryRequest request) {
         Category category = find(userId, id);
+        List<Category> children = categories.findByParentId(category.getId());
+        if (category.getKind() != request.kind()) {
+            // Spending would turn into income and envelopes would hold money of the wrong kind
+            List<Long> ids =
+                    new ArrayList<>(children.stream().map(Category::getId).toList());
+            ids.add(category.getId());
+            if (splits.existsByCategoryIdIn(ids) || budget.existsByCategoryIdIn(ids)) {
+                throw ApiException.invalid("kind", "error.category.kindInUse");
+            }
+        }
         category.setName(request.name().trim());
         category.setKind(request.kind());
         apply(userId, category, request);
-        List<Category> children = categories.findByParentId(category.getId());
         // Subcategories always have the kind of their parent
         children.forEach(child -> child.setKind(category.getKind()));
         return CategoryResponse.from(
@@ -67,7 +80,7 @@ public class CategoryService {
     @Transactional
     public void delete(Long userId, Long id) {
         Category category = find(userId, id);
-        if (categories.existsByParentId(category.getId()) || transactions.existsForCategory(category.getId())) {
+        if (categories.existsByParentId(category.getId()) || splits.existsByCategoryIdIn(List.of(category.getId()))) {
             throw new ApiException(ErrorCode.RESOURCE_IN_USE);
         }
         categories.delete(category);

@@ -150,7 +150,7 @@ class TransactionControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void categoryKindMustMatchTransactionType() throws Exception {
+    void categoryKindMustMatchTransactionTypeExceptForRefunds() throws Exception {
         Map<String, Object> body = expense(card, 100);
         body.put("categoryId", salary);
         mockMvc.perform(postJson("/api/v1/transactions", body, auth))
@@ -168,9 +168,8 @@ class TransactionControllerTest extends AbstractIntegrationTest {
                 5000,
                 "splits",
                 List.of(Map.of("categoryId", groceries, "amount", 5000))));
-        mockMvc.perform(postJson("/api/v1/transactions", income, auth))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors[0].field").value("splits[0].categoryId"));
+        // An income in an expense category is a refund
+        mockMvc.perform(postJson("/api/v1/transactions", income, auth)).andExpect(status().isCreated());
     }
 
     @Test

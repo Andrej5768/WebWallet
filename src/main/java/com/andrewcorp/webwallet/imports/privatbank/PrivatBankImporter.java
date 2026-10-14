@@ -76,6 +76,8 @@ public class PrivatBankImporter {
         statement.warnings().forEach(result::warn);
         Account account = account(userId, accountId, statement, result);
         Set<String> imported = new HashSet<>(transactions.findExternalIds(userId, TransactionSource.PRIVATBANK));
+        CategorySuggester.Session suggestions = categories.session(userId);
+        PayeeService.Lookup payeeLookup = payees.lookup(userId);
 
         // Oldest first, so that the categories learned from earlier operations apply to later ones
         for (PrivatStatement.Record record : statement.records().reversed()) {
@@ -84,7 +86,7 @@ public class PrivatBankImporter {
                 result.transactionsSkipped++;
                 continue;
             }
-            importRecord(account, statement, record, key, result);
+            importRecord(account, statement, record, key, suggestions, payeeLookup, result);
             imported.add(key);
         }
         // The history before the statement is not imported into a new account
@@ -129,6 +131,8 @@ public class PrivatBankImporter {
             PrivatStatement statement,
             PrivatStatement.Record record,
             String key,
+            CategorySuggester.Session suggestions,
+            PayeeService.Lookup payeeLookup,
             ImportResult.Builder result) {
         Long userId = account.getUserId();
         BigDecimal amount = record.cardAmount().abs();
@@ -160,7 +164,7 @@ public class PrivatBankImporter {
             transaction.setOriginalAmount(record.operationAmount().abs());
             transaction.setOriginalCurrency(record.operationCurrency());
         }
-        Payee payee = payee(userId, record);
+        Payee payee = payee(payeeLookup, record);
         transaction.setPayee(payee);
         String bankCategory = Texts.truncate(record.bankCategory(), MAX_BANK_CATEGORY_LENGTH);
         transaction.setBankCategory(bankCategory);
@@ -168,18 +172,18 @@ public class PrivatBankImporter {
                 Optional.ofNullable(paymentComment(record)).orElse(record.bankCategory()), MAX_COMMENT_LENGTH));
         CategoryKind kind = type == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
         transaction.replaceSplits(
-                List.of(new SplitData(categories.suggest(userId, payee, null, bankCategory, kind), amount, null)));
+                List.of(new SplitData(suggestions.suggest(payee, null, bankCategory, kind), amount, null)));
         transactions.save(transaction);
         result.transactionsImported++;
     }
 
-    private Payee payee(Long userId, PrivatStatement.Record record) {
+    private static Payee payee(PayeeService.Lookup payees, PrivatStatement.Record record) {
         String name = find(RECIPIENT, record.details());
         if (name == null && record.cardAmount().signum() > 0) {
             name = find(SENDER, record.details());
         }
         String trimmed = Texts.truncate(name, MAX_PAYEE_LENGTH);
-        return trimmed == null ? null : payees.findOrCreate(userId, trimmed);
+        return trimmed == null ? null : payees.findOrCreate(trimmed);
     }
 
     private static String paymentComment(PrivatStatement.Record record) {

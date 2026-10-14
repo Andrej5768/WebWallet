@@ -21,6 +21,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -39,8 +40,10 @@ import java.util.Set;
 @Table(name = "transactions")
 public class Transaction {
 
+    /** Ids are allocated in blocks, so that the inserts of an import can be batched. */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "transactions_id")
+    @SequenceGenerator(name = "transactions_id", sequenceName = "transactions_seq", allocationSize = 50)
     private Long id;
 
     @Column(nullable = false, updatable = false)

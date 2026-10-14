@@ -91,7 +91,7 @@ public abstract class AbstractIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
-        jdbc.execute("truncate table users, exchange_rates restart identity cascade");
+        jdbc.execute("truncate table users, exchange_rates cascade");
         clearInvocations(mailSender);
         rateLimiter.reset();
         exchangeRates.forgetMissingRates();

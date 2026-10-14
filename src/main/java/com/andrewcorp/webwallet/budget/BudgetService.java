@@ -15,6 +15,7 @@ import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.user.UserService;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -40,18 +41,21 @@ public class BudgetService {
     private final AccountRepository accounts;
     private final UserService users;
     private final ExchangeRateService exchangeRates;
+    private final Clock clock;
 
     public BudgetService(
             BudgetRepository budget,
             CategoryRepository categories,
             AccountRepository accounts,
             UserService users,
-            ExchangeRateService exchangeRates) {
+            ExchangeRateService exchangeRates,
+            Clock clock) {
         this.budget = budget;
         this.categories = categories;
         this.accounts = accounts;
         this.users = users;
         this.exchangeRates = exchangeRates;
+        this.clock = clock;
     }
 
     @Transactional
@@ -178,7 +182,8 @@ public class BudgetService {
         }
 
         private void loadOpeningBalances(LocalDate end) {
-            LocalDate rateDate = end.isAfter(LocalDate.now()) ? LocalDate.now() : end;
+            LocalDate today = LocalDate.now(clock);
+            LocalDate rateDate = end.isAfter(today) ? today : end;
             for (Account account : accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)) {
                 if (account.isInBudget()) {
                     inflow =

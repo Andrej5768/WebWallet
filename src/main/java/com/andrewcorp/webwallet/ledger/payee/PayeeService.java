@@ -1,7 +1,10 @@
 package com.andrewcorp.webwallet.ledger.payee;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +33,44 @@ public class PayeeService {
         String trimmed = name.trim();
         return payees.findByUserIdAndNameIgnoreCase(userId, trimmed)
                 .orElseGet(() -> payees.save(new Payee(userId, trimmed)));
+    }
+
+    /** Finds and creates payees for the many operations of one import, with the payees of the user loaded once. */
+    @Transactional(readOnly = true)
+    public Lookup lookup(Long userId) {
+        Map<String, Payee> byName = new HashMap<>();
+        payees.findByUserIdOrderByNameAsc(userId).forEach(payee -> byName.put(key(payee.getName()), payee));
+        return new Lookup(userId, byName);
+    }
+
+    public final class Lookup {
+
+        private final Long userId;
+        private final Map<String, Payee> byName;
+        private int created;
+
+        private Lookup(Long userId, Map<String, Payee> byName) {
+            this.userId = userId;
+            this.byName = byName;
+        }
+
+        /** @see PayeeService#findOrCreate */
+        public Payee findOrCreate(String name) {
+            String trimmed = name.trim();
+            return byName.computeIfAbsent(key(trimmed), k -> {
+                created++;
+                return payees.save(new Payee(userId, trimmed));
+            });
+        }
+
+        /** Number of payees created by {@link #findOrCreate}. */
+        public int created() {
+            return created;
+        }
+    }
+
+    private static String key(String name) {
+        return name.toLowerCase(Locale.ROOT);
     }
 
     @Transactional

@@ -62,7 +62,7 @@ public class AccountService {
     @Transactional
     public void delete(Long userId, Long id) {
         Account account = find(userId, id);
-        if (transactions.existsForAccount(account.getId())) {
+        if (transactions.existsByAccountIdOrToAccountId(account.getId(), account.getId())) {
             throw new ApiException(ErrorCode.RESOURCE_IN_USE);
         }
         accounts.delete(account);
