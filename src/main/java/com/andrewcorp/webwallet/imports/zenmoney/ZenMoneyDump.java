@@ -17,7 +17,8 @@ public record ZenMoneyDump(
         List<Account> account,
         List<Tag> tag,
         List<Merchant> merchant,
-        List<Transaction> transaction) {
+        List<Transaction> transaction,
+        List<Budget> budget) {
 
     /** A currency; {@code shortTitle} is the ISO code. */
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -55,6 +56,14 @@ public record ZenMoneyDump(
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Merchant(String id, String title) {
+    }
+
+    /**
+     * Monthly plan of a category in the base currency; {@code date} is the first day of the month. A null tag means
+     * operations without a category, the zero UUID the total of the month.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Budget(String date, String tag, BigDecimal outcome) {
     }
 
     /**

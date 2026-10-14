@@ -115,7 +115,7 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 - [x] PrivatBank PDF statement parser
 - [x] Zen Money export import
 - [x] Auto-categorization rules
-- [ ] Envelope budget: assigned / activity / available per month and category, roll-over,
+- [x] Envelope budget: assigned / activity / available per month and category, roll-over,
       overspending, credit card payments
 - [ ] Reports: spending by category, income vs. expenses, net worth, payees
 

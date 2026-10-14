@@ -71,7 +71,14 @@
     {"id": "tx-unknown-account", "date": "2026-09-11", "deleted": false,
      "incomeAccount": "acc-missing", "income": 0, "outcomeAccount": "acc-missing", "outcome": 10}
   ],
-  "budget": [],
+  "budget": [
+    {"user": 77, "changed": 1, "date": "2026-09-01", "tag": "tag-groceries", "income": 0, "outcome": 3000,
+     "incomeLock": false, "outcomeLock": true},
+    {"user": 77, "changed": 1, "date": "2026-09-01", "tag": "00000000-0000-0000-0000-000000000000", "income": 0,
+     "outcome": 50000, "incomeLock": false, "outcomeLock": false},
+    {"user": 77, "changed": 1, "date": "2026-09-01", "tag": null, "income": 0, "outcome": 100},
+    {"user": 77, "changed": 1, "date": "2026-10-01", "tag": "tag-food", "income": 0, "outcome": 0}
+  ],
   "reminder": [],
   "reminderMarker": []
 }
