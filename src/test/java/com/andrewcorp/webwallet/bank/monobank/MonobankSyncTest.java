@@ -365,6 +365,19 @@ class MonobankSyncTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void mccRules() throws Exception {
+        Category taxi = categories.save(new Category(user.getId(), null, "Taxi", CategoryKind.EXPENSE));
+        mockMvc.perform(postJson("/api/v1/categorization-rules", Map.of("categoryId", taxi.getId(), "mcc", 4121), auth))
+                .andExpect(status().isCreated());
+
+        statements.put("mono-black", List.of(item("op-uber", hoursAgo(5), "Uber", 4121, -15_000, 0)));
+        connect(LocalDate.now().minusDays(5));
+        syncAll();
+
+        assertThat(find(userTransactions(), "op-uber").getSplits().get(0).getCategory().getId()).isEqualTo(taxi.getId());
+    }
+
+    @Test
     void moreThan500OperationsAreLoadedInSeveralRequests() throws Exception {
         long start = hoursAgo(20 * 24);
         List<StatementItem> newest = new ArrayList<>(IntStream.range(0, 500)

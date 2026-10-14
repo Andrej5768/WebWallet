@@ -9,7 +9,7 @@ import com.andrewcorp.webwallet.ledger.account.AccountType;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.payee.Payee;
 import com.andrewcorp.webwallet.ledger.payee.PayeeService;
-import com.andrewcorp.webwallet.ledger.transaction.CategorySuggester;
+import com.andrewcorp.webwallet.ledger.rule.CategorySuggester;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction.SplitData;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
@@ -43,6 +43,7 @@ public class PrivatBankImporter {
     private static final BigDecimal MIN_TRANSFER_RATIO = new BigDecimal("0.96");
     private static final int MAX_PAYEE_LENGTH = 200;
     private static final int MAX_COMMENT_LENGTH = 1000;
+    private static final int MAX_BANK_CATEGORY_LENGTH = 100;
 
     private static final Pattern RECIPIENT = Pattern.compile("отримувач (.+?), банк");
     private static final Pattern SENDER = Pattern.compile("(?:^|, )від ([^,]+)$");
@@ -159,10 +160,12 @@ public class PrivatBankImporter {
         }
         Payee payee = payee(userId, record);
         transaction.setPayee(payee);
+        String bankCategory = truncate(record.bankCategory(), MAX_BANK_CATEGORY_LENGTH);
+        transaction.setBankCategory(bankCategory);
         transaction.setComment(truncate(Optional.ofNullable(paymentComment(record)).orElse(record.bankCategory()),
                 MAX_COMMENT_LENGTH));
         CategoryKind kind = type == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
-        transaction.replaceSplits(List.of(new SplitData(categories.suggest(userId, payee, kind), amount, null)));
+        transaction.replaceSplits(List.of(new SplitData(categories.suggest(userId, payee, null, bankCategory, kind), amount, null)));
         transactions.save(transaction);
         result.transactionsImported++;
     }

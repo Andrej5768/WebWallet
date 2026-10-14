@@ -5,7 +5,7 @@ import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.payee.Payee;
 import com.andrewcorp.webwallet.ledger.payee.PayeeService;
-import com.andrewcorp.webwallet.ledger.transaction.CategorySuggester;
+import com.andrewcorp.webwallet.ledger.rule.CategorySuggester;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction.SplitData;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
@@ -118,7 +118,7 @@ class MonobankStatementImporter {
         Payee payee = payee(userId, item);
         transaction.setPayee(payee);
         CategoryKind kind = type == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
-        transaction.replaceSplits(List.of(new SplitData(categories.suggest(userId, payee, kind), amount, null)));
+        transaction.replaceSplits(List.of(new SplitData(categories.suggest(userId, payee, mcc(item), null, kind), amount, null)));
         transactions.save(transaction);
         result.imported++;
     }

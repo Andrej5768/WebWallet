@@ -212,6 +212,24 @@ class PrivatBankImportTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void bankCategoryRules() throws Exception {
+        Long groceries = id(json(postJson("/api/v1/categories", Map.of("name", "Groceries", "kind", "EXPENSE"), auth), 201));
+        json(postJson("/api/v1/categorization-rules",
+                Map.of("categoryId", groceries, "bankCategory", "Супермаркети та продукти"), auth), 201);
+
+        json(upload(), 200);
+
+        Transaction imported = tx.execute(status -> {
+            Transaction t = onDate(transactions.findAll().stream()
+                    .filter(candidate -> candidate.getUserId().equals(user.getId())).toList(), "2026-10-11");
+            t.getSplits().get(0).getCategory().getId();
+            return t;
+        });
+        assertThat(imported.getBankCategory()).isEqualTo("Супермаркети та продукти");
+        assertThat(imported.getSplits().get(0).getCategory().getId()).isEqualTo(groceries);
+    }
+
+    @Test
     void otherDocumentIsRejected() throws Exception {
         sample = "Кредитний договір";
 

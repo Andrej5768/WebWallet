@@ -55,6 +55,13 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     List<Transaction> findTransferCandidates(Long userId, TransactionType type, Account account, String currency,
                                              LocalDate from, LocalDate to, BigDecimal minAmount, BigDecimal maxAmount);
 
+    /** Expenses and incomes without a category and without a split into several categories. */
+    @Query("""
+            select t from Transaction t join t.splits s
+            where t.userId = :userId and t.type <> com.andrewcorp.webwallet.ledger.transaction.TransactionType.TRANSFER
+              and s.category is null and size(t.splits) = 1""")
+    List<Transaction> findUncategorized(Long userId);
+
     /** Category of the latest categorized transaction with this payee, to categorize new ones the same way. */
     @Query("""
             select s.category from TransactionSplit s join s.transaction t
