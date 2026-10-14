@@ -23,6 +23,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             "select t.externalId from Transaction t where t.userId = :userId and t.source = :source and t.externalId is not null")
     Set<String> findExternalIds(Long userId, TransactionSource source);
 
+    boolean existsByUserIdAndSourceAndExternalId(Long userId, TransactionSource source, String externalId);
+
+    /** Date of the oldest unsettled payment imported into the account. */
+    @Query("""
+            select min(t.date) from Transaction t
+            where t.account = :account and t.source = :source and t.hold = true and t.bankId is not null
+              and t.type <> com.andrewcorp.webwallet.ledger.transaction.TransactionType.TRANSFER""")
+    LocalDate findOldestHoldDate(Account account, TransactionSource source);
+
     /** Transactions that stand for the bank operation, on either side of a transfer. */
     @Query("""
             select t from Transaction t
@@ -52,7 +61,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     /** Unsettled card payments imported from the source into the account in the period. */
     @Query("""
             select t from Transaction t
-            where t.account = :account and t.source = :source and t.hold = true and t.date between :from and :to""")
+            where t.account = :account and t.source = :source and t.hold = true and t.date between :from and :to
+              and t.bankId is not null
+              and t.type <> com.andrewcorp.webwallet.ledger.transaction.TransactionType.TRANSFER""")
     List<Transaction> findHolds(Account account, TransactionSource source, LocalDate from, LocalDate to);
 
     /** Expenses or incomes of the account with this amount around the date, not yet matched to a bank operation. */

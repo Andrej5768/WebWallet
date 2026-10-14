@@ -56,7 +56,7 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public Page<TransactionResponse> list(Long userId, TransactionFilter filter, Pageable pageable) {
         return transactions
-                .findAll(TransactionSpecifications.matching(userId, filter, categoryIds(filter)), pageable)
+                .findAll(TransactionSpecifications.matching(userId, filter, categoryIds(userId, filter)), pageable)
                 .map(TransactionResponse::from);
     }
 
@@ -98,13 +98,23 @@ public class TransactionService {
                 : null;
     }
 
+    /**
+     * The transaction no longer stands for the bank operation; when it was imported as that operation, its external
+     * id is released too, so that the operation can be imported again.
+     */
+    private static void releaseBankId(Transaction transaction, String bankId) {
+        if (bankId != null && bankId.equals(transaction.getExternalId())) {
+            transaction.setExternalId(null);
+        }
+    }
+
     /** The filtered category and its subcategories. */
-    private List<Long> categoryIds(TransactionFilter filter) {
+    private List<Long> categoryIds(Long userId, TransactionFilter filter) {
         if (filter.categoryId() == null) {
             return null;
         }
         List<Long> ids = new ArrayList<>(List.of(filter.categoryId()));
-        categories.findByParentId(filter.categoryId()).forEach(child -> ids.add(child.getId()));
+        ids.addAll(categories.findChildIds(userId, filter.categoryId()));
         return ids;
     }
 
@@ -121,8 +131,11 @@ public class TransactionService {
         // operation must be imported again
         if (transaction.getAccount() != null
                 && !transaction.getAccount().getId().equals(account.getId())) {
+            releaseBankId(transaction, transaction.getBankId());
             transaction.setBankId(null);
         }
+        // Edited by the user: the bank no longer changes or deletes it
+        transaction.setHold(false);
         transaction.setType(request.type());
         transaction.setDate(request.date());
         transaction.setAccount(account);
@@ -166,6 +179,7 @@ public class TransactionService {
         }
         if (transaction.getToAccount() != null
                 && !transaction.getToAccount().getId().equals(toAccount.getId())) {
+            releaseBankId(transaction, transaction.getToBankId());
             transaction.setToBankId(null);
         }
         transaction.setToAccount(toAccount);
@@ -202,6 +216,7 @@ public class TransactionService {
         transaction.setToAccount(null);
         transaction.setToAmount(null);
         // No longer a transfer: the incoming half is a separate operation again
+        releaseBankId(transaction, transaction.getToBankId());
         transaction.setToBankId(null);
         transaction.replaceSplits(splits);
     }

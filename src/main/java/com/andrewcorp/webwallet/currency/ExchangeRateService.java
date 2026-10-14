@@ -80,7 +80,7 @@ public class ExchangeRateService {
     /** All stored rates of the currency by date. */
     NavigableMap<LocalDate, BigDecimal> storedRates(String currency) {
         NavigableMap<LocalDate, BigDecimal> byDate = new TreeMap<>();
-        rates.findByCurrency(currency).forEach(rate -> byDate.put(rate.getDate(), rate.getRate()));
+        rates.findRatesOf(currency).forEach(rate -> byDate.put(rate.getDate(), rate.getRate()));
         return byDate;
     }
 
@@ -90,8 +90,9 @@ public class ExchangeRateService {
      * @return false when the NBU had none or is not reachable; it is then not asked again for a while
      */
     boolean loadFrom(String currency, LocalDate date) {
-        String key = currency + "|" + date;
-        if (missingRates.getIfPresent(key) != null) {
+        // Per currency, not per date: otherwise every other date of a currency the NBU does not publish, or of a
+        // period without rates, would be another request
+        if (missingRates.getIfPresent(currency) != null) {
             return false;
         }
         LocalDate until = date.plusDays(DAYS_TO_LOAD);
@@ -104,7 +105,7 @@ public class ExchangeRateService {
             loaded = List.of();
         }
         if (loaded.isEmpty()) {
-            missingRates.put(key, true);
+            missingRates.put(currency, true);
             return false;
         }
         store(loaded);

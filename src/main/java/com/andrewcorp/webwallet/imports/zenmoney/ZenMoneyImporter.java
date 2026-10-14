@@ -110,6 +110,8 @@ public class ZenMoneyImporter {
 
         private final Map<String, String> merchantNames = new HashMap<>();
         private PayeeService.Lookup payeeLookup;
+        /** The budget of Zen Money is in its currency, which may differ from the base currency kept. */
+        private boolean budgetInOtherCurrency;
 
         Run(Long userId, ZenMoneyDump dump) {
             this.userId = userId;
@@ -148,6 +150,7 @@ public class ZenMoneyImporter {
                         }
                         // Assigned money of the budget is in the base currency and would change its value
                         if (budget.existsByUserId(userId)) {
+                            budgetInOtherCurrency = true;
                             result.warn("The base currency " + currency
                                     + " of Zen Money is not used: the budget already has assigned money");
                         } else {
@@ -261,8 +264,8 @@ public class ZenMoneyImporter {
             }
             boolean isIncome = net.signum() > 0;
             Account account = isIncome ? incomeAccount : outcomeAccount;
-            CategoryKind kind = isIncome ? CategoryKind.INCOME : CategoryKind.EXPENSE;
             transaction.setType(isIncome ? TransactionType.INCOME : TransactionType.EXPENSE);
+            CategoryKind kind = CategoryKind.of(transaction.getType());
             transaction.setAccount(account);
             transaction.setAmount(net.abs());
             transaction.setBankId(
@@ -283,6 +286,10 @@ public class ZenMoneyImporter {
 
         /** Monthly expense plans become envelope assignments of the month. */
         private void importBudgets() {
+            if (budgetInOtherCurrency) {
+                result.warn("The budget of Zen Money is not imported: it is in another currency");
+                return;
+            }
             for (ZenMoneyDump.Budget source : Lists.orEmpty(dump.budget())) {
                 LocalDate date = date(source.date());
                 if (source.tag() == null

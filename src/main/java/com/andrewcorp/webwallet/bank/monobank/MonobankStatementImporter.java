@@ -63,20 +63,32 @@ class MonobankStatementImporter {
     }
 
     /** @param account account the operations belong to */
-    Result importItems(Account account, List<StatementItem> items) {
+    /**
+     * @param newFrom operations before this moment were imported by an earlier request: they only update the known
+     *     holds and are never created again, so that an operation the user deleted stays deleted; null to import all
+     */
+    Result importItems(Account account, List<StatementItem> items, Instant newFrom) {
         if (items.isEmpty()) {
             // Most synchronizations find nothing new: the rules and payees are not even loaded
             return new Result();
         }
         Batch batch = new Batch(
-                account, categories.session(account.getUserId()), payees.lookup(account.getUserId()), new Result());
+                account,
+                newFrom,
+                categories.session(account.getUserId()),
+                payees.lookup(account.getUserId()),
+                new Result());
         // Oldest first, so that the categories learned from earlier operations apply to later ones
         items.stream().sorted(Comparator.comparingLong(StatementItem::time)).forEach(item -> importItem(batch, item));
         return batch.result();
     }
 
     private record Batch(
-            Account account, CategorySuggester.Session categories, PayeeService.Lookup payees, Result result) {}
+            Account account,
+            Instant newFrom,
+            CategorySuggester.Session categories,
+            PayeeService.Lookup payees,
+            Result result) {}
 
     private void importItem(Batch batch, StatementItem item) {
         Account account = batch.account();
@@ -92,6 +104,14 @@ class MonobankStatementImporter {
         Optional<Transaction> known = matcher.findKnown(userId, item.id());
         if (known.isPresent()) {
             updateHold(known.get(), item, type, amount, result);
+            return;
+        }
+        // Handled by an earlier request; not there any more because the user deleted or moved it
+        if (batch.newFrom() != null && item.time() < batch.newFrom().getEpochSecond()) {
+            return;
+        }
+        // The id may belong to a transaction the user moved to another account: it keeps the operation
+        if (transactions.existsByUserIdAndSourceAndExternalId(userId, TransactionSource.MONOBANK, item.id())) {
             return;
         }
 
@@ -110,7 +130,7 @@ class MonobankStatementImporter {
                 // Transfers between own Monobank cards are free: no fee tolerance
                 && matcher.mergeTransfer(account, type, amount, date, item.id(), false)
                         .isPresent()) {
-            result.imported++;
+            result.matched++;
             return;
         }
 
@@ -143,15 +163,15 @@ class MonobankStatementImporter {
     }
 
     /**
-     * A hold can change its amount when it is settled. A transaction the user split into several categories keeps its
-     * amount: there is no way to tell which part changed.
+     * A hold can change its amount when it is settled. Other operations keep the amount the user may have corrected,
+     * and so does a transaction the user split into several categories: there is no way to tell which part changed.
      */
     private static void updateHold(
             Transaction existing, StatementItem item, TransactionType type, BigDecimal amount, Result result) {
-        if (existing.getSource() != TransactionSource.MONOBANK || existing.getType() != type) {
+        if (!existing.isHold() || existing.getSource() != TransactionSource.MONOBANK || existing.getType() != type) {
             return;
         }
-        existing.setHold(existing.isHold() && item.hold());
+        existing.setHold(item.hold());
         if (existing.getAmount().compareTo(amount) == 0 || existing.getSplits().size() > 1) {
             return;
         }
@@ -164,14 +184,14 @@ class MonobankStatementImporter {
 
     /**
      * Deletes the holds of the account that the bank no longer lists: the payment was cancelled. Only days fully
-     * inside the statement period are checked.
+     * inside the statement period are checked; the last day may get operations after its end.
      *
      * @param items the complete statement of the account for the period
      */
     void removeCancelledHolds(Account account, Instant from, Instant to, List<StatementItem> items) {
         Set<String> listed = items.stream().map(StatementItem::id).collect(Collectors.toSet());
         LocalDate firstFullDay = from.atZone(BANK_ZONE).toLocalDate().plusDays(1);
-        LocalDate lastDay = to.atZone(BANK_ZONE).toLocalDate();
+        LocalDate lastDay = to.atZone(BANK_ZONE).toLocalDate().minusDays(1);
         transactions.findHolds(account, TransactionSource.MONOBANK, firstFullDay, lastDay).stream()
                 .filter(hold -> !listed.contains(hold.getBankId()))
                 .forEach(transactions::delete);
@@ -192,8 +212,10 @@ class MonobankStatementImporter {
     private static boolean isValid(StatementItem item) {
         long latest = Instant.now().plus(1, ChronoUnit.DAYS).getEpochSecond();
         return item.amount() != 0
-                && Math.abs(item.amount()) < MAX_MINOR_UNITS
-                && Math.abs(item.operationAmount()) < MAX_MINOR_UNITS
+                && item.amount() > -MAX_MINOR_UNITS
+                && item.amount() < MAX_MINOR_UNITS
+                && item.operationAmount() > -MAX_MINOR_UNITS
+                && item.operationAmount() < MAX_MINOR_UNITS
                 && item.time() >= MIN_TIME
                 && item.time() <= latest
                 && item.id() != null

@@ -20,6 +20,8 @@ import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountService;
 import com.andrewcorp.webwallet.ledger.account.AccountType;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionSource;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
@@ -48,6 +50,8 @@ public class MonobankService {
     static final Duration MAX_STATEMENT_PERIOD = Duration.ofDays(31);
     /** Every request also covers this much of the past, to see holds that were settled or cancelled since. */
     static final Duration HOLD_WINDOW = Duration.ofDays(7);
+    /** Some holds (hotels, car rentals) stay unsettled for weeks; they are followed for at most this long. */
+    static final Duration MAX_HOLD_WINDOW = Duration.ofDays(30);
     /** Monobank allows one request a minute per token; one second of margin. */
     static final Duration REQUEST_INTERVAL = Duration.ofSeconds(61);
     /** Accounts synchronized more recently than this are not requested again. */
@@ -66,6 +70,7 @@ public class MonobankService {
     private final MonobankClient client;
     private final MonobankStatementImporter importer;
     private final SecretCipher cipher;
+    private final TransactionRepository transactions;
     private final TransactionTemplate tx;
     private final Clock clock;
     private final String publicUrl;
@@ -78,6 +83,7 @@ public class MonobankService {
             MonobankClient client,
             MonobankStatementImporter importer,
             SecretCipher cipher,
+            TransactionRepository transactions,
             PlatformTransactionManager transactionManager,
             Clock clock,
             @Value("${app.public-url:}") String publicUrl) {
@@ -88,6 +94,7 @@ public class MonobankService {
         this.client = client;
         this.importer = importer;
         this.cipher = cipher;
+        this.transactions = transactions;
         this.tx = new TransactionTemplate(transactionManager);
         this.clock = clock;
         this.publicUrl = publicUrl == null ? "" : publicUrl.replaceAll("/+$", "");
@@ -252,7 +259,7 @@ public class MonobankService {
             from = link.getSyncedUntil();
             to = link.getGapTo();
         } else {
-            from = max(link.getSyncedUntil().minus(HOLD_WINDOW), link.getHistoryFrom());
+            from = max(holdWindowStart(link), link.getHistoryFrom());
             to = min(from.plus(MAX_STATEMENT_PERIOD), now);
         }
         connection.setLastRequestAt(now);
@@ -287,7 +294,7 @@ public class MonobankService {
         }
         Instant to = request.to();
         Instant now = request.requestedAt();
-        importer.importItems(link.getAccount(), items);
+        importer.importItems(link.getAccount(), items, request.syncedUntil());
 
         Instant oldest = items.stream().mapToLong(StatementItem::time).min().stream()
                 .mapToObj(Instant::ofEpochSecond)
@@ -320,7 +327,7 @@ public class MonobankService {
                 .flatMap(connection -> links.findByConnectionAndExternalAccountId(connection, externalAccountId))
                 .filter(link -> link.getAccount() != null)
                 .ifPresent(link -> {
-                    importer.importItems(link.getAccount(), List.of(item));
+                    importer.importItems(link.getAccount(), List.of(item), null);
                     link.setBankBalance(ownFunds(link, item.balance()));
                 });
     }
@@ -355,7 +362,7 @@ public class MonobankService {
         BankAccountLink link = link(connection, bankAccount.id(), title, currency, syncFrom);
         BigDecimal creditLimit = Currencies.fromMinorUnits(bankAccount.creditLimit(), currency);
         if (link.getAccount() == null && link.getId() == null) {
-            Account account = createdBefore(userId, bankAccount.id())
+            Account account = createdBefore(userId, bankAccount.id(), link)
                     .or(() -> accountService.findByCardNumbers(userId, currency, cardNumbers).stream()
                             .filter(candidate -> !isLinked(connection, candidate))
                             .findFirst())
@@ -386,7 +393,7 @@ public class MonobankService {
         }
         BankAccountLink link = link(connection, jar.id(), jar.title(), currency, syncFrom);
         if (link.getAccount() == null && link.getId() == null) {
-            link.setAccount(createdBefore(userId, jar.id()).orElseGet(() -> {
+            link.setAccount(createdBefore(userId, jar.id(), link).orElseGet(() -> {
                 Account account = new Account(userId, jar.title(), AccountType.SAVINGS, currency);
                 account.setExternal(SOURCE, jar.id());
                 return accounts.save(account);
@@ -396,9 +403,27 @@ public class MonobankService {
         links.save(link);
     }
 
-    /** The account created for the bank account by an earlier connection, which was disconnected since. */
-    private Optional<Account> createdBefore(Long userId, String externalId) {
-        return accounts.findByUserIdAndExternalSourceAndExternalId(userId, SOURCE, externalId);
+    /** The usual window of recent days, reaching back to the oldest hold still open, within limits. */
+    private Instant holdWindowStart(BankAccountLink link) {
+        Instant start = link.getSyncedUntil().minus(HOLD_WINDOW);
+        LocalDate oldestHold = transactions.findOldestHoldDate(link.getAccount(), TransactionSource.MONOBANK);
+        if (oldestHold != null) {
+            Instant holdStart =
+                    oldestHold.atStartOfDay(MonobankStatementImporter.BANK_ZONE).toInstant();
+            Instant limit = link.getSyncedUntil().minus(MAX_HOLD_WINDOW);
+            start = min(start, max(holdStart, limit));
+        }
+        return start;
+    }
+
+    /**
+     * The account created for the bank account by an earlier connection, which was disconnected since. Its opening
+     * balance was aligned then and may have been corrected by the user since, so it is not aligned again.
+     */
+    private Optional<Account> createdBefore(Long userId, String externalId, BankAccountLink link) {
+        Optional<Account> account = accounts.findByUserIdAndExternalSourceAndExternalId(userId, SOURCE, externalId);
+        account.ifPresent(found -> link.setBalanceAligned(true));
+        return account;
     }
 
     private BankAccountLink link(
@@ -436,17 +461,25 @@ public class MonobankService {
     private ConnectionResponse status(BankConnection connection) {
         Map<Long, BigDecimal> balances = accountService.balances(connection.getUserId());
         List<LinkResponse> linkResponses = links.findByConnectionOrderByIdAsc(connection).stream()
-                .map(link -> new LinkResponse(
-                        link.getId(),
-                        link.getTitle(),
-                        link.getCurrency(),
-                        link.getAccount() == null ? null : link.getAccount().getId(),
-                        link.getAccount() == null ? null : link.getAccount().getName(),
-                        link.getSyncedUntil(),
-                        link.getBankBalance(),
-                        link.getAccount() == null
-                                ? null
-                                : balances.get(link.getAccount().getId())))
+                .map(link -> {
+                    BigDecimal balance = link.getAccount() == null
+                            ? null
+                            : balances.get(link.getAccount().getId());
+                    // Shows that operations are missing, e.g. after the user deleted or changed imported ones
+                    BigDecimal difference = balance == null || link.getBankBalance() == null
+                            ? null
+                            : link.getBankBalance().subtract(balance);
+                    return new LinkResponse(
+                            link.getId(),
+                            link.getTitle(),
+                            link.getCurrency(),
+                            link.getAccount() == null ? null : link.getAccount().getId(),
+                            link.getAccount() == null ? null : link.getAccount().getName(),
+                            link.getSyncedUntil(),
+                            link.getBankBalance(),
+                            balance,
+                            difference);
+                })
                 .toList();
         return new ConnectionResponse(
                 connection.getClientName(),

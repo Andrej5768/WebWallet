@@ -41,6 +41,8 @@ public final class MonobankDtos {
      * @param syncedUntil operations up to this moment are imported
      * @param bankBalance balance reported by the bank
      * @param balance     balance of the WebWallet account
+     * @param difference  bank balance minus balance: positive when incomes are missing (or expenses were entered
+     *                    twice), negative when expenses are missing, zero when the account is in sync
      */
     public record LinkResponse(
             Long id,
@@ -50,5 +52,6 @@ public final class MonobankDtos {
             String accountName,
             Instant syncedUntil,
             BigDecimal bankBalance,
-            BigDecimal balance) {}
+            BigDecimal balance,
+            BigDecimal difference) {}
 }

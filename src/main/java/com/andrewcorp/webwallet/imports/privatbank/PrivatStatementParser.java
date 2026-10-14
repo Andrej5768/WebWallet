@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -61,6 +62,14 @@ public class PrivatStatementParser {
     private static final Pattern RECEIVED = Pattern.compile("Усього надходжень:\\s*" + HEADER_NUMBER);
 
     public PrivatStatement parse(String rawText) {
+        try {
+            return parseText(rawText);
+        } catch (DateTimeParseException e) {
+            throw new ApiException(ErrorCode.INVALID_IMPORT_FILE);
+        }
+    }
+
+    private PrivatStatement parseText(String rawText) {
         String text = rawText.replace("\r\n", "\n").replace('\u00A0', ' ').replace('\u202F', ' ');
         Matcher card = CARD.matcher(text);
         if (!card.find()) {
