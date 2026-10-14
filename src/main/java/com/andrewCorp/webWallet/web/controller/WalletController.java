@@ -219,7 +219,7 @@ public class WalletController {
 
         model.addAttribute("types", TransactionType.values());
 
-        return "redirect:/accounts/transaction/all";
+        return "redirect:/transactions/all";
     }
 
     @PostMapping(value = "/transactions/save")
