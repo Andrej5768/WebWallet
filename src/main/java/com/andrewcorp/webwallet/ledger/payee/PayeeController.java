@@ -1,12 +1,13 @@
 package com.andrewcorp.webwallet.ledger.payee;
 
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
-import com.andrewcorp.webwallet.ledger.NameRequest;
 import com.andrewcorp.webwallet.ledger.NamedResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -40,15 +41,18 @@ public class PayeeController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public NamedResponse create(@CurrentUserId Long userId, @Valid @RequestBody NameRequest request) {
+    public NamedResponse create(@CurrentUserId Long userId, @Valid @RequestBody PayeeRequest request) {
         return toResponse(payeeService.create(userId, request.name()));
     }
 
     @PutMapping("/{id}")
     public NamedResponse rename(
-            @CurrentUserId Long userId, @PathVariable Long id, @Valid @RequestBody NameRequest request) {
+            @CurrentUserId Long userId, @PathVariable Long id, @Valid @RequestBody PayeeRequest request) {
         return toResponse(payeeService.rename(userId, id, request.name()));
     }
+
+    /** Payee names are longer than other names: banks report the full name of the counterparty. */
+    public record PayeeRequest(@NotBlank @Size(max = 200) String name) {}
 
     @Operation(summary = "Delete a payee; its transactions stay without a payee")
     @DeleteMapping("/{id}")

@@ -56,7 +56,7 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public Page<TransactionResponse> list(Long userId, TransactionFilter filter, Pageable pageable) {
         return transactions
-                .findAll(TransactionSpecifications.matching(userId, filter), pageable)
+                .findAll(TransactionSpecifications.matching(userId, filter, categoryIds(filter)), pageable)
                 .map(TransactionResponse::from);
     }
 
@@ -96,6 +96,16 @@ public class TransactionService {
         return transaction.getSplits().size() == 1
                 ? transaction.getSplits().get(0).getCategory()
                 : null;
+    }
+
+    /** The filtered category and its subcategories. */
+    private List<Long> categoryIds(TransactionFilter filter) {
+        if (filter.categoryId() == null) {
+            return null;
+        }
+        List<Long> ids = new ArrayList<>(List.of(filter.categoryId()));
+        categories.findByParentId(filter.categoryId()).forEach(child -> ids.add(child.getId()));
+        return ids;
     }
 
     private Transaction find(Long userId, Long id) {
@@ -167,7 +177,7 @@ public class TransactionService {
         if (request.toAccountId() != null || request.toAmount() != null) {
             throw ApiException.invalid("toAccountId", "error.transaction.transferOnly");
         }
-        CategoryKind kind = request.type() == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
+        CategoryKind kind = CategoryKind.of(request.type());
         List<SplitData> splits = new ArrayList<>();
         if (request.splits() == null || request.splits().isEmpty()) {
             splits.add(

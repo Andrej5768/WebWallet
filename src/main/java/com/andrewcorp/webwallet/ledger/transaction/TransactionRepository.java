@@ -23,8 +23,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             "select t.externalId from Transaction t where t.userId = :userId and t.source = :source and t.externalId is not null")
     Set<String> findExternalIds(Long userId, TransactionSource source);
 
-    Optional<Transaction> findByUserIdAndSourceAndExternalId(Long userId, TransactionSource source, String externalId);
-
     /** Transactions that stand for the bank operation, on either side of a transfer. */
     @Query("""
             select t from Transaction t

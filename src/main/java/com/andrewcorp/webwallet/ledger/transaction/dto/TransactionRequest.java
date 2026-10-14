@@ -36,7 +36,7 @@ public record TransactionRequest(
         Long categoryId,
         @Valid @Size(max = 100) List<SplitRequest> splits,
         Long payeeId,
-        @Size(max = 100) String payeeName,
+        @Size(max = 200) String payeeName,
         @Size(max = 1000) String comment,
         @Size(max = 50) List<Long> tagIds) {
 

@@ -202,9 +202,8 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
         importFile();
 
         // Zen Money keeps the id of the operation as "[monobank][reg]-abc"
-        assertThat(transactions.findByUserIdAndSourceAndExternalId(
-                        user.getId(), TransactionSource.ZENMONEY, "tx-groceries"))
-                .isEmpty();
+        assertThat(transactions.findExternalIds(user.getId(), TransactionSource.ZENMONEY))
+                .doesNotContain("tx-groceries");
         assertThat(transactions.findByBankId(user.getId(), "abc")).hasSize(1);
     }
 

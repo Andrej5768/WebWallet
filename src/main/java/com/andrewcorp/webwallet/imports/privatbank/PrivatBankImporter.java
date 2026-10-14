@@ -34,8 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PrivatBankImporter {
 
-    static final String SOURCE = "PRIVATBANK";
-
     private static final int MAX_PAYEE_LENGTH = 200;
     private static final int MAX_COMMENT_LENGTH = 1000;
     private static final int MAX_BANK_CATEGORY_LENGTH = 100;
@@ -179,7 +177,7 @@ public class PrivatBankImporter {
         transaction.setBankCategory(bankCategory);
         transaction.setComment(Texts.truncate(
                 Optional.ofNullable(paymentComment(record)).orElse(record.bankCategory()), MAX_COMMENT_LENGTH));
-        CategoryKind kind = type == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
+        CategoryKind kind = CategoryKind.of(type);
         transaction.replaceSplits(
                 List.of(new SplitData(suggestions.suggest(payee, null, bankCategory, kind), amount, null)));
         transactions.save(transaction);

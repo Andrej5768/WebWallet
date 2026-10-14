@@ -27,17 +27,6 @@ public class CategorySuggester {
         this.transactions = transactions;
     }
 
-    /**
-     * @param mcc          merchant category code of a card payment, if known
-     * @param bankCategory classification of the operation by the bank, if known
-     * @return null when nothing applies
-     */
-    public Category suggest(Long userId, Payee payee, Short mcc, String bankCategory, CategoryKind kind) {
-        return byRule(rules.findByUserIdOrderByIdAsc(userId), payee, mcc, bankCategory, kind)
-                .or(() -> byHistory(userId, payee, kind))
-                .orElse(null);
-    }
-
     /** Suggestions for the many operations of one import, with the rules of the user loaded once. */
     public Session session(Long userId) {
         return new Session(userId, rules.findByUserIdOrderByIdAsc(userId));
@@ -55,7 +44,11 @@ public class CategorySuggester {
             this.userRules = userRules;
         }
 
-        /** @see CategorySuggester#suggest */
+        /**
+         * @param mcc          merchant category code of a card payment, if known
+         * @param bankCategory classification of the operation by the bank, if known
+         * @return null when nothing applies
+         */
         public Category suggest(Payee payee, Short mcc, String bankCategory, CategoryKind kind) {
             Optional<Category> byRule = byRule(userRules, payee, mcc, bankCategory, kind);
             if (payee == null || payee.getId() == null) {

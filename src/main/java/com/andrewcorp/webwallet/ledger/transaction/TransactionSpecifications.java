@@ -1,11 +1,11 @@
 package com.andrewcorp.webwallet.ledger.transaction;
 
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionFilter;
-import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -13,7 +13,8 @@ final class TransactionSpecifications {
 
     private TransactionSpecifications() {}
 
-    static Specification<Transaction> matching(Long userId, TransactionFilter filter) {
+    /** @param categoryIds the filtered category and its subcategories, or null when not filtered by category */
+    static Specification<Transaction> matching(Long userId, TransactionFilter filter, Collection<Long> categoryIds) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("userId"), userId));
@@ -35,16 +36,14 @@ final class TransactionSpecifications {
             if (filter.payeeId() != null) {
                 predicates.add(cb.equal(root.get("payee").get("id"), filter.payeeId()));
             }
-            if (filter.categoryId() != null) {
+            if (categoryIds != null) {
+                // The foreign key of the split is compared directly, so the index on it can drive the query
                 Subquery<Long> splits = query.subquery(Long.class);
                 Root<TransactionSplit> split = splits.from(TransactionSplit.class);
-                Join<Object, Object> category = split.join("category");
                 splits.select(split.get("id"))
                         .where(
                                 cb.equal(split.get("transaction"), root),
-                                cb.or(
-                                        cb.equal(category.get("id"), filter.categoryId()),
-                                        cb.equal(category.get("parentId"), filter.categoryId())));
+                                split.get("category").get("id").in(categoryIds));
                 predicates.add(cb.exists(splits));
             }
             if (filter.tagId() != null) {

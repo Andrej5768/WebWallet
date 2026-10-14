@@ -66,7 +66,7 @@ public class ReportService {
         this.clock = clock;
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public SpendingResponse spending(Long userId, LocalDate from, LocalDate to) {
         CurrencyConverter converter = converter(userId);
         Map<Long, BigDecimal> byCategory = new HashMap<>();
@@ -109,7 +109,7 @@ public class ReportService {
         return new SpendingResponse(from, to, converter.target(), total, uncategorized, rows, converter.unconverted());
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public PayeesResponse payees(Long userId, LocalDate from, LocalDate to, int limit) {
         CurrencyConverter converter = converter(userId);
         Map<Long, String> names = new HashMap<>();
@@ -132,7 +132,7 @@ public class ReportService {
         return new PayeesResponse(from, to, converter.target(), payees, converter.unconverted());
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public IncomeExpenseResponse incomeExpense(Long userId, LocalDate from, LocalDate to) {
         CurrencyConverter converter = converter(userId);
         Map<YearMonth, BigDecimal[]> byMonth = new LinkedHashMap<>();
@@ -163,7 +163,7 @@ public class ReportService {
     }
 
     /** Balances of all accounts at the end of every month of the period. */
-    @Transactional
+    @Transactional(readOnly = true)
     public NetWorthResponse netWorth(Long userId, LocalDate from, LocalDate to) {
         CurrencyConverter converter = converter(userId);
         LocalDate today = LocalDate.now(clock);
@@ -212,7 +212,7 @@ public class ReportService {
         if (row.getKind() != null) {
             return row.getKind();
         }
-        return row.getType() == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
+        return CategoryKind.of(row.getType());
     }
 
     /** Positive when the type agrees with the kind, negative for a refund or a returned income. */

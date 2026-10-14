@@ -1,16 +1,12 @@
 package com.andrewcorp.webwallet.imports.zenmoney;
 
-import com.andrewcorp.webwallet.common.error.ApiException;
-import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.common.web.ExternalCalls;
 import java.time.Clock;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 /**
  * Downloads the whole account from the Zen Money sync API. {@code api.zenmoney.ru} is blocked by DNS in Ukraine,
@@ -32,22 +28,13 @@ public class ZenMoneyClient {
 
     /** Full export: a sync request with {@code serverTimestamp = 0} returns everything. */
     public ZenMoneyDump fetchAll(String token) {
-        try {
-            return restClient
-                    .post()
-                    .uri("/v8/diff/")
-                    .header("Authorization", "Bearer " + token)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("currentClientTimestamp", clock.instant().getEpochSecond(), "serverTimestamp", 0))
-                    .retrieve()
-                    .body(ZenMoneyDump.class);
-        } catch (HttpClientErrorException e) {
-            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.FORBIDDEN) {
-                throw new ApiException(ErrorCode.INVALID_EXTERNAL_TOKEN);
-            }
-            throw new ApiException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
-        } catch (RestClientException e) {
-            throw new ApiException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
-        }
+        return ExternalCalls.call(() -> restClient
+                .post()
+                .uri("/v8/diff/")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("currentClientTimestamp", clock.instant().getEpochSecond(), "serverTimestamp", 0))
+                .retrieve()
+                .body(ZenMoneyDump.class));
     }
 }
