@@ -5,12 +5,14 @@ import com.andrewCorp.webWallet.security.CustomAuthenticationProvider;
 import com.andrewCorp.webWallet.security.CustomRememberMeServices;
 import com.andrewCorp.webWallet.security.CustomWebAuthenticationDetailsSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DefaultAuthenticationEventPublisher;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -52,9 +54,15 @@ public class WebSecurityConfig {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private ApplicationEventPublisher applicationEventPublisher;
+
     @Bean
     public AuthenticationManager authenticationManager() {
-        return new ProviderManager(authProvider());
+        final ProviderManager authenticationManager = new ProviderManager(authProvider());
+        // Required for AuthenticationFailureListener/AuthenticationSuccessEventListener (login attempt blocking)
+        authenticationManager.setAuthenticationEventPublisher(new DefaultAuthenticationEventPublisher(applicationEventPublisher));
+        return authenticationManager;
     }
 
     @Bean
