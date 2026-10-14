@@ -78,6 +78,7 @@ docker compose --profile app up -d --build
 - API: http://localhost:8080/api/v1, Swagger UI: http://localhost:8080/swagger-ui.html
 - Emails sent by the backend (verification, password reset): http://localhost:8025
 - Tests: `mvn verify` (needs Docker for Testcontainers)
+- Formatting: `mvn spotless:apply` (palantir-java-format); CI fails on unformatted code (`mvn spotless:check`)
 
 Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`,
 `ENCRYPTION_KEY` (encrypts bank tokens), `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`,

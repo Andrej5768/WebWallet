@@ -7,7 +7,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
-
 import java.math.BigDecimal;
 
 /**
@@ -24,5 +23,4 @@ public record AccountRequest(
         @Digits(integer = 15, fraction = 4) BigDecimal openingBalance,
         @PositiveOrZero @Digits(integer = 15, fraction = 4) BigDecimal creditLimit,
         @PositiveOrZero @Digits(integer = 5, fraction = 4) BigDecimal interestRate,
-        Integer sortOrder) {
-}
+        Integer sortOrder) {}

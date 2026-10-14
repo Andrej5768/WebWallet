@@ -11,7 +11,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -45,8 +44,7 @@ public class RefreshToken {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected RefreshToken() {
-    }
+    protected RefreshToken() {}
 
     public RefreshToken(User user, UUID familyId, String tokenHash, Instant expiresAt) {
         this.user = user;

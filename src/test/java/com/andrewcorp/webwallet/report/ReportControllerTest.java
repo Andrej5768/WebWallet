@@ -1,22 +1,21 @@
 package com.andrewcorp.webwallet.report;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import com.andrewcorp.webwallet.currency.ExchangeRate;
 import com.andrewcorp.webwallet.currency.ExchangeRateRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 class ReportControllerTest extends AbstractIntegrationTest {
 
@@ -51,8 +50,22 @@ class ReportControllerTest extends AbstractIntegrationTest {
         transaction("EXPENSE", "2026-09-05", card, 1000, transport, "Uklon");
         transaction("EXPENSE", "2026-09-06", card, 300, null, null);
         // Paying off the credit card is neither income nor expense
-        json(postJson("/api/v1/transactions", Map.of("type", "TRANSFER", "date", "2026-09-07", "accountId", card,
-                "amount", 400, "toAccountId", credit), auth), 201);
+        json(
+                postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "TRANSFER",
+                                "date",
+                                "2026-09-07",
+                                "accountId",
+                                card,
+                                "amount",
+                                400,
+                                "toAccountId",
+                                credit),
+                        auth),
+                201);
         // 10 USD at 40 UAH
         transaction("EXPENSE", "2026-09-08", dollars, 10, groceries, null);
         // Outside of the period
@@ -60,8 +73,12 @@ class ReportControllerTest extends AbstractIntegrationTest {
     }
 
     private Long account(String name, String type, String currency, double openingBalance) throws Exception {
-        return id(json(postJson("/api/v1/accounts", Map.of("name", name, "type", type, "currency", currency,
-                "openingBalance", openingBalance), auth), 201));
+        return id(json(
+                postJson(
+                        "/api/v1/accounts",
+                        Map.of("name", name, "type", type, "currency", currency, "openingBalance", openingBalance),
+                        auth),
+                201));
     }
 
     private Long category(String name, String kind, Long parentId) throws Exception {
@@ -72,7 +89,8 @@ class ReportControllerTest extends AbstractIntegrationTest {
 
     private void transaction(String type, String date, Long account, double amount, Long categoryId, String payee)
             throws Exception {
-        Map<String, Object> body = new HashMap<>(Map.of("type", type, "date", date, "accountId", account, "amount", amount));
+        Map<String, Object> body =
+                new HashMap<>(Map.of("type", type, "date", date, "accountId", account, "amount", amount));
         body.put("categoryId", categoryId);
         body.put("payeeName", payee);
         json(postJson("/api/v1/transactions", body, auth), 201);
@@ -136,7 +154,8 @@ class ReportControllerTest extends AbstractIntegrationTest {
     @Test
     @SuppressWarnings("unchecked")
     void netWorthAtTheEndOfEveryMonth() throws Exception {
-        List<Map<String, Object>> months = (List<Map<String, Object>>) report("net-worth" + PERIOD).get("months");
+        List<Map<String, Object>> months =
+                (List<Map<String, Object>>) report("net-worth" + PERIOD).get("months");
 
         // August: card 8 500, dollars 100 × 40, credit card debt 500
         assertThat(amount(months.get(0).get("assets"))).isEqualByComparingTo("12500");
@@ -157,10 +176,12 @@ class ReportControllerTest extends AbstractIntegrationTest {
 
     @Test
     void periodValidation() throws Exception {
-        mockMvc.perform(get("/api/v1/reports/spending?from=2026-10-01&to=2026-09-01").header("Authorization", auth))
+        mockMvc.perform(get("/api/v1/reports/spending?from=2026-10-01&to=2026-09-01")
+                        .header("Authorization", auth))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("from"));
-        mockMvc.perform(get("/api/v1/reports/net-worth?from=1990-01-01&to=2026-09-01").header("Authorization", auth))
+        mockMvc.perform(get("/api/v1/reports/net-worth?from=1990-01-01&to=2026-09-01")
+                        .header("Authorization", auth))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/v1/reports/payees?limit=1000").header("Authorization", auth))
                 .andExpect(status().isBadRequest());

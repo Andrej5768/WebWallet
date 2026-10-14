@@ -14,9 +14,6 @@ import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.user.UserService;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -26,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.function.Function;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Envelope budget (similar to YNAB) in the base currency of the user. Only the money of budget accounts is
@@ -42,8 +41,12 @@ public class BudgetService {
     private final UserService users;
     private final ExchangeRateService exchangeRates;
 
-    public BudgetService(BudgetRepository budget, CategoryRepository categories, AccountRepository accounts,
-                         UserService users, ExchangeRateService exchangeRates) {
+    public BudgetService(
+            BudgetRepository budget,
+            CategoryRepository categories,
+            AccountRepository accounts,
+            UserService users,
+            ExchangeRateService exchangeRates) {
         this.budget = budget;
         this.categories = categories;
         this.accounts = accounts;
@@ -53,7 +56,8 @@ public class BudgetService {
 
     @Transactional
     public MonthResponse month(Long userId, YearMonth month) {
-        CurrencyConverter converter = exchangeRates.converterTo(users.get(userId).getBaseCurrency());
+        CurrencyConverter converter =
+                exchangeRates.converterTo(users.get(userId).getBaseCurrency());
         return new Calculation(userId, month, converter).result();
     }
 
@@ -64,19 +68,20 @@ public class BudgetService {
             throw ApiException.invalid("categoryId", "error.budget.expenseCategory");
         }
         LocalDate first = month.atDay(1);
-        budget.findByUserIdAndMonthAndCategory(userId, first, category).ifPresentOrElse(
-                assignment -> {
-                    if (amount.signum() == 0) {
-                        budget.delete(assignment);
-                    } else {
-                        assignment.setAmount(amount);
-                    }
-                },
-                () -> {
-                    if (amount.signum() != 0) {
-                        budget.save(new BudgetAssignment(userId, first, category, amount));
-                    }
-                });
+        budget.findByUserIdAndMonthAndCategory(userId, first, category)
+                .ifPresentOrElse(
+                        assignment -> {
+                            if (amount.signum() == 0) {
+                                budget.delete(assignment);
+                            } else {
+                                assignment.setAmount(amount);
+                            }
+                        },
+                        () -> {
+                            if (amount.signum() != 0) {
+                                budget.save(new BudgetAssignment(userId, first, category, amount));
+                            }
+                        });
         budget.flush();
         return month(userId, month);
     }
@@ -133,13 +138,15 @@ public class BudgetService {
                 activity.forEach((category, amount) -> available.merge(category, amount, BigDecimal::add));
                 assignedTotal = assignedTotal.add(sum(assigned));
             }
-            BigDecimal readyToAssign = inflow.add(uncategorized).subtract(assignedTotal).add(overspent);
+            BigDecimal readyToAssign =
+                    inflow.add(uncategorized).subtract(assignedTotal).add(overspent);
             return response(readyToAssign, available);
         }
 
         private void loadAssignments() {
             for (BudgetAssignment assignment : budget.findUpTo(userId, month.atDay(1))) {
-                assignedByMonth.computeIfAbsent(YearMonth.from(assignment.getMonth()), m -> new HashMap<>())
+                assignedByMonth
+                        .computeIfAbsent(YearMonth.from(assignment.getMonth()), m -> new HashMap<>())
                         .merge(assignment.getCategory().getId(), assignment.getAmount(), BigDecimal::add);
             }
         }
@@ -149,7 +156,8 @@ public class BudgetService {
                 BigDecimal amount = converter.convert(row.getAmount(), row.getCurrency(), row.getDate());
                 boolean income = row.getType() == TransactionType.INCOME;
                 if (row.getCategoryId() != null && row.getKind() == CategoryKind.EXPENSE) {
-                    activityByMonth.computeIfAbsent(YearMonth.from(row.getDate()), m -> new HashMap<>())
+                    activityByMonth
+                            .computeIfAbsent(YearMonth.from(row.getDate()), m -> new HashMap<>())
                             .merge(row.getCategoryId(), income ? amount : amount.negate(), BigDecimal::add);
                 } else if (income) {
                     inflow = inflow.add(amount);
@@ -173,7 +181,8 @@ public class BudgetService {
             LocalDate rateDate = end.isAfter(LocalDate.now()) ? LocalDate.now() : end;
             for (Account account : accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)) {
                 if (account.isInBudget()) {
-                    inflow = inflow.add(converter.convert(account.getOpeningBalance(), account.getCurrency(), rateDate));
+                    inflow =
+                            inflow.add(converter.convert(account.getOpeningBalance(), account.getCurrency(), rateDate));
                 }
             }
         }
@@ -199,17 +208,30 @@ public class BudgetService {
                     rows.add(row);
                 }
             }
-            return new MonthResponse(month, converter.target(), readyToAssign,
-                    sum(rows, CategoryRow::assigned), sum(rows, CategoryRow::activity), sum(rows, CategoryRow::available),
+            return new MonthResponse(
+                    month,
+                    converter.target(),
+                    readyToAssign,
+                    sum(rows, CategoryRow::assigned),
+                    sum(rows, CategoryRow::activity),
+                    sum(rows, CategoryRow::available),
                     rows);
         }
 
-        private CategoryRow row(Category category, Map<Long, BigDecimal> assigned, Map<Long, BigDecimal> activity,
-                                Map<Long, BigDecimal> available, List<CategoryRow> children) {
+        private CategoryRow row(
+                Category category,
+                Map<Long, BigDecimal> assigned,
+                Map<Long, BigDecimal> activity,
+                Map<Long, BigDecimal> available,
+                List<CategoryRow> children) {
             BigDecimal ownAssigned = assigned.getOrDefault(category.getId(), BigDecimal.ZERO);
             BigDecimal ownActivity = activity.getOrDefault(category.getId(), BigDecimal.ZERO);
             BigDecimal ownAvailable = available.getOrDefault(category.getId(), BigDecimal.ZERO);
-            return new CategoryRow(category.getId(), category.getName(), category.getParentId(), category.isArchived(),
+            return new CategoryRow(
+                    category.getId(),
+                    category.getName(),
+                    category.getParentId(),
+                    category.isArchived(),
                     ownAssigned.add(sum(children, CategoryRow::assigned)),
                     ownActivity.add(sum(children, CategoryRow::activity)),
                     ownAvailable.add(sum(children, CategoryRow::available)),
@@ -218,7 +240,9 @@ public class BudgetService {
     }
 
     private static boolean hasMoney(CategoryRow row) {
-        return row.assigned().signum() != 0 || row.activity().signum() != 0 || row.available().signum() != 0;
+        return row.assigned().signum() != 0
+                || row.activity().signum() != 0
+                || row.available().signum() != 0;
     }
 
     private static BigDecimal sum(Map<Long, BigDecimal> amounts) {

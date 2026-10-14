@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,8 +18,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @Tag(name = "Payees")
 @SecurityRequirement(name = "bearer")
@@ -34,7 +33,9 @@ public class PayeeController {
 
     @GetMapping
     public List<NamedResponse> list(@CurrentUserId Long userId) {
-        return payeeService.list(userId).stream().map(PayeeController::toResponse).toList();
+        return payeeService.list(userId).stream()
+                .map(PayeeController::toResponse)
+                .toList();
     }
 
     @PostMapping
@@ -44,7 +45,8 @@ public class PayeeController {
     }
 
     @PutMapping("/{id}")
-    public NamedResponse rename(@CurrentUserId Long userId, @PathVariable Long id, @Valid @RequestBody NameRequest request) {
+    public NamedResponse rename(
+            @CurrentUserId Long userId, @PathVariable Long id, @Valid @RequestBody NameRequest request) {
         return toResponse(payeeService.rename(userId, id, request.name()));
     }
 

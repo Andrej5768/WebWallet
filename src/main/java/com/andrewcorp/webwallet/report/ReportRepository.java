@@ -2,12 +2,11 @@ package com.andrewcorp.webwallet.report;
 
 import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
-import org.springframework.data.repository.Repository;
-import org.springframework.data.jpa.repository.Query;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.Repository;
 
 /** Read-only aggregation queries for the reports. */
 public interface ReportRepository extends Repository<Transaction, Long> {

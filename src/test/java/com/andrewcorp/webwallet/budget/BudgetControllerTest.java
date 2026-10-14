@@ -1,23 +1,22 @@
 package com.andrewcorp.webwallet.budget;
 
-import com.andrewcorp.webwallet.AbstractIntegrationTest;
-import com.andrewcorp.webwallet.currency.ExchangeRate;
-import com.andrewcorp.webwallet.currency.ExchangeRateRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import com.andrewcorp.webwallet.currency.ExchangeRate;
+import com.andrewcorp.webwallet.currency.ExchangeRateRepository;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 class BudgetControllerTest extends AbstractIntegrationTest {
 
@@ -46,8 +45,12 @@ class BudgetControllerTest extends AbstractIntegrationTest {
     }
 
     private Long account(String name, String type, String currency, double openingBalance) throws Exception {
-        return id(json(postJson("/api/v1/accounts", Map.of("name", name, "type", type, "currency", currency,
-                "openingBalance", openingBalance), auth), 201));
+        return id(json(
+                postJson(
+                        "/api/v1/accounts",
+                        Map.of("name", name, "type", type, "currency", currency, "openingBalance", openingBalance),
+                        auth),
+                201));
     }
 
     private Long category(String name, String kind, Long parentId) throws Exception {
@@ -57,14 +60,29 @@ class BudgetControllerTest extends AbstractIntegrationTest {
     }
 
     private void transaction(String type, String date, Long account, double amount, Long categoryId) throws Exception {
-        Map<String, Object> body = new HashMap<>(Map.of("type", type, "date", date, "accountId", account, "amount", amount));
+        Map<String, Object> body =
+                new HashMap<>(Map.of("type", type, "date", date, "accountId", account, "amount", amount));
         body.put("categoryId", categoryId);
         json(postJson("/api/v1/transactions", body, auth), 201);
     }
 
     private void transfer(String date, Long from, Long to, double amount) throws Exception {
-        json(postJson("/api/v1/transactions", Map.of("type", "TRANSFER", "date", date, "accountId", from,
-                "amount", amount, "toAccountId", to), auth), 201);
+        json(
+                postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "TRANSFER",
+                                "date",
+                                date,
+                                "accountId",
+                                from,
+                                "amount",
+                                amount,
+                                "toAccountId",
+                                to),
+                        auth),
+                201);
     }
 
     private Map<String, Object> month(String month) throws Exception {
@@ -72,7 +90,8 @@ class BudgetControllerTest extends AbstractIntegrationTest {
     }
 
     private void assign(String month, Long category, double amount) throws Exception {
-        mockMvc.perform(putJson("/api/v1/budget/" + month + "/categories/" + category, Map.of("assigned", amount), auth))
+        mockMvc.perform(putJson(
+                        "/api/v1/budget/" + month + "/categories/" + category, Map.of("assigned", amount), auth))
                 .andExpect(status().isOk());
     }
 
@@ -182,7 +201,8 @@ class BudgetControllerTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.errors[0].field").value("categoryId"));
         mockMvc.perform(putJson("/api/v1/budget/2026-10/categories/" + groceries, Map.of("assigned", -1), auth))
                 .andExpect(status().isBadRequest());
-        mockMvc.perform(putJson("/api/v1/budget/2026-10/categories/" + groceries, Map.of("assigned", 1), loginNewUser()))
+        mockMvc.perform(putJson(
+                        "/api/v1/budget/2026-10/categories/" + groceries, Map.of("assigned", 1), loginNewUser()))
                 .andExpect(status().isNotFound());
         mockMvc.perform(get("/api/v1/budget/october").header("Authorization", auth))
                 .andExpect(status().isBadRequest());
@@ -191,7 +211,8 @@ class BudgetControllerTest extends AbstractIntegrationTest {
     @Test
     void archivedCategoriesWithoutMoneyAreHidden() throws Exception {
         Long old = category("Old", "EXPENSE", null);
-        mockMvc.perform(putJson("/api/v1/categories/" + old, Map.of("name", "Old", "kind", "EXPENSE", "archived", true), auth))
+        mockMvc.perform(putJson(
+                        "/api/v1/categories/" + old, Map.of("name", "Old", "kind", "EXPENSE", "archived", true), auth))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/budget/2026-10").header("Authorization", auth))

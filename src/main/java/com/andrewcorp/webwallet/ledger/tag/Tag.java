@@ -21,8 +21,7 @@ public class Tag {
     @Column(nullable = false)
     private String name;
 
-    protected Tag() {
-    }
+    protected Tag() {}
 
     public Tag(Long userId, String name) {
         this.userId = userId;

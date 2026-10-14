@@ -1,19 +1,18 @@
 package com.andrewcorp.webwallet.user;
 
-import com.andrewcorp.webwallet.AbstractIntegrationTest;
-import com.andrewcorp.webwallet.auth.dto.TokenResponse;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.http.MediaType;
-
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import com.andrewcorp.webwallet.auth.dto.TokenResponse;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 
 class UserControllerTest extends AbstractIntegrationTest {
 
@@ -69,9 +68,11 @@ class UserControllerTest extends AbstractIntegrationTest {
 
     @Test
     void updateProfile() throws Exception {
-        mockMvc.perform(put("/api/v1/me").header("Authorization", bearer(tokens))
+        mockMvc.perform(put("/api/v1/me")
+                        .header("Authorization", bearer(tokens))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(Map.of("firstName", " Jane ", "lastName", "Smith", "locale", "uk", "baseCurrency", "USD"))))
+                        .content(jsonMapper.writeValueAsString(Map.of(
+                                "firstName", " Jane ", "lastName", "Smith", "locale", "uk", "baseCurrency", "USD"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.firstName").value("Jane"))
                 .andExpect(jsonPath("$.locale").value("uk"))
@@ -84,9 +85,11 @@ class UserControllerTest extends AbstractIntegrationTest {
 
     @Test
     void updateProfileRejectsUnsupportedLocale() throws Exception {
-        mockMvc.perform(put("/api/v1/me").header("Authorization", bearer(tokens))
+        mockMvc.perform(put("/api/v1/me")
+                        .header("Authorization", bearer(tokens))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(Map.of("firstName", "Jane", "lastName", "Smith", "locale", "de", "baseCurrency", "UAH"))))
+                        .content(jsonMapper.writeValueAsString(Map.of(
+                                "firstName", "Jane", "lastName", "Smith", "locale", "de", "baseCurrency", "UAH"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("locale"));
     }
@@ -95,14 +98,19 @@ class UserControllerTest extends AbstractIntegrationTest {
     void changePasswordEndsOtherSessionsAndReturnsNewTokens() throws Exception {
         TokenResponse otherSession = login(user.getEmail(), PASSWORD);
 
-        String body = mockMvc.perform(postJson("/api/v1/me/password",
-                        Map.of("currentPassword", PASSWORD, "newPassword", "newPassword123"))
+        String body = mockMvc.perform(postJson(
+                                "/api/v1/me/password",
+                                Map.of("currentPassword", PASSWORD, "newPassword", "newPassword123"))
                         .header("Authorization", bearer(tokens)))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
         TokenResponse newTokens = jsonMapper.readValue(body, TokenResponse.class);
 
-        assertThat(passwordEncoder.matches("newPassword123", users.findById(user.getId()).orElseThrow().getPasswordHash()))
+        assertThat(passwordEncoder.matches(
+                        "newPassword123",
+                        users.findById(user.getId()).orElseThrow().getPasswordHash()))
                 .isTrue();
         mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", otherSession.refreshToken())))
                 .andExpect(status().isUnauthorized());
@@ -112,7 +120,9 @@ class UserControllerTest extends AbstractIntegrationTest {
 
     @Test
     void changePasswordWithWrongCurrentPassword() throws Exception {
-        mockMvc.perform(postJson("/api/v1/me/password", Map.of("currentPassword", "wrong", "newPassword", "newPassword123"))
+        mockMvc.perform(postJson(
+                                "/api/v1/me/password",
+                                Map.of("currentPassword", "wrong", "newPassword", "newPassword123"))
                         .header("Authorization", bearer(tokens)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_CURRENT_PASSWORD"));

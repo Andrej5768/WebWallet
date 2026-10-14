@@ -1,19 +1,18 @@
 package com.andrewcorp.webwallet.ledger;
 
-import com.andrewcorp.webwallet.AbstractIntegrationTest;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.HashMap;
-import java.util.Map;
-
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import java.util.HashMap;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class CategoryControllerTest extends AbstractIntegrationTest {
 
@@ -34,8 +33,17 @@ class CategoryControllerTest extends AbstractIntegrationTest {
 
     @Test
     void registrationCreatesDefaultCategoriesInUserLanguage() throws Exception {
-        mockMvc.perform(postJson("/api/v1/auth/register",
-                        Map.of("email", "cat@test.com", "password", PASSWORD, "firstName", "A", "lastName", "B"))
+        mockMvc.perform(postJson(
+                                "/api/v1/auth/register",
+                                Map.of(
+                                        "email",
+                                        "cat@test.com",
+                                        "password",
+                                        PASSWORD,
+                                        "firstName",
+                                        "A",
+                                        "lastName",
+                                        "B"))
                         .header("Accept-Language", "uk"))
                 .andExpect(status().isCreated());
         var user = users.findByEmail("cat@test.com").orElseThrow();
@@ -86,7 +94,8 @@ class CategoryControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(putJson("/api/v1/categories/" + other, category("Other", "EXPENSE", other), auth))
                 .andExpect(status().isBadRequest());
         // A foreign parent is rejected
-        Long foreign = id(json(postJson("/api/v1/categories", category("Foreign", "EXPENSE", null), loginNewUser()), 201));
+        Long foreign =
+                id(json(postJson("/api/v1/categories", category("Foreign", "EXPENSE", null), loginNewUser()), 201));
         mockMvc.perform(postJson("/api/v1/categories", category("X", "EXPENSE", foreign), auth))
                 .andExpect(status().isBadRequest());
     }
@@ -106,9 +115,24 @@ class CategoryControllerTest extends AbstractIntegrationTest {
     void deleteOnlyUnusedCategoriesWithoutChildren() throws Exception {
         Long parent = id(json(postJson("/api/v1/categories", category("Travel", "EXPENSE", null), auth), 201));
         Long child = id(json(postJson("/api/v1/categories", category("Hotels", "EXPENSE", parent), auth), 201));
-        Long account = id(json(postJson("/api/v1/accounts", Map.of("name", "Cash", "type", "CASH", "currency", "UAH"), auth), 201));
-        json(postJson("/api/v1/transactions", Map.of("type", "EXPENSE", "date", "2026-10-01", "accountId", account,
-                "amount", 10, "categoryId", child), auth), 201);
+        Long account = id(json(
+                postJson("/api/v1/accounts", Map.of("name", "Cash", "type", "CASH", "currency", "UAH"), auth), 201));
+        json(
+                postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "EXPENSE",
+                                "date",
+                                "2026-10-01",
+                                "accountId",
+                                account,
+                                "amount",
+                                10,
+                                "categoryId",
+                                child),
+                        auth),
+                201);
         Long unused = id(json(postJson("/api/v1/categories", category("Unused", "EXPENSE", null), auth), 201));
 
         mockMvc.perform(delete("/api/v1/categories/" + parent).header("Authorization", auth))

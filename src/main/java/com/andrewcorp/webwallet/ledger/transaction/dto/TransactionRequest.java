@@ -7,7 +7,6 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -27,7 +26,9 @@ public record TransactionRequest(
         @NotNull TransactionType type,
         @NotNull LocalDate date,
         @NotNull Long accountId,
+
         @NotNull @Positive @Digits(integer = 15, fraction = 4) BigDecimal amount,
+
         Long toAccountId,
         @Positive @Digits(integer = 15, fraction = 4) BigDecimal toAmount,
         @Positive @Digits(integer = 15, fraction = 4) BigDecimal originalAmount,
@@ -41,7 +42,8 @@ public record TransactionRequest(
 
     public record SplitRequest(
             Long categoryId,
+
             @NotNull @Positive @Digits(integer = 15, fraction = 4) BigDecimal amount,
-            @Size(max = 500) String comment) {
-    }
+
+            @Size(max = 500) String comment) {}
 }

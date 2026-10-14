@@ -9,5 +9,4 @@ public record UpdateProfileRequest(
         @NotBlank @Size(max = 100) String firstName,
         @NotBlank @Size(max = 100) String lastName,
         @NotBlank @Pattern(regexp = "en|uk") String locale,
-        @NotBlank @CurrencyCode String baseCurrency) {
-}
+        @NotBlank @CurrencyCode String baseCurrency) {}

@@ -2,8 +2,6 @@ package com.andrewcorp.webwallet.imports.privatbank;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -12,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.stereotype.Component;
 
 /**
  * Parses the text of a PrivatBank card statement ("Виписка по картці" from Privat24).
@@ -42,14 +41,15 @@ public class PrivatStatementParser {
             Pattern.DOTALL);
     private static final Pattern RECORD_ANCHOR = Pattern.compile("(?m)^\\d\\d\\.\\d\\d\\.\\d{4}\\n\\d\\d:\\d\\d$");
     /** Bank requisites at the bottom of every page and the table header repeated on the next one. */
-    private static final Pattern PAGE_BREAK = Pattern.compile("АКЦІОНЕРНЕ ТОВАРИСТВО.*?(?:Залишок після\\nоперації\\n|\\z)",
-            Pattern.DOTALL);
+    private static final Pattern PAGE_BREAK =
+            Pattern.compile("АКЦІОНЕРНЕ ТОВАРИСТВО.*?(?:Залишок після\\nоперації\\n|\\z)", Pattern.DOTALL);
+
     private static final String TABLE_HEADER_END = "Залишок після\nоперації\n";
 
     private static final Pattern CARD = Pattern.compile("Інформація по картці:\\s*\\d{6}\\*+(\\d{4})");
     private static final Pattern CURRENCY = Pattern.compile("Валюта рахунку:\\s*([A-Z]{3})");
-    private static final Pattern PERIOD = Pattern.compile(
-            "Період:\\s*(\\d\\d\\.\\d\\d\\.\\d{4})\\s*[—–-]\\s*(\\d\\d\\.\\d\\d\\.\\d{4})");
+    private static final Pattern PERIOD =
+            Pattern.compile("Період:\\s*(\\d\\d\\.\\d\\d\\.\\d{4})\\s*[—–-]\\s*(\\d\\d\\.\\d\\d\\.\\d{4})");
     private static final Pattern CREDIT_LIMIT = Pattern.compile("Кредитний ліміт:\\s*" + HEADER_NUMBER);
     private static final Pattern OPENING = Pattern.compile("Баланс на початок періоду:\\s*" + HEADER_NUMBER);
     private static final Pattern CLOSING = Pattern.compile("Баланс на кінець періоду:\\s*" + HEADER_NUMBER);
@@ -94,10 +94,16 @@ public class PrivatStatementParser {
         checkBalanceChain(records, warnings);
         checkTotals(records, opening, closing, headerNumber(SPENT, text), headerNumber(RECEIVED, text), warnings);
 
-        return new PrivatStatement(card.group(1), currency,
+        return new PrivatStatement(
+                card.group(1),
+                currency,
                 hasPeriod ? LocalDate.parse(period.group(1), DATE) : null,
                 hasPeriod ? LocalDate.parse(period.group(2), DATE) : null,
-                headerNumber(CREDIT_LIMIT, text), opening, closing, List.copyOf(records), List.copyOf(warnings));
+                headerNumber(CREDIT_LIMIT, text),
+                opening,
+                closing,
+                List.copyOf(records),
+                List.copyOf(warnings));
     }
 
     /** The table without the header and the page breaks. */
@@ -112,7 +118,8 @@ public class PrivatStatementParser {
     private static void checkRecordCount(String body, List<PrivatStatement.Record> records, List<String> warnings) {
         long anchors = RECORD_ANCHOR.matcher(body).results().count();
         if (anchors != records.size()) {
-            warnings.add("Parsed " + records.size() + " of " + anchors + " operations: the statement has an unsupported format");
+            warnings.add("Parsed " + records.size() + " of " + anchors
+                    + " operations: the statement has an unsupported format");
         }
     }
 
@@ -131,22 +138,32 @@ public class PrivatStatementParser {
         }
     }
 
-    private static void checkTotals(List<PrivatStatement.Record> records, BigDecimal opening, BigDecimal closing,
-                                    BigDecimal spent, BigDecimal received, List<String> warnings) {
+    private static void checkTotals(
+            List<PrivatStatement.Record> records,
+            BigDecimal opening,
+            BigDecimal closing,
+            BigDecimal spent,
+            BigDecimal received,
+            List<String> warnings) {
         if (records.isEmpty()) {
             return;
         }
         PrivatStatement.Record oldest = records.get(records.size() - 1);
-        if (opening != null && oldest.balanceAfter().subtract(oldest.cardAmount()).compareTo(opening) != 0) {
+        if (opening != null
+                && oldest.balanceAfter().subtract(oldest.cardAmount()).compareTo(opening) != 0) {
             warnings.add("The opening balance differs from the statement header");
         }
         if (closing != null && records.get(0).balanceAfter().compareTo(closing) != 0) {
             warnings.add("The closing balance differs from the statement header");
         }
-        BigDecimal negative = records.stream().map(PrivatStatement.Record::cardAmount)
-                .filter(amount -> amount.signum() < 0).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal positive = records.stream().map(PrivatStatement.Record::cardAmount)
-                .filter(amount -> amount.signum() > 0).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal negative = records.stream()
+                .map(PrivatStatement.Record::cardAmount)
+                .filter(amount -> amount.signum() < 0)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal positive = records.stream()
+                .map(PrivatStatement.Record::cardAmount)
+                .filter(amount -> amount.signum() > 0)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         if (spent != null && negative.compareTo(spent) != 0) {
             warnings.add("Total spent differs from the statement header");
         }

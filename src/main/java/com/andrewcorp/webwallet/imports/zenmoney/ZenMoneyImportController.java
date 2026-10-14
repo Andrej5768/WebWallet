@@ -9,6 +9,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.io.IOException;
+import java.io.InputStream;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,9 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.io.IOException;
-import java.io.InputStream;
 
 @Tag(name = "Imports")
 @SecurityRequirement(name = "bearer")
@@ -59,6 +58,5 @@ public class ZenMoneyImportController {
         return importer.importDump(userId, dump);
     }
 
-    public record TokenRequest(@NotBlank String token) {
-    }
+    public record TokenRequest(@NotBlank String token) {}
 }

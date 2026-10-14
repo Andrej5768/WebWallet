@@ -14,8 +14,7 @@ public final class TokenHasher {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    private TokenHasher() {
-    }
+    private TokenHasher() {}
 
     public static String newToken() {
         byte[] bytes = new byte[32];

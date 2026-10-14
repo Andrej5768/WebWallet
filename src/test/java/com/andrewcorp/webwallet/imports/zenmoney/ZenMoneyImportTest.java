@@ -1,5 +1,14 @@
 package com.andrewcorp.webwallet.imports.zenmoney;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
@@ -12,26 +21,16 @@ import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
 import com.andrewcorp.webwallet.user.User;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class ZenMoneyImportTest extends AbstractIntegrationTest {
 
@@ -59,13 +58,16 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
     }
 
     private Map<String, Object> importFile() throws Exception {
-        return json(multipart("/api/v1/imports/zenmoney/file")
-                .file(new MockMultipartFile("file", "dump.json", "application/json", dump))
-                .header("Authorization", auth), 200);
+        return json(
+                multipart("/api/v1/imports/zenmoney/file")
+                        .file(new MockMultipartFile("file", "dump.json", "application/json", dump))
+                        .header("Authorization", auth),
+                200);
     }
 
     private Account account(String externalId) {
-        return accounts.findByUserIdAndExternalSourceAndExternalId(user.getId(), "ZENMONEY", externalId).orElseThrow();
+        return accounts.findByUserIdAndExternalSourceAndExternalId(user.getId(), "ZENMONEY", externalId)
+                .orElseThrow();
     }
 
     @Test
@@ -74,7 +76,8 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
         rates.save(new ExchangeRate("USD", LocalDate.of(2026, 9, 1), new BigDecimal("41.5")));
         Map<String, Object> result = importFile();
 
-        assertThat(result).containsEntry("accountsCreated", 7)
+        assertThat(result)
+                .containsEntry("accountsCreated", 7)
                 .containsEntry("categoriesCreated", 5)
                 .containsEntry("payeesCreated", 4)
                 .containsEntry("transactionsImported", 8)
@@ -123,7 +126,9 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
     }
 
     private Category category(String externalId) {
-        return categories.findByUserIdAndExternalSourceAndExternalId(user.getId(), "ZENMONEY", externalId).orElseThrow();
+        return categories
+                .findByUserIdAndExternalSourceAndExternalId(user.getId(), "ZENMONEY", externalId)
+                .orElseThrow();
     }
 
     @Test
@@ -157,7 +162,8 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
 
         Map<String, Object> second = importFile();
 
-        assertThat(second).containsEntry("accountsCreated", 0)
+        assertThat(second)
+                .containsEntry("accountsCreated", 0)
                 .containsEntry("accountsUpdated", 7)
                 .containsEntry("categoriesCreated", 0)
                 .containsEntry("payeesCreated", 0)

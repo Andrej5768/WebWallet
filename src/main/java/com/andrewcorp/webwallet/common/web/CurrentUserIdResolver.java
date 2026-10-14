@@ -19,8 +19,11 @@ public class CurrentUserIdResolver implements HandlerMethodArgumentResolver {
     }
 
     @Override
-    public Long resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer, NativeWebRequest webRequest,
-                                WebDataBinderFactory binderFactory) {
+    public Long resolveArgument(
+            MethodParameter parameter,
+            ModelAndViewContainer mavContainer,
+            NativeWebRequest webRequest,
+            WebDataBinderFactory binderFactory) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof Jwt jwt) {
             return Long.valueOf(jwt.getSubject());

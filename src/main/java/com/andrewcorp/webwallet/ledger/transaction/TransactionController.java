@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import java.time.LocalDate;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -25,8 +26,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.time.LocalDate;
 
 @Tag(name = "Transactions")
 @SecurityRequirement(name = "bearer")
@@ -56,7 +55,8 @@ public class TransactionController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
         TransactionFilter filter = new TransactionFilter(from, to, accountId, categoryId, type, payeeId, tagId);
-        return PageResponse.of(transactionService.list(userId, filter, PageRequest.of(page, size, NEWEST_FIRST)), t -> t);
+        return PageResponse.of(
+                transactionService.list(userId, filter, PageRequest.of(page, size, NEWEST_FIRST)), t -> t);
     }
 
     @GetMapping("/{id}")
@@ -71,8 +71,8 @@ public class TransactionController {
     }
 
     @PutMapping("/{id}")
-    public TransactionResponse update(@CurrentUserId Long userId, @PathVariable Long id,
-                                      @Valid @RequestBody TransactionRequest request) {
+    public TransactionResponse update(
+            @CurrentUserId Long userId, @PathVariable Long id, @Valid @RequestBody TransactionRequest request) {
         return transactionService.update(userId, id, request);
     }
 

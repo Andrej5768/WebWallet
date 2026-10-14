@@ -20,10 +20,6 @@ import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountService;
 import com.andrewcorp.webwallet.ledger.account.AccountType;
 import jakarta.persistence.EntityManager;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
@@ -34,6 +30,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Connects Monobank accounts and imports their operations. Monobank allows one request per minute per token, so the
@@ -47,6 +46,7 @@ public class MonobankService {
     static final Duration MAX_STATEMENT_PERIOD = Duration.ofDays(31);
     /** Accounts synchronized more recently than this are not requested again. */
     static final Duration SYNC_INTERVAL = Duration.ofMinutes(5);
+
     private static final int DEFAULT_HISTORY_DAYS = 31;
     private static final String WEBHOOK_PATH = "/api/v1/banks/monobank/webhook/";
 
@@ -61,10 +61,17 @@ public class MonobankService {
     private final Clock clock;
     private final String publicUrl;
 
-    public MonobankService(BankConnectionRepository connections, BankAccountLinkRepository links,
-                           AccountRepository accounts, AccountService accountService, MonobankClient client,
-                           MonobankStatementImporter importer, SecretCipher cipher, EntityManager entityManager,
-                           Clock clock, @Value("${app.public-url:}") String publicUrl) {
+    public MonobankService(
+            BankConnectionRepository connections,
+            BankAccountLinkRepository links,
+            AccountRepository accounts,
+            AccountService accountService,
+            MonobankClient client,
+            MonobankStatementImporter importer,
+            SecretCipher cipher,
+            EntityManager entityManager,
+            Clock clock,
+            @Value("${app.public-url:}") String publicUrl) {
         this.connections = connections;
         this.links = links;
         this.accounts = accounts;
@@ -85,7 +92,8 @@ public class MonobankService {
     public ConnectionResponse connect(Long userId, ConnectRequest request) {
         ClientInfo info = client.clientInfo(request.token());
         Instant now = clock.instant();
-        BankConnection connection = connections.findByUserIdAndProvider(userId, BankProvider.MONOBANK)
+        BankConnection connection = connections
+                .findByUserIdAndProvider(userId, BankProvider.MONOBANK)
                 .orElseGet(() -> new BankConnection(userId, BankProvider.MONOBANK, "", TokenHasher.newToken()));
         connection.setEncryptedToken(cipher.encrypt(request.token()));
         connection.setClientName(info.name());
@@ -94,9 +102,12 @@ public class MonobankService {
         connection.setWebhookRegistered(false);
         connections.save(connection);
 
-        LocalDate since = request.since() != null ? request.since()
-                : LocalDate.now(clock.withZone(MonobankStatementImporter.BANK_ZONE)).minusDays(DEFAULT_HISTORY_DAYS);
-        Instant syncFrom = since.atStartOfDay(MonobankStatementImporter.BANK_ZONE).toInstant();
+        LocalDate since = request.since() != null
+                ? request.since()
+                : LocalDate.now(clock.withZone(MonobankStatementImporter.BANK_ZONE))
+                        .minusDays(DEFAULT_HISTORY_DAYS);
+        Instant syncFrom =
+                since.atStartOfDay(MonobankStatementImporter.BANK_ZONE).toInstant();
         for (BankAccount bankAccount : list(info.accounts())) {
             linkCard(userId, connection, bankAccount, syncFrom);
         }
@@ -128,7 +139,8 @@ public class MonobankService {
             throw ApiException.invalid("accountId", "error.bank.currency");
         }
         boolean usedByAnotherLink = links.findByConnectionOrderByIdAsc(connection).stream()
-                .anyMatch(other -> !other.getId().equals(link.getId()) && other.getAccount() != null
+                .anyMatch(other -> !other.getId().equals(link.getId())
+                        && other.getAccount() != null
                         && other.getAccount().getId().equals(accountId));
         if (usedByAnotherLink) {
             throw ApiException.invalid("accountId", "error.bank.accountLinked");
@@ -185,14 +197,16 @@ public class MonobankService {
         importer.importItems(link.getAccount(), ownAccounts(allLinks), items);
 
         if (items.size() >= MonobankClient.MAX_STATEMENT_ITEMS) {
-            Instant oldest = Instant.ofEpochSecond(items.stream().mapToLong(StatementItem::time).min().orElseThrow());
+            Instant oldest = Instant.ofEpochSecond(
+                    items.stream().mapToLong(StatementItem::time).min().orElseThrow());
             link.setGap(oldest, link.getGapTarget() != null ? link.getGapTarget() : to);
         } else {
             Instant target = link.getGapTarget() != null ? link.getGapTarget() : to;
             link.setSyncedUntil(target);
             link.setGap(null, null);
             if (!target.isBefore(now)) {
-                items.stream().max(Comparator.comparingLong(StatementItem::time))
+                items.stream()
+                        .max(Comparator.comparingLong(StatementItem::time))
                         .ifPresent(newest -> link.setBankBalance(ownFunds(link.getAccount(), newest.balance())));
                 alignCreatedAccount(link);
             }
@@ -203,16 +217,19 @@ public class MonobankService {
     /** Imports an operation pushed by Monobank. Unknown secrets and accounts are ignored. */
     @Transactional
     public void handleWebhook(String secret, String externalAccountId, StatementItem item) {
-        connections.findByProviderAndWebhookSecret(BankProvider.MONOBANK, secret).ifPresent(connection -> {
-            List<BankAccountLink> allLinks = links.findByConnectionOrderByIdAsc(connection);
-            allLinks.stream()
-                    .filter(link -> link.getExternalAccountId().equals(externalAccountId) && link.getAccount() != null)
-                    .findFirst()
-                    .ifPresent(link -> {
-                        importer.importItems(link.getAccount(), ownAccounts(allLinks), List.of(item));
-                        link.setBankBalance(ownFunds(link.getAccount(), item.balance()));
-                    });
-        });
+        connections
+                .findByProviderAndWebhookSecret(BankProvider.MONOBANK, secret)
+                .ifPresent(connection -> {
+                    List<BankAccountLink> allLinks = links.findByConnectionOrderByIdAsc(connection);
+                    allLinks.stream()
+                            .filter(link ->
+                                    link.getExternalAccountId().equals(externalAccountId) && link.getAccount() != null)
+                            .findFirst()
+                            .ifPresent(link -> {
+                                importer.importItems(link.getAccount(), ownAccounts(allLinks), List.of(item));
+                                link.setBankBalance(ownFunds(link.getAccount(), item.balance()));
+                            });
+                });
     }
 
     /** Ids of the connections that may make a request now. */
@@ -241,8 +258,7 @@ public class MonobankService {
                 .filter(pan -> pan.length() >= 4)
                 .map(pan -> pan.substring(pan.length() - 4))
                 .toList();
-        String title = "Monobank " + bankAccount.type()
-                + (cardNumbers.isEmpty() ? "" : " *" + cardNumbers.get(0));
+        String title = "Monobank " + bankAccount.type() + (cardNumbers.isEmpty() ? "" : " *" + cardNumbers.get(0));
         BankAccountLink link = link(connection, bankAccount.id(), title, currency, syncFrom);
         BigDecimal creditLimit = Currencies.fromMinorUnits(bankAccount.creditLimit(), currency);
         if (link.getAccount() == null && link.getId() == null) {
@@ -253,8 +269,11 @@ public class MonobankService {
                     .filter(candidate -> !isLinked(connection, candidate))
                     .findFirst()
                     .orElseGet(() -> {
-                        Account created = new Account(userId, title,
-                                creditLimit.signum() > 0 ? AccountType.CREDIT_CARD : AccountType.CARD, currency);
+                        Account created = new Account(
+                                userId,
+                                title,
+                                creditLimit.signum() > 0 ? AccountType.CREDIT_CARD : AccountType.CARD,
+                                currency);
                         created.setExternal(SOURCE, bankAccount.id());
                         created.setCardNumbers(cardNumbers.isEmpty() ? null : cardNumbers);
                         if (creditLimit.signum() > 0) {
@@ -265,7 +284,8 @@ public class MonobankService {
             link.setAccount(account);
         }
         // For a credit card the bank balance includes the credit limit
-        link.setBankBalance(Currencies.fromMinorUnits(bankAccount.balance(), currency).subtract(creditLimit));
+        link.setBankBalance(
+                Currencies.fromMinorUnits(bankAccount.balance(), currency).subtract(creditLimit));
         links.save(link);
     }
 
@@ -284,8 +304,8 @@ public class MonobankService {
         links.save(link);
     }
 
-    private BankAccountLink link(BankConnection connection, String externalId, String title, String currency,
-                                 Instant syncFrom) {
+    private BankAccountLink link(
+            BankConnection connection, String externalId, String title, String currency, Instant syncFrom) {
         BankAccountLink link = links.findByConnectionAndExternalAccountId(connection, externalId)
                 .orElseGet(() -> new BankAccountLink(connection, externalId, title, currency, syncFrom));
         link.setTitle(title);
@@ -293,8 +313,10 @@ public class MonobankService {
     }
 
     private boolean isLinked(BankConnection connection, Account account) {
-        return connection.getId() != null && links.findByConnectionOrderByIdAsc(connection).stream()
-                .anyMatch(link -> link.getAccount() != null && link.getAccount().getId().equals(account.getId()));
+        return connection.getId() != null
+                && links.findByConnectionOrderByIdAsc(connection).stream()
+                        .anyMatch(link -> link.getAccount() != null
+                                && link.getAccount().getId().equals(account.getId()));
     }
 
     /**
@@ -303,14 +325,16 @@ public class MonobankService {
      */
     private void alignCreatedAccount(BankAccountLink link) {
         Account account = link.getAccount();
-        if (link.getBankBalance() == null || !SOURCE.equals(account.getExternalSource())
+        if (link.getBankBalance() == null
+                || !SOURCE.equals(account.getExternalSource())
                 || !link.getExternalAccountId().equals(account.getExternalId())) {
             return;
         }
         entityManager.flush();
-        BigDecimal balance = accountService.balances(account.getUserId())
-                .getOrDefault(account.getId(), account.getOpeningBalance());
-        account.setOpeningBalance(account.getOpeningBalance().add(link.getBankBalance().subtract(balance)));
+        BigDecimal balance =
+                accountService.balances(account.getUserId()).getOrDefault(account.getId(), account.getOpeningBalance());
+        account.setOpeningBalance(
+                account.getOpeningBalance().add(link.getBankBalance().subtract(balance)));
     }
 
     private ConnectionResponse status(BankConnection connection) {
@@ -324,18 +348,30 @@ public class MonobankService {
                         link.getAccount() == null ? null : link.getAccount().getName(),
                         link.getSyncedUntil(),
                         link.getBankBalance(),
-                        link.getAccount() == null ? null : balances.get(link.getAccount().getId())))
+                        link.getAccount() == null
+                                ? null
+                                : balances.get(link.getAccount().getId())))
                 .toList();
-        return new ConnectionResponse(connection.getClientName(), connection.getCreatedAt(),
-                connection.getLastRequestAt(), connection.getLastError(), connection.isWebhookRegistered(), linkResponses);
+        return new ConnectionResponse(
+                connection.getClientName(),
+                connection.getCreatedAt(),
+                connection.getLastRequestAt(),
+                connection.getLastError(),
+                connection.isWebhookRegistered(),
+                linkResponses);
     }
 
     private BankConnection connection(Long userId) {
-        return connections.findByUserIdAndProvider(userId, BankProvider.MONOBANK).orElseThrow(ApiException::notFound);
+        return connections
+                .findByUserIdAndProvider(userId, BankProvider.MONOBANK)
+                .orElseThrow(ApiException::notFound);
     }
 
     private static List<Account> ownAccounts(List<BankAccountLink> links) {
-        return links.stream().map(BankAccountLink::getAccount).filter(Objects::nonNull).toList();
+        return links.stream()
+                .map(BankAccountLink::getAccount)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private static BigDecimal ownFunds(Account account, long balanceMinorUnits) {

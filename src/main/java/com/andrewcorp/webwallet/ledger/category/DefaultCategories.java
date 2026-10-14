@@ -1,13 +1,12 @@
 package com.andrewcorp.webwallet.ledger.category;
 
-import org.springframework.context.MessageSource;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.springframework.context.MessageSource;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Starter set of categories created for a new user, named in the language of the user.
@@ -55,7 +54,8 @@ public class DefaultCategories {
     }
 
     private Category save(Long userId, Long parentId, String key, CategoryKind kind, int order, Locale locale) {
-        Category category = new Category(userId, parentId, messages.getMessage("category.default." + key, null, locale), kind);
+        Category category =
+                new Category(userId, parentId, messages.getMessage("category.default." + key, null, locale), kind);
         category.setSortOrder(order);
         return categories.save(category);
     }

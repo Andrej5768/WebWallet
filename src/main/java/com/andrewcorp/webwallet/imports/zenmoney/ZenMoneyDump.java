@@ -1,7 +1,6 @@
 package com.andrewcorp.webwallet.imports.zenmoney;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -22,13 +21,11 @@ public record ZenMoneyDump(
 
     /** A currency; {@code shortTitle} is the ISO code. */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Instrument(int id, String shortTitle) {
-    }
+    public record Instrument(int id, String shortTitle) {}
 
     /** {@code currency} is the instrument id of the base currency. */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record User(long id, Integer currency) {
-    }
+    public record User(long id, Integer currency) {}
 
     /**
      * @param type   cash, ccard, checking, loan, deposit, emoney or debt
@@ -46,25 +43,22 @@ public record ZenMoneyDump(
             Boolean archive,
             Boolean savings,
             List<String> syncID,
-            BigDecimal percent) {
-    }
+            BigDecimal percent) {}
 
     /** A category; only one level of nesting through {@code parent}. */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Tag(String id, String title, String parent, Boolean showIncome, Boolean showOutcome, Boolean archive) {
-    }
+    public record Tag(
+            String id, String title, String parent, Boolean showIncome, Boolean showOutcome, Boolean archive) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Merchant(String id, String title) {
-    }
+    public record Merchant(String id, String title) {}
 
     /**
      * Monthly plan of a category in the base currency; {@code date} is the first day of the month. A null tag means
      * operations without a category, the zero UUID the total of the month.
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Budget(String date, String tag, BigDecimal outcome) {
-    }
+    public record Budget(String date, String tag, BigDecimal outcome) {}
 
     /**
      * An expense has the same account on both sides and only {@code outcome}, an income only {@code income}; a
@@ -89,6 +83,5 @@ public record ZenMoneyDump(
             String payee,
             String comment,
             String incomeBankID,
-            String outcomeBankID) {
-    }
+            String outcomeBankID) {}
 }

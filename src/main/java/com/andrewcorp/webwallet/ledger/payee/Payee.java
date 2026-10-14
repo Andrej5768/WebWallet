@@ -24,8 +24,7 @@ public class Payee {
     @Column(nullable = false)
     private String name;
 
-    protected Payee() {
-    }
+    protected Payee() {}
 
     public Payee(Long userId, String name) {
         this.userId = userId;

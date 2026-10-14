@@ -28,7 +28,11 @@ jobs:
           java-version: '21'
           cache: maven
 
-      # Runs the tests against in-memory H2 and enforces the JaCoCo coverage threshold
+      # Fails fast on unformatted code; fix locally with `mvn spotless:apply`
+      - name: Check formatting
+        run: mvn -B -ntp spotless:check
+
+      # Runs the tests against PostgreSQL in Testcontainers and enforces the JaCoCo coverage threshold
       - name: Build and test
         run: mvn -B -ntp clean verify
 

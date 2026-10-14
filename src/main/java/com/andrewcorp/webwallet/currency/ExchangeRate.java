@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
-
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -28,8 +27,7 @@ public class ExchangeRate {
     @Column(nullable = false)
     private BigDecimal rate;
 
-    protected ExchangeRate() {
-    }
+    protected ExchangeRate() {}
 
     public ExchangeRate(String currency, LocalDate date, BigDecimal rate) {
         this.currency = currency;
@@ -54,8 +52,7 @@ public class ExchangeRate {
         private String currency;
         private LocalDate date;
 
-        protected Key() {
-        }
+        protected Key() {}
 
         public Key(String currency, LocalDate date) {
             this.currency = currency;
@@ -64,7 +61,9 @@ public class ExchangeRate {
 
         @Override
         public boolean equals(Object o) {
-            return o instanceof Key other && Objects.equals(currency, other.currency) && Objects.equals(date, other.date);
+            return o instanceof Key other
+                    && Objects.equals(currency, other.currency)
+                    && Objects.equals(date, other.date);
         }
 
         @Override

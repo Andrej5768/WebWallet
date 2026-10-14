@@ -10,7 +10,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -39,8 +38,7 @@ public class BudgetAssignment {
     @Column(nullable = false)
     private BigDecimal amount;
 
-    protected BudgetAssignment() {
-    }
+    protected BudgetAssignment() {}
 
     public BudgetAssignment(Long userId, LocalDate month, Category category, BigDecimal amount) {
         this.userId = userId;

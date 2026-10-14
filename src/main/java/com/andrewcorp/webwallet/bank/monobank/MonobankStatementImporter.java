@@ -11,8 +11,6 @@ import com.andrewcorp.webwallet.ledger.transaction.Transaction.SplitData;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSource;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -22,6 +20,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.stereotype.Component;
 
 /**
  * Turns Monobank statement items into transactions of one account without creating duplicates of operations that
@@ -33,6 +32,7 @@ class MonobankStatementImporter {
     static final ZoneId BANK_ZONE = ZoneId.of("Europe/Kyiv");
     /** Money transfers; transfers between own cards come as a pair of such operations. */
     private static final short TRANSFER_MCC = 4829;
+
     private static final int MATCH_DAYS = 3;
     private static final int MAX_PAYEE_LENGTH = 200;
     private static final int MAX_COMMENT_LENGTH = 1000;
@@ -69,12 +69,14 @@ class MonobankStatementImporter {
         TransactionType type = item.amount() > 0 ? TransactionType.INCOME : TransactionType.EXPENSE;
         LocalDate date = Instant.ofEpochSecond(item.time()).atZone(BANK_ZONE).toLocalDate();
 
-        Optional<Transaction> imported = transactions.findByUserIdAndSourceAndExternalId(userId, TransactionSource.MONOBANK, item.id())
+        Optional<Transaction> imported = transactions
+                .findByUserIdAndSourceAndExternalId(userId, TransactionSource.MONOBANK, item.id())
                 .or(() -> transactions.findFirstByUserIdAndBankReferenceEndingWith(userId, item.id()));
         if (imported.isPresent()) {
             // A hold can change its amount when it is settled
             Transaction existing = imported.get();
-            if (existing.getSource() == TransactionSource.MONOBANK && existing.getType() == type
+            if (existing.getSource() == TransactionSource.MONOBANK
+                    && existing.getType() == type
                     && existing.getAmount().compareTo(amount) != 0) {
                 existing.setAmount(amount);
                 existing.replaceSplits(existing.getSplits().stream()
@@ -86,9 +88,18 @@ class MonobankStatementImporter {
             return;
         }
 
-        Optional<Transaction> manual = transactions.findMatchCandidates(userId, account, type, amount,
-                        date.minusDays(MATCH_DAYS), date.plusDays(MATCH_DAYS), TransactionSource.MONOBANK).stream()
-                .min(Comparator.comparingLong(candidate -> Math.abs(ChronoUnit.DAYS.between(candidate.getDate(), date))));
+        Optional<Transaction> manual = transactions
+                .findMatchCandidates(
+                        userId,
+                        account,
+                        type,
+                        amount,
+                        date.minusDays(MATCH_DAYS),
+                        date.plusDays(MATCH_DAYS),
+                        TransactionSource.MONOBANK)
+                .stream()
+                .min(Comparator.comparingLong(
+                        candidate -> Math.abs(ChronoUnit.DAYS.between(candidate.getDate(), date))));
         if (manual.isPresent()) {
             manual.get().setBankReference(item.id());
             manual.get().setMcc(mcc(item));
@@ -112,13 +123,15 @@ class MonobankStatementImporter {
         transaction.setComment(truncate(item.comment(), MAX_COMMENT_LENGTH));
         String operationCurrency = Currencies.byNumericCode(item.currencyCode());
         if (operationCurrency != null && !operationCurrency.equals(account.getCurrency())) {
-            transaction.setOriginalAmount(Currencies.fromMinorUnits(Math.abs(item.operationAmount()), operationCurrency));
+            transaction.setOriginalAmount(
+                    Currencies.fromMinorUnits(Math.abs(item.operationAmount()), operationCurrency));
             transaction.setOriginalCurrency(operationCurrency);
         }
         Payee payee = payee(userId, item);
         transaction.setPayee(payee);
         CategoryKind kind = type == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
-        transaction.replaceSplits(List.of(new SplitData(categories.suggest(userId, payee, mcc(item), null, kind), amount, null)));
+        transaction.replaceSplits(
+                List.of(new SplitData(categories.suggest(userId, payee, mcc(item), null, kind), amount, null)));
         transactions.save(transaction);
         result.imported++;
     }
@@ -127,8 +140,13 @@ class MonobankStatementImporter {
      * A transfer between own cards comes as an expense on one card and an income on the other. When the other half
      * is already imported, it becomes a transfer instead of creating a second transaction.
      */
-    private boolean mergeTransfer(Account account, Collection<Account> ownAccounts, StatementItem item,
-                                  TransactionType type, BigDecimal amount, LocalDate date) {
+    private boolean mergeTransfer(
+            Account account,
+            Collection<Account> ownAccounts,
+            StatementItem item,
+            TransactionType type,
+            BigDecimal amount,
+            LocalDate date) {
         Short mcc = mcc(item);
         List<Account> others = ownAccounts.stream()
                 .filter(other -> !other.getId().equals(account.getId()))
@@ -138,8 +156,11 @@ class MonobankStatementImporter {
             return false;
         }
         TransactionType otherType = type == TransactionType.INCOME ? TransactionType.EXPENSE : TransactionType.INCOME;
-        Optional<Transaction> counterpart = transactions.findTransferCounterparts(account.getUserId(),
-                TransactionSource.MONOBANK, otherType, amount, date, mcc, others).stream().findFirst();
+        Optional<Transaction> counterpart = transactions
+                .findTransferCounterparts(
+                        account.getUserId(), TransactionSource.MONOBANK, otherType, amount, date, mcc, others)
+                .stream()
+                .findFirst();
         if (counterpart.isEmpty()) {
             return false;
         }
@@ -164,7 +185,8 @@ class MonobankStatementImporter {
     }
 
     private Payee payee(Long userId, StatementItem item) {
-        String name = item.counterName() != null && !item.counterName().isBlank() ? item.counterName() : item.description();
+        String name =
+                item.counterName() != null && !item.counterName().isBlank() ? item.counterName() : item.description();
         String trimmed = truncate(name, MAX_PAYEE_LENGTH);
         return trimmed == null ? null : payees.findOrCreate(userId, trimmed);
     }

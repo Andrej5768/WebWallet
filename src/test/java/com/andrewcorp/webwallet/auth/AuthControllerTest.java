@@ -1,16 +1,5 @@
 package com.andrewcorp.webwallet.auth;
 
-import com.andrewcorp.webwallet.AbstractIntegrationTest;
-import com.andrewcorp.webwallet.auth.dto.TokenResponse;
-import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
-import com.andrewcorp.webwallet.user.User;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.MailSendException;
-import org.springframework.mail.SimpleMailMessage;
-
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
@@ -20,6 +9,16 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import com.andrewcorp.webwallet.auth.dto.TokenResponse;
+import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
+import com.andrewcorp.webwallet.user.User;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.MailSendException;
+import org.springframework.mail.SimpleMailMessage;
 
 class AuthControllerTest extends AbstractIntegrationTest {
 
@@ -57,7 +56,8 @@ class AuthControllerTest extends AbstractIntegrationTest {
 
     @Test
     void registerUsesUkrainianForEmailsWhenRequested() throws Exception {
-        mockMvc.perform(postJson("/api/v1/auth/register", registration("uk@test.com")).header("Accept-Language", "uk-UA"))
+        mockMvc.perform(postJson("/api/v1/auth/register", registration("uk@test.com"))
+                        .header("Accept-Language", "uk-UA"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.locale").value("uk"));
 
@@ -75,7 +75,8 @@ class AuthControllerTest extends AbstractIntegrationTest {
 
     @Test
     void registerValidatesInput() throws Exception {
-        mockMvc.perform(postJson("/api/v1/auth/register",
+        mockMvc.perform(postJson(
+                        "/api/v1/auth/register",
                         Map.of("email", "not-an-email", "password", "short", "firstName", "", "lastName", "Doe")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
@@ -102,7 +103,8 @@ class AuthControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(postJson("/api/v1/auth/verify-email", Map.of("token", token)))
                 .andExpect(status().isNoContent());
 
-        assertThat(users.findByEmail("verify@test.com").orElseThrow().isEmailVerified()).isTrue();
+        assertThat(users.findByEmail("verify@test.com").orElseThrow().isEmailVerified())
+                .isTrue();
 
         // The token can be used only once
         mockMvc.perform(postJson("/api/v1/auth/verify-email", Map.of("token", token)))
@@ -226,7 +228,9 @@ class AuthControllerTest extends AbstractIntegrationTest {
 
         String body = mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", tokens.refreshToken())))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
         TokenResponse refreshed = jsonMapper.readValue(body, TokenResponse.class);
 
         assertThat(refreshed.refreshToken()).isNotEqualTo(tokens.refreshToken());
@@ -239,7 +243,9 @@ class AuthControllerTest extends AbstractIntegrationTest {
         createUser("reuse@test.com", true);
         TokenResponse tokens = login("reuse@test.com", PASSWORD);
         String body = mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", tokens.refreshToken())))
-                .andReturn().getResponse().getContentAsString();
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
         TokenResponse refreshed = jsonMapper.readValue(body, TokenResponse.class);
 
         // The old token is presented again, e.g. by an attacker who stole it
@@ -298,12 +304,14 @@ class AuthControllerTest extends AbstractIntegrationTest {
         assertThat(mail.getSubject()).isEqualTo("Password reset");
         assertThat(mail.getText()).contains("/reset-password?token=", "60 minutes");
 
-        mockMvc.perform(postJson("/api/v1/auth/reset-password",
+        mockMvc.perform(postJson(
+                        "/api/v1/auth/reset-password",
                         Map.of("token", tokenFromLastMail(), "newPassword", "newPassword123")))
                 .andExpect(status().isNoContent());
 
         User user = users.findByEmail("reset@test.com").orElseThrow();
-        assertThat(passwordEncoder.matches("newPassword123", user.getPasswordHash())).isTrue();
+        assertThat(passwordEncoder.matches("newPassword123", user.getPasswordHash()))
+                .isTrue();
         // Following the link proves ownership of the email address
         assertThat(user.isEmailVerified()).isTrue();
         // Existing sessions are ended
@@ -326,7 +334,8 @@ class AuthControllerTest extends AbstractIntegrationTest {
 
     @Test
     void resetPasswordWithInvalidToken() throws Exception {
-        mockMvc.perform(postJson("/api/v1/auth/reset-password", Map.of("token", "unknown", "newPassword", "newPassword123")))
+        mockMvc.perform(postJson(
+                        "/api/v1/auth/reset-password", Map.of("token", "unknown", "newPassword", "newPassword123")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
     }
@@ -335,7 +344,8 @@ class AuthControllerTest extends AbstractIntegrationTest {
     void verificationTokenCannotBeUsedForPasswordReset() throws Exception {
         mockMvc.perform(postJson("/api/v1/auth/register", registration("mixed@test.com")));
 
-        mockMvc.perform(postJson("/api/v1/auth/reset-password",
+        mockMvc.perform(postJson(
+                        "/api/v1/auth/reset-password",
                         Map.of("token", tokenFromLastMail(), "newPassword", "newPassword123")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));

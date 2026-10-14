@@ -9,7 +9,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-
 import java.math.BigDecimal;
 
 /**
@@ -36,8 +35,7 @@ public class TransactionSplit {
 
     private String comment;
 
-    protected TransactionSplit() {
-    }
+    protected TransactionSplit() {}
 
     TransactionSplit(Transaction transaction, Category category, BigDecimal amount, String comment) {
         this.transaction = transaction;

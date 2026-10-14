@@ -16,9 +16,6 @@ import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSource;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import jakarta.persistence.EntityManager;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.temporal.ChronoUnit;
@@ -29,6 +26,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Imports the operations of a parsed PrivatBank statement into an account. Overlapping statements and operations
@@ -41,6 +40,7 @@ public class PrivatBankImporter {
     private static final int MATCH_DAYS = 3;
     /** Transfers between own cards lose up to ~4% in fees, e.g. 10 300 leaves Privat and 10 000 arrives elsewhere. */
     private static final BigDecimal MIN_TRANSFER_RATIO = new BigDecimal("0.96");
+
     private static final int MAX_PAYEE_LENGTH = 200;
     private static final int MAX_COMMENT_LENGTH = 1000;
     private static final int MAX_BANK_CATEGORY_LENGTH = 100;
@@ -48,8 +48,8 @@ public class PrivatBankImporter {
     private static final Pattern RECIPIENT = Pattern.compile("отримувач (.+?), банк");
     private static final Pattern SENDER = Pattern.compile("(?:^|, )від ([^,]+)$");
     private static final Pattern PAYMENT_COMMENT = Pattern.compile("Коментар до платежу: (.*)$");
-    private static final Set<String> TRANSFER_CATEGORIES = Set.of("Перекази", "Зарахування переказу",
-            "Зарахування зі своєї картки");
+    private static final Set<String> TRANSFER_CATEGORIES =
+            Set.of("Перекази", "Зарахування переказу", "Зарахування зі своєї картки");
 
     private final AccountRepository accounts;
     private final AccountService accountService;
@@ -58,8 +58,13 @@ public class PrivatBankImporter {
     private final CategorySuggester categories;
     private final EntityManager entityManager;
 
-    public PrivatBankImporter(AccountRepository accounts, AccountService accountService, TransactionRepository transactions,
-                              PayeeService payees, CategorySuggester categories, EntityManager entityManager) {
+    public PrivatBankImporter(
+            AccountRepository accounts,
+            AccountService accountService,
+            TransactionRepository transactions,
+            PayeeService payees,
+            CategorySuggester categories,
+            EntityManager entityManager) {
         this.accounts = accounts;
         this.accountService = accountService;
         this.transactions = transactions;
@@ -82,7 +87,10 @@ public class PrivatBankImporter {
         // Oldest first, so that the categories learned from earlier operations apply to later ones
         for (PrivatStatement.Record record : statement.records().reversed()) {
             String key = key(statement, record);
-            if (imported.contains(key) || transactions.findFirstByUserIdAndBankReferenceEndingWith(userId, key).isPresent()) {
+            if (imported.contains(key)
+                    || transactions
+                            .findFirstByUserIdAndBankReferenceEndingWith(userId, key)
+                            .isPresent()) {
                 result.transactionsSkipped++;
                 continue;
             }
@@ -112,9 +120,13 @@ public class PrivatBankImporter {
         if (byCard.isPresent()) {
             return byCard.get();
         }
-        boolean credit = statement.creditLimit() != null && statement.creditLimit().signum() > 0;
-        Account account = new Account(userId, "PrivatBank *" + statement.cardLast4(),
-                credit ? AccountType.CREDIT_CARD : AccountType.CARD, statement.currency());
+        boolean credit =
+                statement.creditLimit() != null && statement.creditLimit().signum() > 0;
+        Account account = new Account(
+                userId,
+                "PrivatBank *" + statement.cardLast4(),
+                credit ? AccountType.CREDIT_CARD : AccountType.CARD,
+                statement.currency());
         account.setCardNumbers(List.of(statement.cardLast4()));
         if (credit) {
             account.setCreditLimit(statement.creditLimit());
@@ -123,8 +135,12 @@ public class PrivatBankImporter {
         return accounts.save(account);
     }
 
-    private void importRecord(Account account, PrivatStatement statement, PrivatStatement.Record record, String key,
-                              ImportResult.Builder result) {
+    private void importRecord(
+            Account account,
+            PrivatStatement statement,
+            PrivatStatement.Record record,
+            String key,
+            ImportResult.Builder result) {
         Long userId = account.getUserId();
         BigDecimal amount = record.cardAmount().abs();
         if (amount.signum() == 0) {
@@ -132,10 +148,18 @@ public class PrivatBankImporter {
         }
         TransactionType type = record.cardAmount().signum() > 0 ? TransactionType.INCOME : TransactionType.EXPENSE;
 
-        Optional<Transaction> known = transactions.findMatchCandidates(userId, account, type, amount,
-                        record.date().minusDays(MATCH_DAYS), record.date().plusDays(MATCH_DAYS), TransactionSource.PRIVATBANK)
+        Optional<Transaction> known = transactions
+                .findMatchCandidates(
+                        userId,
+                        account,
+                        type,
+                        amount,
+                        record.date().minusDays(MATCH_DAYS),
+                        record.date().plusDays(MATCH_DAYS),
+                        TransactionSource.PRIVATBANK)
                 .stream()
-                .min(Comparator.comparingLong(candidate -> Math.abs(ChronoUnit.DAYS.between(candidate.getDate(), record.date()))));
+                .min(Comparator.comparingLong(
+                        candidate -> Math.abs(ChronoUnit.DAYS.between(candidate.getDate(), record.date()))));
         if (known.isPresent()) {
             known.get().setBankReference(key);
             result.transactionsMatched++;
@@ -162,10 +186,11 @@ public class PrivatBankImporter {
         transaction.setPayee(payee);
         String bankCategory = truncate(record.bankCategory(), MAX_BANK_CATEGORY_LENGTH);
         transaction.setBankCategory(bankCategory);
-        transaction.setComment(truncate(Optional.ofNullable(paymentComment(record)).orElse(record.bankCategory()),
-                MAX_COMMENT_LENGTH));
+        transaction.setComment(truncate(
+                Optional.ofNullable(paymentComment(record)).orElse(record.bankCategory()), MAX_COMMENT_LENGTH));
         CategoryKind kind = type == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
-        transaction.replaceSplits(List.of(new SplitData(categories.suggest(userId, payee, null, bankCategory, kind), amount, null)));
+        transaction.replaceSplits(
+                List.of(new SplitData(categories.suggest(userId, payee, null, bankCategory, kind), amount, null)));
         transactions.save(transaction);
         result.transactionsImported++;
     }
@@ -174,15 +199,25 @@ public class PrivatBankImporter {
      * A transfer to or from another own account (e.g. Monobank) is already there as an income or expense; it becomes
      * one transfer with both amounts. The fee makes the amounts differ by up to ~4%.
      */
-    private boolean mergeTransfer(Account account, PrivatStatement.Record record, TransactionType type, BigDecimal amount,
-                                  String key) {
+    private boolean mergeTransfer(
+            Account account, PrivatStatement.Record record, TransactionType type, BigDecimal amount, String key) {
         boolean outgoing = type == TransactionType.EXPENSE;
         BigDecimal min = outgoing ? amount.multiply(MIN_TRANSFER_RATIO) : amount;
         BigDecimal max = outgoing ? amount : amount.divide(MIN_TRANSFER_RATIO, 4, RoundingMode.HALF_UP);
         TransactionType otherType = outgoing ? TransactionType.INCOME : TransactionType.EXPENSE;
-        Optional<Transaction> counterpart = transactions.findTransferCandidates(account.getUserId(), otherType, account,
-                        account.getCurrency(), record.date().minusDays(1), record.date().plusDays(1), min, max).stream()
-                .min(Comparator.comparing(candidate -> candidate.getAmount().subtract(amount).abs()));
+        Optional<Transaction> counterpart = transactions
+                .findTransferCandidates(
+                        account.getUserId(),
+                        otherType,
+                        account,
+                        account.getCurrency(),
+                        record.date().minusDays(1),
+                        record.date().plusDays(1),
+                        min,
+                        max)
+                .stream()
+                .min(Comparator.comparing(
+                        candidate -> candidate.getAmount().subtract(amount).abs()));
         if (counterpart.isEmpty()) {
             return false;
         }
@@ -222,8 +257,8 @@ public class PrivatBankImporter {
     /** The account opening balance is set so that the balance equals the statement closing balance. */
     private void alignBalance(Account account, BigDecimal closingBalance) {
         entityManager.flush();
-        BigDecimal balance = accountService.balances(account.getUserId())
-                .getOrDefault(account.getId(), account.getOpeningBalance());
+        BigDecimal balance =
+                accountService.balances(account.getUserId()).getOrDefault(account.getId(), account.getOpeningBalance());
         account.setOpeningBalance(account.getOpeningBalance().add(closingBalance.subtract(balance)));
     }
 
@@ -232,8 +267,13 @@ public class PrivatBankImporter {
      * operations practically impossible.
      */
     static String key(PrivatStatement statement, PrivatStatement.Record record) {
-        return String.join("|", statement.currency(), record.date().toString(), record.time().toString(),
-                record.cardAmount().toPlainString(), record.balanceAfter().toPlainString());
+        return String.join(
+                "|",
+                statement.currency(),
+                record.date().toString(),
+                record.time().toString(),
+                record.cardAmount().toPlainString(),
+                record.balanceAfter().toPlainString());
     }
 
     private static String find(Pattern pattern, String text) {

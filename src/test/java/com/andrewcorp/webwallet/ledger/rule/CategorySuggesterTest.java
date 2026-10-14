@@ -1,19 +1,18 @@
 package com.andrewcorp.webwallet.ledger.rule;
 
-import com.andrewcorp.webwallet.ledger.category.Category;
-import com.andrewcorp.webwallet.ledger.category.CategoryKind;
-import com.andrewcorp.webwallet.ledger.payee.Payee;
-import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
-import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
-
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import com.andrewcorp.webwallet.ledger.category.Category;
+import com.andrewcorp.webwallet.ledger.category.CategoryKind;
+import com.andrewcorp.webwallet.ledger.payee.Payee;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class CategorySuggesterTest {
 
@@ -54,12 +53,16 @@ class CategorySuggesterTest {
         incomeByPayee.setPayee(silpo);
         when(rules.findByUserIdOrderByIdAsc(1L)).thenReturn(List.of(byMcc, byPattern, byPayee, incomeByPayee));
 
-        assertThat(suggester.suggest(1L, silpo, (short) 5411, null, CategoryKind.EXPENSE)).isSameAs(restaurants);
-        assertThat(suggester.suggest(1L, silpo, (short) 5411, null, CategoryKind.INCOME)).isSameAs(refunds);
+        assertThat(suggester.suggest(1L, silpo, (short) 5411, null, CategoryKind.EXPENSE))
+                .isSameAs(restaurants);
+        assertThat(suggester.suggest(1L, silpo, (short) 5411, null, CategoryKind.INCOME))
+                .isSameAs(refunds);
 
         Payee otherSilpo = withId(new Payee(1L, "silpo online"));
-        assertThat(suggester.suggest(1L, otherSilpo, (short) 5411, null, CategoryKind.EXPENSE)).isSameAs(food);
-        assertThat(suggester.suggest(1L, null, (short) 5411, null, CategoryKind.EXPENSE)).isSameAs(groceries);
+        assertThat(suggester.suggest(1L, otherSilpo, (short) 5411, null, CategoryKind.EXPENSE))
+                .isSameAs(food);
+        assertThat(suggester.suggest(1L, null, (short) 5411, null, CategoryKind.EXPENSE))
+                .isSameAs(groceries);
     }
 
     @Test
@@ -74,8 +77,10 @@ class CategorySuggesterTest {
         archivedRule.setMcc((short) 4121);
         when(rules.findByUserIdOrderByIdAsc(1L)).thenReturn(List.of(rule, archivedRule));
 
-        assertThat(suggester.suggest(1L, null, (short) 4121, "таксі", CategoryKind.EXPENSE)).isSameAs(transport);
-        assertThat(suggester.suggest(1L, null, (short) 4121, "Інше", CategoryKind.EXPENSE)).isNull();
+        assertThat(suggester.suggest(1L, null, (short) 4121, "таксі", CategoryKind.EXPENSE))
+                .isSameAs(transport);
+        assertThat(suggester.suggest(1L, null, (short) 4121, "Інше", CategoryKind.EXPENSE))
+                .isNull();
     }
 
     @Test
@@ -86,7 +91,9 @@ class CategorySuggesterTest {
         when(transactions.findCategoriesUsedForPayee(eq(1L), eq(payee), eq(CategoryKind.EXPENSE), any()))
                 .thenReturn(List.of(groceries));
 
-        assertThat(suggester.suggest(1L, payee, null, null, CategoryKind.EXPENSE)).isSameAs(groceries);
-        assertThat(suggester.suggest(1L, null, null, null, CategoryKind.EXPENSE)).isNull();
+        assertThat(suggester.suggest(1L, payee, null, null, CategoryKind.EXPENSE))
+                .isSameAs(groceries);
+        assertThat(suggester.suggest(1L, null, null, null, CategoryKind.EXPENSE))
+                .isNull();
     }
 }

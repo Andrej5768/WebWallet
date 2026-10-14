@@ -8,6 +8,10 @@ import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.config.AppProperties;
 import com.andrewcorp.webwallet.user.User;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -17,11 +21,6 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Clock;
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
 
 /**
  * Issues JWT access tokens and rotating refresh tokens.
@@ -38,7 +37,8 @@ public class TokenService {
     private final AppProperties.Jwt properties;
     private final Clock clock;
 
-    public TokenService(JwtEncoder jwtEncoder, RefreshTokenRepository refreshTokens, AppProperties properties, Clock clock) {
+    public TokenService(
+            JwtEncoder jwtEncoder, RefreshTokenRepository refreshTokens, AppProperties properties, Clock clock) {
         this.jwtEncoder = jwtEncoder;
         this.refreshTokens = refreshTokens;
         this.properties = properties.jwt();
@@ -58,10 +58,13 @@ public class TokenService {
     @Transactional(noRollbackFor = ApiException.class)
     public TokenResponse refresh(String rawRefreshToken) {
         Instant now = clock.instant();
-        RefreshToken token = refreshTokens.findByTokenHash(TokenHasher.hash(rawRefreshToken))
+        RefreshToken token = refreshTokens
+                .findByTokenHash(TokenHasher.hash(rawRefreshToken))
                 .orElseThrow(() -> new ApiException(ErrorCode.INVALID_REFRESH_TOKEN));
         if (token.isRevoked()) {
-            log.warn("Reuse of a revoked refresh token detected for user {}, revoking the session", token.getUser().getId());
+            log.warn(
+                    "Reuse of a revoked refresh token detected for user {}, revoking the session",
+                    token.getUser().getId());
             refreshTokens.revokeFamily(token.getFamilyId(), now);
             throw new ApiException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
@@ -76,7 +79,8 @@ public class TokenService {
     /** Ends the session the refresh token belongs to. Unknown tokens are ignored. */
     @Transactional
     public void revokeSession(String rawRefreshToken) {
-        refreshTokens.findByTokenHash(TokenHasher.hash(rawRefreshToken))
+        refreshTokens
+                .findByTokenHash(TokenHasher.hash(rawRefreshToken))
                 .ifPresent(token -> refreshTokens.revokeFamily(token.getFamilyId(), clock.instant()));
     }
 
@@ -88,9 +92,12 @@ public class TokenService {
     private TokenResponse issueTokens(User user, UUID familyId) {
         Instant now = clock.instant();
         String rawRefreshToken = TokenHasher.newToken();
-        refreshTokens.save(new RefreshToken(user, familyId, TokenHasher.hash(rawRefreshToken),
-                now.plus(properties.refreshTokenTtl())));
-        return TokenResponse.bearer(createAccessToken(user, now), rawRefreshToken, properties.accessTokenTtl().toSeconds());
+        refreshTokens.save(new RefreshToken(
+                user, familyId, TokenHasher.hash(rawRefreshToken), now.plus(properties.refreshTokenTtl())));
+        return TokenResponse.bearer(
+                createAccessToken(user, now),
+                rawRefreshToken,
+                properties.accessTokenTtl().toSeconds());
     }
 
     private String createAccessToken(User user, Instant now) {

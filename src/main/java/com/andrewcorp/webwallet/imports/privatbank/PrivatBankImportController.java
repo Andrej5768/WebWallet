@@ -7,6 +7,7 @@ import com.andrewcorp.webwallet.imports.ImportResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.io.IOException;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,8 +15,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
 
 @Tag(name = "Imports")
 @SecurityRequirement(name = "bearer")
@@ -33,11 +32,14 @@ public class PrivatBankImportController {
         this.importer = importer;
     }
 
-    @Operation(summary = "Import a PrivatBank card statement (PDF from Privat24); the file is not stored. Without "
-            + "accountId the account with the card number of the statement is used or created.")
+    @Operation(
+            summary = "Import a PrivatBank card statement (PDF from Privat24); the file is not stored. Without "
+                    + "accountId the account with the card number of the statement is used or created.")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ImportResult importStatement(@CurrentUserId Long userId, @RequestPart("file") MultipartFile file,
-                                        @RequestParam(required = false) Long accountId) {
+    public ImportResult importStatement(
+            @CurrentUserId Long userId,
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(required = false) Long accountId) {
         byte[] bytes;
         try {
             bytes = file.getBytes();

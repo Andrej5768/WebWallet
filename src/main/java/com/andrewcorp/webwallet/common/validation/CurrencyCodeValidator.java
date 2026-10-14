@@ -2,7 +2,6 @@ package com.andrewcorp.webwallet.common.validation;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-
 import java.util.Currency;
 
 public class CurrencyCodeValidator implements ConstraintValidator<CurrencyCode, String> {

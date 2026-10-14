@@ -1,16 +1,5 @@
 package com.andrewcorp.webwallet.currency;
 
-import com.andrewcorp.webwallet.AbstractIntegrationTest;
-import com.andrewcorp.webwallet.common.error.ApiException;
-import com.andrewcorp.webwallet.common.error.ErrorCode;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.client.ResourceAccessException;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,6 +7,16 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.error.ErrorCode;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.client.ResourceAccessException;
 
 class ExchangeRateServiceTest extends AbstractIntegrationTest {
 
@@ -49,9 +48,10 @@ class ExchangeRateServiceTest extends AbstractIntegrationTest {
     @Test
     void loadsHistoryWhenRateIsMissingOrTooOld() {
         rates.save(new ExchangeRate("EUR", DATE.minusDays(30), new BigDecimal("40")));
-        when(nbuClient.history(eq("EUR"), any(), eq(DATE))).thenReturn(List.of(
-                new ExchangeRate("EUR", DATE.minusDays(1), new BigDecimal("48.1")),
-                new ExchangeRate("EUR", DATE, new BigDecimal("48.2"))));
+        when(nbuClient.history(eq("EUR"), any(), eq(DATE)))
+                .thenReturn(List.of(
+                        new ExchangeRate("EUR", DATE.minusDays(1), new BigDecimal("48.1")),
+                        new ExchangeRate("EUR", DATE, new BigDecimal("48.2"))));
 
         assertThat(service.rate("EUR", DATE)).isEqualByComparingTo("48.2");
         assertThat(rates.count()).isEqualTo(3);
@@ -88,14 +88,16 @@ class ExchangeRateServiceTest extends AbstractIntegrationTest {
         when(nbuClient.history(any(), any(), any())).thenThrow(new ResourceAccessException("NBU is down"));
 
         assertThatThrownBy(() -> service.rate("PLN", DATE))
-                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.RATE_UNAVAILABLE));
+                .isInstanceOfSatisfying(
+                        ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.RATE_UNAVAILABLE));
     }
 
     @Test
     void dailyTaskStoresTodaysRates() {
-        when(nbuClient.ratesOn(any())).thenReturn(List.of(
-                new ExchangeRate("USD", LocalDate.now(), new BigDecimal("42")),
-                new ExchangeRate("EUR", LocalDate.now(), new BigDecimal("49"))));
+        when(nbuClient.ratesOn(any()))
+                .thenReturn(List.of(
+                        new ExchangeRate("USD", LocalDate.now(), new BigDecimal("42")),
+                        new ExchangeRate("EUR", LocalDate.now(), new BigDecimal("49"))));
 
         task.loadToday();
 

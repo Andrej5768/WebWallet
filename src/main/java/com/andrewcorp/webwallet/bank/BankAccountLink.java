@@ -10,7 +10,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -53,11 +52,10 @@ public class BankAccountLink {
 
     private BigDecimal bankBalance;
 
-    protected BankAccountLink() {
-    }
+    protected BankAccountLink() {}
 
-    public BankAccountLink(BankConnection connection, String externalAccountId, String title, String currency,
-                           Instant syncedUntil) {
+    public BankAccountLink(
+            BankConnection connection, String externalAccountId, String title, String currency, Instant syncedUntil) {
         this.connection = connection;
         this.externalAccountId = externalAccountId;
         this.title = title;

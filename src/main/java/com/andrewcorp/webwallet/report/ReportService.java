@@ -20,9 +20,6 @@ import com.andrewcorp.webwallet.report.ReportRepository.MovementRow;
 import com.andrewcorp.webwallet.report.ReportRepository.PayeeRow;
 import com.andrewcorp.webwallet.report.ReportRepository.SplitRow;
 import com.andrewcorp.webwallet.user.UserService;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -34,6 +31,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Reports in the base currency of the user; amounts in other currencies are converted at the NBU rate of the
@@ -49,8 +48,13 @@ public class ReportService {
     private final ExchangeRateService exchangeRates;
     private final Clock clock;
 
-    public ReportService(ReportRepository reports, CategoryRepository categories, AccountRepository accounts,
-                         UserService users, ExchangeRateService exchangeRates, Clock clock) {
+    public ReportService(
+            ReportRepository reports,
+            CategoryRepository categories,
+            AccountRepository accounts,
+            UserService users,
+            ExchangeRateService exchangeRates,
+            Clock clock) {
         this.reports = reports;
         this.categories = categories;
         this.accounts = accounts;
@@ -91,7 +95,8 @@ public class ReportService {
                     .map(child -> spending(child, byCategory.get(child.getId()), total, List.of()))
                     .sorted(Comparator.comparing(CategorySpending::amount).reversed())
                     .toList();
-            BigDecimal amount = children.stream().map(CategorySpending::amount)
+            BigDecimal amount = children.stream()
+                    .map(CategorySpending::amount)
                     .reduce(byCategory.getOrDefault(parent.getId(), BigDecimal.ZERO), BigDecimal::add);
             if (amount.signum() != 0) {
                 rows.add(spending(parent, amount, total, children));
@@ -109,13 +114,15 @@ public class ReportService {
         Map<Long, Integer> counts = new HashMap<>();
         for (PayeeRow row : reports.findPayeeExpenses(userId, from, to, TransactionType.EXPENSE)) {
             names.put(row.getPayeeId(), row.getPayeeName());
-            amounts.merge(row.getPayeeId(), converter.convert(row.getAmount(), row.getCurrency(), row.getDate()),
+            amounts.merge(
+                    row.getPayeeId(),
+                    converter.convert(row.getAmount(), row.getCurrency(), row.getDate()),
                     BigDecimal::add);
             counts.merge(row.getPayeeId(), 1, Integer::sum);
         }
         List<PayeeSpending> payees = amounts.entrySet().stream()
-                .map(entry -> new PayeeSpending(entry.getKey(), names.get(entry.getKey()), entry.getValue(),
-                        counts.get(entry.getKey())))
+                .map(entry -> new PayeeSpending(
+                        entry.getKey(), names.get(entry.getKey()), entry.getValue(), counts.get(entry.getKey())))
                 .sorted(Comparator.comparing(PayeeSpending::amount).reversed().thenComparing(PayeeSpending::name))
                 .limit(limit)
                 .toList();
@@ -127,7 +134,7 @@ public class ReportService {
         CurrencyConverter converter = converter(userId);
         Map<YearMonth, BigDecimal[]> byMonth = new LinkedHashMap<>();
         for (YearMonth month = YearMonth.from(from); !month.isAfter(YearMonth.from(to)); month = month.plusMonths(1)) {
-            byMonth.put(month, new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            byMonth.put(month, new BigDecimal[] {BigDecimal.ZERO, BigDecimal.ZERO});
         }
         for (SplitRow row : reports.findSplits(userId, from, to, TransactionType.TRANSFER)) {
             BigDecimal amount = converter.convert(row.getAmount(), row.getCurrency(), row.getDate());
@@ -140,8 +147,15 @@ public class ReportService {
                 .toList();
         BigDecimal income = months.stream().map(MonthIncomeExpense::income).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal expense = months.stream().map(MonthIncomeExpense::expense).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new IncomeExpenseResponse(from, to, converter.target(), income, expense, income.subtract(expense),
-                savingsRate(income, expense), months);
+        return new IncomeExpenseResponse(
+                from,
+                to,
+                converter.target(),
+                income,
+                expense,
+                income.subtract(expense),
+                savingsRate(income, expense),
+                months);
     }
 
     /** Balances of all accounts at the end of every month of the period. */
@@ -169,8 +183,8 @@ public class ReportService {
             BigDecimal assets = BigDecimal.ZERO;
             BigDecimal liabilities = BigDecimal.ZERO;
             for (Map.Entry<Long, BigDecimal> balance : balances.entrySet()) {
-                BigDecimal converted = converter.convert(balance.getValue(),
-                        accountsById.get(balance.getKey()).getCurrency(), rateDate);
+                BigDecimal converted = converter.convert(
+                        balance.getValue(), accountsById.get(balance.getKey()).getCurrency(), rateDate);
                 if (converted.signum() >= 0) {
                     assets = assets.add(converted);
                 } else {
@@ -183,7 +197,9 @@ public class ReportService {
     }
 
     private static void apply(MovementRow movement, Map<Long, BigDecimal> balances) {
-        BigDecimal change = movement.getType() == TransactionType.INCOME ? movement.getAmount() : movement.getAmount().negate();
+        BigDecimal change = movement.getType() == TransactionType.INCOME
+                ? movement.getAmount()
+                : movement.getAmount().negate();
         balances.merge(movement.getAccountId(), change, BigDecimal::add);
         if (movement.getToAccountId() != null) {
             balances.merge(movement.getToAccountId(), movement.getToAmount(), BigDecimal::add);
@@ -194,8 +210,8 @@ public class ReportService {
         return exchangeRates.converterTo(users.get(userId).getBaseCurrency());
     }
 
-    private static CategorySpending spending(Category category, BigDecimal amount, BigDecimal total,
-                                             List<CategorySpending> children) {
+    private static CategorySpending spending(
+            Category category, BigDecimal amount, BigDecimal total, List<CategorySpending> children) {
         BigDecimal share = total.signum() == 0 ? BigDecimal.ZERO : amount.divide(total, 4, RoundingMode.HALF_UP);
         return new CategorySpending(category.getId(), category.getName(), amount, share, children);
     }

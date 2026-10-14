@@ -42,8 +42,7 @@ public class Category {
 
     private String externalId;
 
-    protected Category() {
-    }
+    protected Category() {}
 
     public Category(Long userId, Long parentId, String name, CategoryKind kind) {
         this.userId = userId;

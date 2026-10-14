@@ -1,12 +1,5 @@
 package com.andrewcorp.webwallet.common.error;
 
-import com.andrewcorp.webwallet.AbstractIntegrationTest;
-import com.andrewcorp.webwallet.auth.dto.TokenResponse;
-import org.junit.jupiter.api.Test;
-import org.springframework.http.MediaType;
-
-import java.util.Map;
-
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -15,11 +8,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import com.andrewcorp.webwallet.auth.dto.TokenResponse;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+
 class ErrorHandlingTest extends AbstractIntegrationTest {
 
     @Test
     void malformedJsonIsBadRequest() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content("{not json"))
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{not json"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"));
@@ -59,7 +60,8 @@ class ErrorHandlingTest extends AbstractIntegrationTest {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/login']").exists())
-                .andExpect(jsonPath("$.components.securitySchemes.bearer.scheme").value("bearer"));
+                .andExpect(
+                        jsonPath("$.components.securitySchemes.bearer.scheme").value("bearer"));
     }
 
     @Test
@@ -68,7 +70,6 @@ class ErrorHandlingTest extends AbstractIntegrationTest {
                         .header("Origin", "http://localhost:5173")
                         .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isOk())
-                .andExpect(header()
-                        .string("Access-Control-Allow-Origin", "http://localhost:5173"));
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"));
     }
 }

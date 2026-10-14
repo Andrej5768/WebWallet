@@ -3,19 +3,17 @@ package com.andrewcorp.webwallet.budget;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
-
 import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.util.List;
 
 public final class BudgetDtos {
 
-    private BudgetDtos() {
-    }
+    private BudgetDtos() {}
 
     /** @param assigned money for the envelope this month, in the base currency; 0 removes the assignment */
-    public record AssignRequest(@NotNull @PositiveOrZero @Digits(integer = 15, fraction = 4) BigDecimal assigned) {
-    }
+    public record AssignRequest(
+            @NotNull @PositiveOrZero @Digits(integer = 15, fraction = 4) BigDecimal assigned) {}
 
     /**
      * Envelope budget of a month in the base currency of the user.
@@ -31,8 +29,7 @@ public final class BudgetDtos {
             BigDecimal assigned,
             BigDecimal activity,
             BigDecimal available,
-            List<CategoryRow> categories) {
-    }
+            List<CategoryRow> categories) {}
 
     /**
      * @param assigned  money put into the envelope this month
@@ -48,6 +45,5 @@ public final class BudgetDtos {
             BigDecimal assigned,
             BigDecimal activity,
             BigDecimal available,
-            List<CategoryRow> children) {
-    }
+            List<CategoryRow> children) {}
 }
