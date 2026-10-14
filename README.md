@@ -57,6 +57,40 @@ to grow into a public service.
 - Dividends and coupons belong to the investment module and are shown as passive income in the
   income vs. expenses report (a projection, not a duplicate record).
 
+## Getting started
+
+Requirements: JDK 21, Maven, Docker.
+
+Run PostgreSQL and Mailpit in Docker and the backend from the IDE or Maven with the `local` profile:
+
+```bash
+docker compose up -d postgres mailpit
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+The `local` profile is in `config/application-local.properties` and is read from the project root (the working
+directory); it is not packaged into the jar.
+
+Or run everything in containers:
+
+```bash
+cp .env.example .env   # set JWT_SECRET, ENCRYPTION_KEY (`openssl rand -base64 32`) and DB_PASSWORD
+docker compose --profile app up -d --build
+```
+
+- API: http://localhost:8080/api/v1, Swagger UI: http://localhost:8080/swagger-ui.html (enabled by the `local`
+  profile or `API_DOCS_ENABLED=true`)
+- Emails sent by the backend (verification, password reset): http://localhost:8025
+- Tests: `mvn verify` (needs Docker for Testcontainers)
+- Formatting: `mvn spotless:apply` (palantir-java-format); CI fails on unformatted code (`mvn spotless:check`)
+
+Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`,
+`ENCRYPTION_KEY` (encrypts bank tokens), `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`,
+`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `APP_PUBLIC_URL` (enables bank webhooks), `TRUSTED_PROXIES`
+(a regular expression of reverse proxy addresses allowed to set `X-Forwarded-For`, loopback by default),
+`API_DOCS_ENABLED`
+(see `src/main/resources/application.properties`).
+
 ## Development workflow
 
 - `dev` is the default branch and holds ongoing development.
@@ -70,27 +104,27 @@ to grow into a public service.
 ## Roadmap
 
 ### Phase 0 — Backend foundation
-- [ ] Flyway migrations with a new baseline schema, `ddl-auto=validate`
-- [ ] Integration tests on PostgreSQL via Testcontainers instead of H2
-- [ ] REST API under `/api/v1` with an OpenAPI spec (springdoc) and ProblemDetail errors
-- [ ] Stateless JWT authentication (access + rotating refresh tokens) for the web and mobile clients;
+- [x] Flyway migrations with a new baseline schema, `ddl-auto=validate`
+- [x] Integration tests on PostgreSQL via Testcontainers instead of H2
+- [x] REST API under `/api/v1` with an OpenAPI spec (springdoc) and ProblemDetail errors
+- [x] Stateless JWT authentication (access + rotating refresh tokens) for the web and mobile clients;
       registration, email confirmation and password reset as API endpoints
-- [ ] Remove Thymeleaf pages, session-based login and the old controllers
-- [ ] Dockerfile and Docker Compose (backend + PostgreSQL)
-- [ ] Ukrainian and English localization only
+- [x] Remove Thymeleaf pages, session-based login and the old controllers
+- [x] Dockerfile and Docker Compose (backend + PostgreSQL + Mailpit)
+- [x] Ukrainian and English localization only
 
 ### Phase 1 — Finance MVP (enough to move off Zen Money)
-- [ ] New domain model: accounts, two-level categories, tags, payees, transactions with transfer legs
+- [x] New domain model: accounts, two-level categories, tags, payees, transactions with transfer legs
       and splits, money as amount + ISO currency
-- [ ] Daily NBU exchange rates
-- [ ] Import pipeline: parsing → normalization → deduplication → auto-categorization
-- [ ] Monobank synchronization (personal token stored encrypted, statements, webhook, MCC)
-- [ ] PrivatBank PDF statement parser ([notes](docs/imports/privatbank-pdf.md))
-- [ ] Zen Money export import ([notes](docs/imports/zenmoney.md))
-- [ ] Auto-categorization rules
-- [ ] Envelope budget: assigned / activity / available per month and category, roll-over,
+- [x] Daily NBU exchange rates
+- [x] Import pipeline: parsing → normalization → deduplication → auto-categorization
+- [x] Monobank synchronization (personal token stored encrypted, statements, webhook, MCC)
+- [x] PrivatBank PDF statement parser
+- [x] Zen Money export import
+- [x] Auto-categorization rules
+- [x] Envelope budget: assigned / activity / available per month and category, roll-over,
       overspending, credit card payments
-- [ ] Reports: spending by category, income vs. expenses, net worth, payees
+- [x] Reports: spending by category, income vs. expenses, net worth, payees
 
 ### Phase 2 — Web client (separate repository)
 - [ ] React + TypeScript app with an API client generated from the OpenAPI spec
