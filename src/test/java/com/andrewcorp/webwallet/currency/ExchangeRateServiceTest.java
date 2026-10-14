@@ -68,6 +68,14 @@ class ExchangeRateServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void oldRateIsUsedWhenNbuIsNotReachable() {
+        rates.save(new ExchangeRate("GBP", DATE.minusDays(60), new BigDecimal("55")));
+        when(nbuClient.history(any(), any(), any())).thenThrow(new ResourceAccessException("NBU is down"));
+
+        assertThat(service.rate("GBP", DATE)).isEqualByComparingTo("55");
+    }
+
+    @Test
     void futureDateUsesTodaysRate() {
         LocalDate today = LocalDate.now();
         rates.save(new ExchangeRate("USD", today, new BigDecimal("42")));

@@ -1,5 +1,7 @@
 package com.andrewcorp.webwallet.imports.zenmoney;
 
+import com.andrewcorp.webwallet.budget.BudgetAssignment;
+import com.andrewcorp.webwallet.budget.BudgetRepository;
 import com.andrewcorp.webwallet.imports.ImportResult;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
@@ -32,12 +34,15 @@ import java.util.Set;
 
 /**
  * Imports accounts, categories, payees and transactions from a Zen Money dump. Imported records keep their Zen Money
- * ids, so a repeated import adds only what is new. Budgets and planned payments are not imported yet.
+ * ids, so a repeated import adds only what is new. Monthly budgets become envelope assignments; planned payments
+ * are not imported yet.
  */
 @Service
 public class ZenMoneyImporter {
 
     static final String SOURCE = "ZENMONEY";
+    /** Budget of the whole month, added on top of the category budgets in Zen Money. */
+    private static final String TOTAL_BUDGET_TAG = "00000000-0000-0000-0000-000000000000";
     private static final int MAX_PAYEE_LENGTH = 200;
     private static final int MAX_COMMENT_LENGTH = 1000;
 
@@ -47,17 +52,19 @@ public class ZenMoneyImporter {
     private final CategoryRepository categories;
     private final PayeeRepository payees;
     private final TransactionRepository transactions;
+    private final BudgetRepository budget;
     private final EntityManager entityManager;
 
     public ZenMoneyImporter(UserRepository users, AccountRepository accounts, AccountService accountService,
                             CategoryRepository categories, PayeeRepository payees, TransactionRepository transactions,
-                            EntityManager entityManager) {
+                            BudgetRepository budget, EntityManager entityManager) {
         this.users = users;
         this.accounts = accounts;
         this.accountService = accountService;
         this.categories = categories;
         this.payees = payees;
         this.transactions = transactions;
+        this.budget = budget;
         this.entityManager = entityManager;
     }
 
@@ -94,6 +101,7 @@ public class ZenMoneyImporter {
             importBaseCurrency();
             list(dump.account()).forEach(this::importAccount);
             importTransactions();
+            importBudgets();
             alignBalances();
             return result.build();
         }
@@ -197,6 +205,25 @@ public class ZenMoneyImporter {
             String tagId = source.tag() == null || source.tag().isEmpty() ? null : source.tag().get(0);
             transaction.replaceSplits(List.of(new SplitData(category(tagId, kind), net.abs(), null)));
             return transaction;
+        }
+
+        /** Monthly expense plans become envelope assignments of the month. */
+        private void importBudgets() {
+            for (ZenMoneyDump.Budget source : list(dump.budget())) {
+                if (source.tag() == null || TOTAL_BUDGET_TAG.equals(source.tag()) || source.outcome() == null
+                        || source.outcome().signum() <= 0 || source.date() == null) {
+                    continue;
+                }
+                Category category = category(source.tag(), CategoryKind.EXPENSE);
+                if (category == null) {
+                    continue;
+                }
+                LocalDate month = LocalDate.parse(source.date()).withDayOfMonth(1);
+                budget.findByUserIdAndMonthAndCategory(userId, month, category).ifPresentOrElse(
+                        assignment -> assignment.setAmount(source.outcome()),
+                        () -> budget.save(new BudgetAssignment(userId, month, category, source.outcome())));
+                result.budgetsImported++;
+            }
         }
 
         private void original(Transaction transaction, Account account, BigDecimal amount, Integer instrument) {

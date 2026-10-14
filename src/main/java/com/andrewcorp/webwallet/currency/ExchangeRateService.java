@@ -41,6 +41,11 @@ public class ExchangeRateService {
         this.clock = clock;
     }
 
+    /** A converter for many amounts into one currency within one request. */
+    public CurrencyConverter converterTo(String currency) {
+        return new CurrencyConverter(this, currency);
+    }
+
     /** Converts with the rates of the date, rounded to 4 decimal places. */
     @Transactional
     public BigDecimal convert(BigDecimal amount, String from, String to, LocalDate date) {
@@ -51,7 +56,10 @@ public class ExchangeRateService {
         return uah.divide(rate(to, date), MathContext.DECIMAL64).setScale(4, RoundingMode.HALF_EVEN);
     }
 
-    /** UAH per one unit of the currency on the date, or the latest earlier rate. */
+    /**
+     * UAH per one unit of the currency on the date, or the latest earlier rate. When no recent rate is known and the
+     * NBU is not reachable, an older rate is used rather than failing.
+     */
     @Transactional
     public BigDecimal rate(String currency, LocalDate date) {
         if (UAH.equals(currency)) {
@@ -63,6 +71,7 @@ public class ExchangeRateService {
                     load(currency, effectiveDate);
                     return usableRate(currency, effectiveDate);
                 })
+                .or(() -> rates.findFirstByCurrencyAndDateLessThanEqualOrderByDateDesc(currency, effectiveDate))
                 .map(ExchangeRate::getRate)
                 .orElseThrow(() -> new ApiException(ErrorCode.RATE_UNAVAILABLE));
     }

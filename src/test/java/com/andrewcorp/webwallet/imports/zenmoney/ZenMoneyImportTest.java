@@ -3,6 +3,8 @@ package com.andrewcorp.webwallet.imports.zenmoney;
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.currency.ExchangeRate;
+import com.andrewcorp.webwallet.currency.ExchangeRateRepository;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountType;
@@ -17,6 +19,8 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +40,9 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
 
     @Autowired
     private CategoryRepository categories;
+
+    @Autowired
+    private ExchangeRateRepository rates;
 
     @MockitoBean
     private ZenMoneyClient client;
@@ -63,13 +70,16 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
 
     @Test
     void importsAccountsCategoriesPayeesAndTransactions() throws Exception {
+        // The budget converts the dollar account at the NBU rate
+        rates.save(new ExchangeRate("USD", LocalDate.of(2026, 9, 1), new BigDecimal("41.5")));
         Map<String, Object> result = importFile();
 
         assertThat(result).containsEntry("accountsCreated", 7)
                 .containsEntry("categoriesCreated", 5)
                 .containsEntry("payeesCreated", 4)
                 .containsEntry("transactionsImported", 8)
-                .containsEntry("transactionsSkipped", 1);
+                .containsEntry("transactionsSkipped", 1)
+                .containsEntry("budgetsImported", 1);
         assertThat((List<?>) result.get("warnings")).hasSize(3);
 
         // Accounts
@@ -103,6 +113,10 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
         assertThat(category("tag-gifts").getKind()).isEqualTo(CategoryKind.EXPENSE);
         assertThat(category("tag-gifts:INCOME").getKind()).isEqualTo(CategoryKind.INCOME);
         assertThat(category("tag-gifts:INCOME").getName()).isEqualTo("Gifts");
+
+        // The monthly budget of a category becomes an envelope assignment
+        Map<String, Object> september = json(get("/api/v1/budget/2026-09").header("Authorization", auth), 200);
+        assertThat(september.get("assigned").toString()).isEqualTo("3000.0");
 
         // Base currency comes from the Zen Money user
         assertThat(users.findById(user.getId()).orElseThrow().getBaseCurrency()).isEqualTo("UAH");
