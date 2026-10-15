@@ -188,3 +188,8 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [ ] Rate limiting, encryption of bank tokens at rest
 - [ ] User data export and deletion
 - [ ] Database backups and monitoring
+
+## License
+
+This project is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md).
+Personal and other noncommercial use is allowed. Commercial use requires a separate agreement with the author.
