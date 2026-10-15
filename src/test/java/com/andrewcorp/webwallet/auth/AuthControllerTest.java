@@ -16,11 +16,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import com.andrewcorp.webwallet.TestClock;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
 import com.andrewcorp.webwallet.user.Role;
 import com.andrewcorp.webwallet.user.User;
 import jakarta.servlet.http.Cookie;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -481,6 +484,33 @@ class AuthControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/logout"))
                 .andExpect(status().isNoContent())
                 .andExpect(cookie().maxAge(REFRESH_COOKIE, 0));
+    }
+
+    @Test
+    void anExpiredOrInvalidAccessTokenIsIgnoredByTheAuthEndpoints() throws Exception {
+        createUser("stale@test.com", true);
+        // Signed in an hour ago, so the access token (15 minutes) has expired
+        TestClock.INSTANCE.set(Instant.now().minus(Duration.ofHours(1)));
+        MockHttpServletResponse login = loginResponse("stale@test.com", PASSWORD);
+        TestClock.INSTANCE.reset();
+        String expired = bearer(tokens(login));
+        Cookie cookie = refreshCookie(login);
+        mockMvc.perform(get("/api/v1/me").header("Authorization", expired)).andExpect(status().isUnauthorized());
+
+        MockHttpServletResponse refreshed = mockMvc.perform(refresh(cookie).header("Authorization", expired))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse();
+        Cookie rotated = refreshCookie(refreshed);
+        assertThat(rotated.getValue()).isNotEqualTo(cookie.getValue());
+
+        mockMvc.perform(post("/api/v1/auth/logout").cookie(rotated).header("Authorization", "Bearer garbage"))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge(REFRESH_COOKIE, 0));
+        mockMvc.perform(refresh(rotated)).andExpect(status().isUnauthorized());
+        mockMvc.perform(postJson("/api/v1/auth/login", Map.of("email", "stale@test.com", "password", PASSWORD))
+                        .header("Authorization", expired))
+                .andExpect(status().isOk());
     }
 
     // password reset

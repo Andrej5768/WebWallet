@@ -215,7 +215,7 @@ public class ImportPreviewService {
 
     private ImportReview.Edit edit(Long userId, ImportOperation operation, OperationEdit edit, String field) {
         if (Boolean.FALSE.equals(edit.include())) {
-            return new ImportReview.Edit(false, null, null, null, Set.of(), null);
+            return new ImportReview.Edit(false, null, null, null, false, Set.of(), null);
         }
         TransactionType detected = operation.type();
         TransactionType type = edit.type() != null ? edit.type() : detected;
@@ -236,8 +236,16 @@ public class ImportPreviewService {
                 throw ApiException.invalid(field + ".transferAccountId", "error.import.transferCurrency");
             }
         }
+        boolean keepCategory = Boolean.TRUE.equals(edit.keepSuggestedCategory());
         Category category = null;
-        if (edit.categoryId() != null) {
+        if (keepCategory) {
+            // Only for a rule to remember; the import applies the suggestion, also one it creates
+            if (operation.categoryId() != null && type != TransactionType.TRANSFER) {
+                category = categories
+                        .findByIdAndUserId(operation.categoryId(), userId)
+                        .orElse(null);
+            }
+        } else if (edit.categoryId() != null) {
             if (type == TransactionType.TRANSFER) {
                 throw ApiException.invalid(field + ".categoryId", "error.transaction.transferCategory");
             }
@@ -252,7 +260,7 @@ public class ImportPreviewService {
         }
         Set<Tag> tagSet = tags.findAll(userId, edit.tagIds(), field + ".tagIds");
         String comment = Texts.truncate(Texts.trimToNull(edit.comment()), MAX_COMMENT_LENGTH);
-        return new ImportReview.Edit(true, type, transferAccount, category, tagSet, comment);
+        return new ImportReview.Edit(true, type, transferAccount, category, keepCategory, tagSet, comment);
     }
 
     private ImportPreview find(Long userId, UUID id) {

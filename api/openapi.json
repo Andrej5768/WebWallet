@@ -46,16 +46,16 @@
             "type" : "boolean"
           },
           "availableCredit" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "balance" : {
             "type" : "number"
           },
           "balanceInBase" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "creditLimit" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "currency" : {
             "type" : "string"
@@ -68,7 +68,7 @@
             "type" : "boolean"
           },
           "interestRate" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "name" : {
             "type" : "string"
@@ -85,6 +85,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "archived", "availableCredit", "balance", "balanceInBase", "creditLimit", "currency", "id", "inBudget", "interestRate", "name", "openingBalance", "sortOrder", "type" ],
         "type" : "object"
       },
       "AccountSummaryResponse" : {
@@ -111,6 +112,7 @@
             "type" : "array"
           }
         },
+        "required" : [ "available", "availableWithCredit", "currency", "netWorth", "readyToAssign", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "ApplyResponse" : {
@@ -120,6 +122,7 @@
             "type" : "integer"
           }
         },
+        "required" : [ "categorized" ],
         "type" : "object"
       },
       "AssignRequest" : {
@@ -139,7 +142,7 @@
           },
           "parentId" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "sortOrder" : {
             "format" : "int32",
@@ -155,12 +158,12 @@
             "type" : "boolean"
           },
           "color" : {
-            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime" ],
-            "type" : "string"
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime", null ],
+            "type" : [ "string", "null" ]
           },
           "icon" : {
             "pattern" : "[a-z0-9-]{1,50}",
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "kind" : {
             "enum" : [ "EXPENSE", "INCOME" ],
@@ -172,12 +175,12 @@
             "type" : "string"
           },
           "necessity" : {
-            "enum" : [ "NEEDS", "WANTS" ],
-            "type" : "string"
+            "enum" : [ "NEEDS", "WANTS", null ],
+            "type" : [ "string", "null" ]
           },
           "parentId" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "sortOrder" : {
             "format" : "int32",
@@ -199,11 +202,11 @@
             "type" : "array"
           },
           "color" : {
-            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime" ],
-            "type" : "string"
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime", null ],
+            "type" : [ "string", "null" ]
           },
           "icon" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "id" : {
             "format" : "int64",
@@ -217,18 +220,19 @@
             "type" : "string"
           },
           "necessity" : {
-            "enum" : [ "NEEDS", "WANTS" ],
-            "type" : "string"
+            "enum" : [ "NEEDS", "WANTS", null ],
+            "type" : [ "string", "null" ]
           },
           "parentId" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "sortOrder" : {
             "format" : "int32",
             "type" : "integer"
           }
         },
+        "required" : [ "archived", "children", "color", "icon", "id", "kind", "name", "necessity", "parentId", "sortOrder" ],
         "type" : "object"
       },
       "CategoryRow" : {
@@ -258,11 +262,21 @@
           "name" : {
             "type" : "string"
           },
+          "ownActivity" : {
+            "type" : "number"
+          },
+          "ownAssigned" : {
+            "type" : "number"
+          },
+          "ownAvailable" : {
+            "type" : "number"
+          },
           "parentId" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           }
         },
+        "required" : [ "activity", "archived", "assigned", "available", "categoryId", "children", "name", "ownActivity", "ownAssigned", "ownAvailable", "parentId" ],
         "type" : "object"
       },
       "CategorySpending" : {
@@ -287,6 +301,7 @@
             "type" : "number"
           }
         },
+        "required" : [ "amount", "categoryId", "children", "name", "share" ],
         "type" : "object"
       },
       "ChangePasswordRequest" : {
@@ -373,11 +388,11 @@
             "type" : "string"
           },
           "lastError" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "lastRequestAt" : {
             "format" : "date-time",
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "nextSyncAt" : {
             "format" : "date-time",
@@ -401,6 +416,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "accounts", "clientName", "connectedAt", "dailyAt", "lastError", "lastRequestAt", "nextSyncAt", "syncMode", "webhook", "windowEnd", "windowStart" ],
         "type" : "object"
       },
       "EmailRequest" : {
@@ -425,12 +441,13 @@
           },
           "id" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "name" : {
             "type" : "string"
           }
         },
+        "required" : [ "created", "currency", "id", "name" ],
         "type" : "object"
       },
       "ImportOperation" : {
@@ -443,13 +460,13 @@
           },
           "categoryId" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "categoryName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "comment" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "currency" : {
             "type" : "string"
@@ -465,7 +482,7 @@
             "type" : "string"
           },
           "payee" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "tagIds" : {
             "items" : {
@@ -475,16 +492,21 @@
             "type" : "array"
           },
           "toAccount" : {
-            "$ref" : "#/components/schemas/ImportAccount"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/ImportAccount"
+            }, {
+              "type" : "null"
+            } ]
           },
           "toAmount" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "type" : {
             "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
             "type" : "string"
           }
         },
+        "required" : [ "account", "amount", "categoryId", "categoryName", "comment", "currency", "date", "duplicate", "key", "payee", "tagIds", "toAccount", "toAmount", "type" ],
         "type" : "object"
       },
       "ImportPreviewResponse" : {
@@ -508,6 +530,7 @@
             "$ref" : "#/components/schemas/ImportResult"
           }
         },
+        "required" : [ "expiresAt", "id", "operations", "source", "summary" ],
         "type" : "object"
       },
       "ImportResult" : {
@@ -551,6 +574,7 @@
             "type" : "array"
           }
         },
+        "required" : [ "accountsCreated", "accountsUpdated", "budgetsImported", "categoriesCreated", "payeesCreated", "transactionsImported", "transactionsMatched", "transactionsSkipped", "warnings" ],
         "type" : "object"
       },
       "IncomeExpenseResponse" : {
@@ -578,7 +602,7 @@
             "type" : "number"
           },
           "savingsRate" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "to" : {
             "format" : "date",
@@ -591,13 +615,14 @@
             "type" : "array"
           }
         },
+        "required" : [ "currency", "expense", "from", "income", "months", "net", "savingsRate", "to", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "LinkRequest" : {
         "properties" : {
           "accountId" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           }
         },
         "type" : "object"
@@ -606,22 +631,22 @@
         "properties" : {
           "accountId" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "accountName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "balance" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "bankBalance" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "currency" : {
             "type" : "string"
           },
           "difference" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "id" : {
             "format" : "int64",
@@ -635,6 +660,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "accountId", "accountName", "balance", "bankBalance", "currency", "difference", "id", "syncedUntil", "title" ],
         "type" : "object"
       },
       "LoginRequest" : {
@@ -668,9 +694,10 @@
             "type" : "number"
           },
           "savingsRate" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           }
         },
+        "required" : [ "expense", "income", "month", "net", "savingsRate" ],
         "type" : "object"
       },
       "MonthNetWorth" : {
@@ -688,6 +715,7 @@
             "type" : "number"
           }
         },
+        "required" : [ "assets", "liabilities", "month", "netWorth" ],
         "type" : "object"
       },
       "MonthResponse" : {
@@ -723,6 +751,25 @@
             "type" : "array"
           }
         },
+        "required" : [ "activity", "assigned", "available", "categories", "currency", "month", "readyToAssign", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "MoveRequest" : {
+        "properties" : {
+          "amount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "fromCategoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "toCategoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amount", "fromCategoryId", "toCategoryId" ],
         "type" : "object"
       },
       "NamedResponse" : {
@@ -735,6 +782,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "id", "name" ],
         "type" : "object"
       },
       "NetWorthResponse" : {
@@ -755,20 +803,24 @@
             "type" : "array"
           }
         },
+        "required" : [ "currency", "months", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "OperationEdit" : {
         "properties" : {
           "categoryId" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "comment" : {
             "maxLength" : 1000,
             "minLength" : 0,
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "include" : {
+            "type" : "boolean"
+          },
+          "keepSuggestedCategory" : {
             "type" : "boolean"
           },
           "key" : {
@@ -784,7 +836,7 @@
               "format" : "int64",
               "type" : "integer"
             },
-            "type" : "array"
+            "type" : [ "array", "null" ]
           },
           "transferAccountId" : {
             "format" : "int64",
@@ -823,6 +875,7 @@
             "type" : "integer"
           }
         },
+        "required" : [ "items", "page", "size", "totalItems", "totalPages" ],
         "type" : "object"
       },
       "PageResponseTransactionResponse" : {
@@ -850,6 +903,7 @@
             "type" : "integer"
           }
         },
+        "required" : [ "items", "page", "size", "totalItems", "totalPages" ],
         "type" : "object"
       },
       "PayeeRequest" : {
@@ -880,6 +934,7 @@
             "type" : "integer"
           }
         },
+        "required" : [ "amount", "name", "payeeId", "transactions" ],
         "type" : "object"
       },
       "PayeesResponse" : {
@@ -908,6 +963,7 @@
             "type" : "array"
           }
         },
+        "required" : [ "currency", "from", "payees", "to", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "RegisterRequest" : {
@@ -995,7 +1051,7 @@
       "RuleResponse" : {
         "properties" : {
           "bankCategory" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "categoryId" : {
             "format" : "int64",
@@ -1010,15 +1066,20 @@
           },
           "mcc" : {
             "format" : "int32",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "payee" : {
-            "$ref" : "#/components/schemas/NamedResponse"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/NamedResponse"
+            }, {
+              "type" : "null"
+            } ]
           },
           "payeePattern" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           }
         },
+        "required" : [ "bankCategory", "categoryId", "id", "learned", "mcc", "payee", "payeePattern" ],
         "type" : "object"
       },
       "ScheduleRequest" : {
@@ -1078,6 +1139,7 @@
             "type" : "array"
           }
         },
+        "required" : [ "categories", "currency", "from", "to", "total", "uncategorized", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "SplitRequest" : {
@@ -1106,23 +1168,24 @@
           },
           "categoryId" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "comment" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "id" : {
             "format" : "int64",
             "type" : "integer"
           }
         },
+        "required" : [ "amount", "categoryId", "comment", "id" ],
         "type" : "object"
       },
       "TagRequest" : {
         "properties" : {
           "color" : {
-            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime" ],
-            "type" : "string"
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime", null ],
+            "type" : [ "string", "null" ]
           },
           "name" : {
             "maxLength" : 100,
@@ -1136,8 +1199,8 @@
       "TagResponse" : {
         "properties" : {
           "color" : {
-            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime" ],
-            "type" : "string"
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime", null ],
+            "type" : [ "string", "null" ]
           },
           "id" : {
             "format" : "int64",
@@ -1147,6 +1210,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "color", "id", "name" ],
         "type" : "object"
       },
       "TokenRequest" : {
@@ -1173,6 +1237,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "accessToken", "expiresIn", "tokenType" ],
         "type" : "object"
       },
       "TransactionRequest" : {
@@ -1257,7 +1322,7 @@
             "type" : "number"
           },
           "comment" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "createdAt" : {
             "format" : "date-time",
@@ -1275,13 +1340,17 @@
             "type" : "integer"
           },
           "originalAmount" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "originalCurrency" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "payee" : {
-            "$ref" : "#/components/schemas/NamedResponse"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/NamedResponse"
+            }, {
+              "type" : "null"
+            } ]
           },
           "source" : {
             "enum" : [ "MANUAL", "ZENMONEY", "MONOBANK", "PRIVATBANK" ],
@@ -1302,19 +1371,20 @@
           },
           "toAccountId" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "toAmount" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "toCurrency" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "type" : {
             "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
             "type" : "string"
           }
         },
+        "required" : [ "accountId", "amount", "comment", "createdAt", "currency", "date", "id", "originalAmount", "originalCurrency", "payee", "source", "splits", "tagIds", "toAccountId", "toAmount", "toCurrency", "type" ],
         "type" : "object"
       },
       "UpdateProfileRequest" : {
@@ -1331,7 +1401,7 @@
           "lastName" : {
             "maxLength" : 100,
             "minLength" : 0,
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "locale" : {
             "minLength" : 1,
@@ -1365,7 +1435,7 @@
             "type" : "integer"
           },
           "lastName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "locale" : {
             "type" : "string"
@@ -1375,6 +1445,7 @@
             "type" : "string"
           }
         },
+        "required" : [ "baseCurrency", "createdAt", "email", "emailVerified", "firstName", "id", "lastName", "locale", "role" ],
         "type" : "object"
       },
       "VerifyEmailRequest" : {
@@ -1980,6 +2051,78 @@
           "bearer" : [ ]
         } ],
         "summary" : "Set the money assigned to an expense category for the month; 0 removes it",
+        "tags" : [ "Budget" ]
+      }
+    },
+    "/api/v1/budget/{month}/copy-previous" : {
+      "post" : {
+        "description" : "Every expense category whose own assignment this month is zero gets its own assignment of the previous month; envelopes already assigned and archived categories are left as they are. Returns the month like GET.",
+        "operationId" : "copyPrevious",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "month",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MonthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Copy the assignments of the previous month to the envelopes without one this month",
+        "tags" : [ "Budget" ]
+      }
+    },
+    "/api/v1/budget/{month}/move" : {
+      "post" : {
+        "description" : "Lowers the own assignment of fromCategoryId and raises that of toCategoryId by the amount; both change or neither. Returns the month like GET.",
+        "operationId" : "move",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "month",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MoveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MonthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Move money from the own envelope of one expense category to another in one step",
         "tags" : [ "Budget" ]
       }
     },

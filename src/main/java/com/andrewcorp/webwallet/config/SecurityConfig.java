@@ -32,9 +32,13 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -46,6 +50,9 @@ import tools.jackson.databind.json.JsonMapper;
 public class SecurityConfig {
 
     private static final int MIN_SECRET_BYTES = 32;
+
+    private static final RequestMatcher AUTH_PATHS =
+            PathPatternRequestMatcher.withDefaults().matcher("/api/v1/auth/**");
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -67,7 +74,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/api/v1/auth/**")
+                .authorizeHttpRequests(auth -> auth.requestMatchers(AUTH_PATHS)
                         .permitAll()
                         // Called by Monobank; the URL contains a secret of the connection
                         .requestMatchers("/api/v1/banks/monobank/webhook/**")
@@ -80,10 +87,10 @@ public class SecurityConfig {
                         .permitAll()
                         .anyRequest()
                         .authenticated())
-                .oauth2ResourceServer(
-                        oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
-                                .authenticationEntryPoint(unauthorized)
-                                .accessDeniedHandler(forbidden))
+                .oauth2ResourceServer(oauth2 -> oauth2.bearerTokenResolver(bearerTokenResolver())
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                        .authenticationEntryPoint(unauthorized)
+                        .accessDeniedHandler(forbidden))
                 .exceptionHandling(exceptions ->
                         exceptions.authenticationEntryPoint(unauthorized).accessDeniedHandler(forbidden));
         // @formatter:on
@@ -108,6 +115,16 @@ public class SecurityConfig {
             body.putAll(problem.getProperties());
         }
         jsonMapper.writeValue(response.getOutputStream(), body);
+    }
+
+    /**
+     * Ignores the access token on the auth endpoints. They do not need it, and a client sends its expired token
+     * along when it refreshes or logs out; validating it would reject the request with 401 before the refresh token
+     * cookie is looked at, so a logout would not end the session.
+     */
+    static BearerTokenResolver bearerTokenResolver() {
+        DefaultBearerTokenResolver resolver = new DefaultBearerTokenResolver();
+        return request -> AUTH_PATHS.matches(request) ? null : resolver.resolve(request);
     }
 
     private static JwtAuthenticationConverter jwtAuthenticationConverter() {

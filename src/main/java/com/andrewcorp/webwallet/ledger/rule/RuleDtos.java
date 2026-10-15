@@ -1,6 +1,7 @@
 package com.andrewcorp.webwallet.ledger.rule;
 
 import com.andrewcorp.webwallet.ledger.NamedResponse;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -30,10 +31,10 @@ public final class RuleDtos {
     public record RuleResponse(
             Long id,
             Long categoryId,
-            NamedResponse payee,
-            String payeePattern,
-            Short mcc,
-            String bankCategory,
+            @Schema(nullable = true) NamedResponse payee,
+            @Schema(nullable = true) String payeePattern,
+            @Schema(nullable = true) Short mcc,
+            @Schema(nullable = true) String bankCategory,
             boolean learned) {
 
         static RuleResponse from(CategorizationRule rule) {

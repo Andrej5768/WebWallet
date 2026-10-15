@@ -1,6 +1,7 @@
 package com.andrewcorp.webwallet.imports;
 
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -24,17 +25,17 @@ import java.util.List;
 public record ImportOperation(
         String key,
         LocalDate date,
-        String payee,
+        @Schema(nullable = true) String payee,
         BigDecimal amount,
         String currency,
         ImportAccount account,
-        ImportAccount toAccount,
-        BigDecimal toAmount,
+        @Schema(nullable = true) ImportAccount toAccount,
+        @Schema(nullable = true) BigDecimal toAmount,
         TransactionType type,
-        Long categoryId,
-        String categoryName,
+        @Schema(nullable = true) Long categoryId,
+        @Schema(nullable = true) String categoryName,
         List<Long> tagIds,
-        String comment,
+        @Schema(nullable = true) String comment,
         boolean duplicate) {
 
     /**
@@ -43,5 +44,5 @@ public record ImportOperation(
      * @param id      null when the import creates the account
      * @param created whether the import creates the account
      */
-    public record ImportAccount(Long id, String name, String currency, boolean created) {}
+    public record ImportAccount(@Schema(nullable = true) Long id, String name, String currency, boolean created) {}
 }

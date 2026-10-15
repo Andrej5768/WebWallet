@@ -4,6 +4,7 @@ import com.andrewcorp.webwallet.ledger.PaletteColor;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.Necessity;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 /**
@@ -14,12 +15,12 @@ public record CategoryResponse(
         Long id,
         String name,
         CategoryKind kind,
-        Long parentId,
+        @Schema(nullable = true) Long parentId,
         boolean archived,
         int sortOrder,
-        String icon,
-        PaletteColor color,
-        Necessity necessity,
+        @Schema(nullable = true) String icon,
+        @Schema(nullable = true) PaletteColor color,
+        @Schema(nullable = true) Necessity necessity,
         List<CategoryResponse> children) {
 
     public static CategoryResponse from(Category category, List<CategoryResponse> children) {

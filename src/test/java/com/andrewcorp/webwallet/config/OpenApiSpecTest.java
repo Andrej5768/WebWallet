@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.SerializationFeature;
@@ -51,6 +52,46 @@ class OpenApiSpecTest extends AbstractIntegrationTest {
                                 + " `mvn test -Dtest=OpenApiSpecTest -D%s=true` and commit it",
                         COMMITTED_SPEC, GENERATED_SPEC, UPDATE_PROPERTY)
                 .isEqualTo(committed);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void typesAreExactForGeneratedClients() throws Exception {
+        Map<String, Object> spec = json(get("/v3/api-docs"), 200);
+        Map<String, Object> schemas =
+                (Map<String, Object>) ((Map<String, Object>) spec.get("components")).get("schemas");
+
+        // Responses: every field is present, nullable ones may be null
+        Map<String, Object> transaction = (Map<String, Object>) schemas.get("TransactionResponse");
+        assertThat((List<String>) transaction.get("required")).contains("id", "amount", "currency", "payee", "splits");
+        Map<String, Object> properties = (Map<String, Object>) transaction.get("properties");
+        assertThat(properties.get("amount")).isEqualTo(Map.of("type", "number"));
+        assertThat(properties.get("comment")).isEqualTo(Map.of("type", List.of("string", "null")));
+        assertThat(properties.get("payee"))
+                .isEqualTo(Map.of(
+                        "oneOf",
+                        List.of(Map.of("$ref", "#/components/schemas/NamedResponse"), Map.of("type", "null"))));
+        assertThat((List<String>) ((Map<String, Object>) schemas.get("CategoryRow")).get("required"))
+                .contains("ownAssigned", "ownActivity", "ownAvailable", "children");
+
+        // Requests: optional fields stay optional, fields that clear a value accept null
+        Map<String, Object> category = (Map<String, Object>) schemas.get("CategoryRequest");
+        assertThat((List<String>) category.get("required")).containsExactly("kind", "name");
+        Map<String, Object> color =
+                (Map<String, Object>) ((Map<String, Object>) category.get("properties")).get("color");
+        assertThat(color.get("type")).isEqualTo(List.of("string", "null"));
+        assertThat((List<Object>) color.get("enum")).contains("blue").containsNull();
+
+        // Uploaded files are binary strings
+        Map<String, Object> upload = (Map<String, Object>)
+                ((Map<String, Object>) spec.get("paths")).get("/api/v1/imports/privatbank/preview");
+        Map<String, Object> body = (Map<String, Object>) ((Map<String, Object>) upload.get("post")).get("requestBody");
+        Map<String, Object> multipart =
+                (Map<String, Object>) ((Map<String, Object>) body.get("content")).get("multipart/form-data");
+        Map<String, Object> fileSchema =
+                (Map<String, Object>) ((Map<String, Object>) multipart.get("schema")).get("properties");
+        assertThat(fileSchema.get("file")).isEqualTo(Map.of("type", "string", "format", "binary"));
+        assertThat(schemas).doesNotContainKey("MultipartFile");
     }
 
     /** Drops the servers block, which depends on the host the spec was requested from. */

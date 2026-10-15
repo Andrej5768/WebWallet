@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.ledger.account.dto;
 
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountType;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 
 /**
@@ -19,10 +20,10 @@ public record AccountResponse(
         boolean archived,
         BigDecimal openingBalance,
         BigDecimal balance,
-        BigDecimal balanceInBase,
-        BigDecimal creditLimit,
-        BigDecimal availableCredit,
-        BigDecimal interestRate,
+        @Schema(nullable = true) BigDecimal balanceInBase,
+        @Schema(nullable = true) BigDecimal creditLimit,
+        @Schema(nullable = true) BigDecimal availableCredit,
+        @Schema(nullable = true) BigDecimal interestRate,
         int sortOrder) {
 
     public static AccountResponse from(Account account, BigDecimal balance, BigDecimal balanceInBase) {

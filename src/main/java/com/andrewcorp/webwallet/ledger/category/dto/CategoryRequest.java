@@ -3,6 +3,7 @@ package com.andrewcorp.webwallet.ledger.category.dto;
 import com.andrewcorp.webwallet.ledger.PaletteColor;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.Necessity;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -20,6 +21,7 @@ public class CategoryRequest {
     @NotNull private CategoryKind kind;
 
     /** Top-level category to nest this one under; subcategories cannot have children. */
+    @Schema(nullable = true)
     private Long parentId;
 
     private Boolean archived;
@@ -27,11 +29,14 @@ public class CategoryRequest {
     private Integer sortOrder;
 
     /** Name of a Lucide icon in kebab case, e.g. {@code shopping-cart}. */
+    @Schema(nullable = true)
     @Pattern(regexp = "[a-z0-9-]{1,50}") private String icon;
 
+    @Schema(nullable = true)
     private PaletteColor color;
 
     /** Only for expense categories; null on a subcategory means the same as its parent. */
+    @Schema(nullable = true)
     private Necessity necessity;
 
     private boolean iconSent;

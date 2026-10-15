@@ -170,7 +170,7 @@ class ImportPreviewTest extends AbstractIntegrationTest {
                 t.getTags().size();
                 t.getSplits().forEach(split -> {
                     if (split.getCategory() != null) {
-                        split.getCategory().getId();
+                        split.getCategory().getName();
                     }
                 });
             });
@@ -405,6 +405,47 @@ class ImportPreviewTest extends AbstractIntegrationTest {
                 .hasSize(7);
         assertThat(onDate(again, "2026-09-02")).containsEntry("duplicate", false);
         assertThat(onDate(again, "2026-09-01")).containsEntry("payee", "Silpo");
+    }
+
+    @Test
+    void keepSuggestedCategoryKeepsACategoryTheImportCreates() throws Exception {
+        Long tag = id(json(postJson("/api/v1/tags", Map.of("name", "food"), auth), 201));
+        Map<String, Object> preview = previewZenFile();
+        Map<String, Object> groceries = onDate(preview, "2026-09-01");
+        assertThat(groceries).containsEntry("categoryId", null).containsEntry("categoryName", "Groceries");
+
+        // Only the tags change; the category is ignored when the suggestion is kept
+        confirm(
+                preview,
+                List.of(edit(
+                        groceries,
+                        "keepSuggestedCategory",
+                        true,
+                        "categoryId",
+                        Long.MAX_VALUE,
+                        "tagIds",
+                        List.of(tag),
+                        "rememberRule",
+                        true)));
+
+        Transaction imported = onDate(userTransactions(), "2026-09-01");
+        assertThat(imported.getSplits())
+                .singleElement()
+                .satisfies(split -> assertThat(split.getCategory().getName()).isEqualTo("Groceries"));
+        assertThat(imported.getTags()).extracting(Tag::getId).containsExactly(tag);
+    }
+
+    @Test
+    void withoutKeepSuggestedCategoryAnEditedOperationGetsExactlyTheGivenCategory() throws Exception {
+        Map<String, Object> preview = previewZenFile();
+
+        confirm(preview, List.of(edit(onDate(preview, "2026-09-01"), "comment", "weekly")));
+
+        Transaction imported = onDate(userTransactions(), "2026-09-01");
+        assertThat(imported.getComment()).isEqualTo("weekly");
+        assertThat(imported.getSplits())
+                .singleElement()
+                .satisfies(split -> assertThat(split.getCategory()).isNull());
     }
 
     @Test

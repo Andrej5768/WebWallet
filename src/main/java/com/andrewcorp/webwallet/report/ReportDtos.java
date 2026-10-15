@@ -1,5 +1,6 @@
 package com.andrewcorp.webwallet.report;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -44,13 +45,17 @@ public final class ReportDtos {
             BigDecimal income,
             BigDecimal expense,
             BigDecimal net,
-            BigDecimal savingsRate,
+            @Schema(nullable = true) BigDecimal savingsRate,
             List<MonthIncomeExpense> months,
             List<String> unconvertedCurrencies) {}
 
     /** @param savingsRate part of the income that was not spent, null without income */
     public record MonthIncomeExpense(
-            YearMonth month, BigDecimal income, BigDecimal expense, BigDecimal net, BigDecimal savingsRate) {}
+            YearMonth month,
+            BigDecimal income,
+            BigDecimal expense,
+            BigDecimal net,
+            @Schema(nullable = true) BigDecimal savingsRate) {}
 
     public record NetWorthResponse(String currency, List<MonthNetWorth> months, List<String> unconvertedCurrencies) {}
 

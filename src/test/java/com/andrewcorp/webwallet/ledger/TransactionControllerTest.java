@@ -409,6 +409,13 @@ class TransactionControllerTest extends AbstractIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
                 .andExpect(jsonPath("$.errors.length()").value(2));
+
+        // Each split is validated
+        Map<String, Object> body = expense(card, 300);
+        body.put("splits", List.of(Map.of("categoryId", groceries, "amount", 300), Map.of("amount", -1)));
+        mockMvc.perform(postJson("/api/v1/transactions", body, auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("splits[1].amount"));
     }
 
     // update, delete, read

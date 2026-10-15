@@ -101,11 +101,72 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
   token; a missing, unknown or already rotated token is rejected with 401 `INVALID_REFRESH_TOKEN`, and presenting
   a rotated token ends the whole session.
 - `POST /api/v1/auth/logout` ends the session of the cookie and deletes the cookie.
+- The `/api/v1/auth/**` endpoints ignore the `Authorization` header, so a client may send its expired or invalid
+  access token along: refresh and logout still work (otherwise the token would be rejected with 401 before the
+  cookie is looked at, and a logout would not end the session).
 - `POST /api/v1/me/password` ends all sessions and starts a new one the same way as login.
 - The web client is served from the same domain as the API (a reverse proxy sends `/api` to the backend), so the
   browser sends the cookie without CORS. The `local` profile drops the `Secure` flag
   (`app.auth.refresh-cookie-secure=false`, or `REFRESH_COOKIE_SECURE=false`) for development over plain HTTP.
 - The native mobile apps will need a separate way to keep the refresh token; it is not part of the API yet.
+
+### Deployment
+
+The web client and the API are served from one origin by a reverse proxy: `/api` goes to the backend, everything
+else is the static build of the web client with a fallback to `index.html` for the routes of the single-page app.
+The proxy adds the security headers; the web client loads no third-party scripts, styles or fonts, so the content
+security policy allows only the own origin (`style-src 'unsafe-inline'` is for inline style attributes, `data:`
+images for inline icons). An nginx example:
+
+```nginx
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name wallet.example.com;
+    # ssl_certificate ...; ssl_certificate_key ...;
+
+    root /usr/share/nginx/html;  # the build of the web client
+
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    add_header Referrer-Policy "same-origin" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+
+    location /api/ {
+        proxy_pass http://backend:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 20m;  # statement and export uploads
+    }
+
+    # Hashed file names of the build never change
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        # add_header in a location replaces the headers of the server block, so repeat them
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+        add_header Referrer-Policy "same-origin" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+        try_files $uri =404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+server {
+    listen 80;
+    server_name wallet.example.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see the client addresses from
+`X-Forwarded-For`.
 
 ### API conventions
 
@@ -124,6 +185,20 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
   `availableCredit`. `GET /api/v1/accounts/summary` returns `netWorth`, `available` (cash and cards),
   `availableWithCredit` and `readyToAssign` in the base currency, with `unconvertedCurrencies` like the reports.
 - The last name of a user is optional (`null` when not given).
+- Budget: in `GET /api/v1/budget/{month}` the `assigned`, `activity` and `available` of a parent category row already
+  include its subcategories (own + children); `ownAssigned`, `ownActivity` and `ownAvailable` are the values of the
+  parent's own envelope (for a subcategory the same as the totals). `POST /api/v1/budget/{month}/move` with
+  `{fromCategoryId, toCategoryId, amount}` (two different expense categories of the user, `amount` > 0) lowers the own
+  assignment of the source and raises that of the target in one transaction (the source may go below zero, like a
+  negative assignment). `POST /api/v1/budget/{month}/copy-previous` (no body) gives every expense category whose own
+  assignment this month is zero its own assignment of the previous month; assigned envelopes and archived categories
+  are left as they are. Both return the month like `GET`.
+- Typing in the OpenAPI spec (OpenAPI 3.1): every field of a response schema is `required`, because every field is
+  always written, also when it is `null`; a field that may be `null` has `"type": ["<type>", "null"]` (an enum also
+  lists `null`, a nested object is `oneOf` the object and `null`). The request fields that clear a value when sent
+  as `null` are typed the same way: `parentId`, `icon`, `color` and `necessity` of a category (and `parentId` in the
+  order), the `color` of a tag, the `accountId` of a Monobank account link, the `lastName` of the profile and
+  `categoryId`, `tagIds` and `comment` of an import confirmation. Uploaded files are `type: string, format: binary`.
 - Monobank synchronization schedule: `GET /api/v1/banks/monobank` returns `syncMode` (`INTERVAL`, `DAILY` or
   `WEBHOOK`), `windowStart`, `windowEnd` and `dailyAt` (Kyiv local times, `HH:mm`) and `nextSyncAt`.
   `INTERVAL` (the default) synchronizes every 15 minutes from `windowStart` to `windowEnd` (08:00–23:00 by default)
@@ -147,10 +222,12 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
   `duplicate`. A Zen Money export may hold tens of thousands of operations, so they are paged:
   `GET /api/v1/imports/previews/{id}?page=0&size=100` (at most 500). The parsed records (never the file or a token)
   are kept in the database for an hour. `POST /api/v1/imports/previews/{id}/confirm` with
-  `{operations: [{key, include, type, transferAccountId, categoryId, tagIds, comment, rememberRule}]}` imports through
-  the same importers as the direct endpoints and returns the `ImportResult`; operations not listed are imported as
-  previewed, a listed one gets exactly the given category, tags and comment (`null` = none), `include: false` leaves it
-  out, an expense or income may become a transfer to or from `transferAccountId` (same currency), and `rememberRule`
+  `{operations: [{key, include, type, transferAccountId, categoryId, keepSuggestedCategory, tagIds, comment,
+  rememberRule}]}` imports through the same importers as the direct endpoints and returns the `ImportResult`;
+  operations not listed are imported as previewed, a listed one gets exactly the given category, tags and comment
+  (`null` = none) unless `keepSuggestedCategory: true`, which ignores `categoryId` and keeps the previewed suggestion,
+  also a category the import creates (`categoryId` `null` and `categoryName` set in the preview), `include: false`
+  leaves it out, an expense or income may become a transfer to or from `transferAccountId` (same currency), and `rememberRule`
   creates a categorization rule for the payee before the import. `DELETE /api/v1/imports/previews/{id}` discards a
   preview; an unknown or expired one is 404 `NOT_FOUND`. A user keeps at most 3 previews.
 - Start over: `POST /api/v1/me/reset` with `{keepCategories, confirm: "DELETE"}` (any other `confirm` is 400) deletes
@@ -226,6 +303,8 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
         once a day, or webhook (opt-in, as it costs the most)
   - [x] "start over": delete all accounts, transactions, envelopes and bank connections,
         optionally keeping categories and rules
+  - [x] moving money between envelopes and copying last month's assignments in one request;
+        own values of a parent envelope; exact required / nullable typing in the OpenAPI spec
 
 ### Phase 3 — Planning
 - [ ] Recurring payments (reminders or automatic creation)

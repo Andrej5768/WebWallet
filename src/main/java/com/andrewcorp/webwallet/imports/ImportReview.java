@@ -5,6 +5,7 @@ import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.tag.Tag;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction.SplitData;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionSplit;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +31,8 @@ public final class ImportReview {
      *
      * @param type            null keeps the detected type
      * @param transferAccount the other own account when an expense or income becomes a transfer
-     * @param category        null for none
+     * @param category        null for none; ignored when {@code keepCategory} is set
+     * @param keepCategory    keeps the category the import suggests, also one it creates
      * @param comment         null for none
      */
     public record Edit(
@@ -38,6 +40,7 @@ public final class ImportReview {
             TransactionType type,
             Account transferAccount,
             Category category,
+            boolean keepCategory,
             Set<Tag> tags,
             String comment) {}
 
@@ -59,6 +62,7 @@ public final class ImportReview {
         }
         TransactionType detected = transaction.getType();
         TransactionType type = edit.type() != null ? edit.type() : detected;
+        Category category = edit.keepCategory() ? suggestedCategory(transaction) : edit.category();
         if (type == TransactionType.TRANSFER && detected != TransactionType.TRANSFER) {
             Account other = edit.transferAccount();
             if (detected == TransactionType.EXPENSE) {
@@ -86,8 +90,14 @@ public final class ImportReview {
         transaction.replaceSplits(
                 type == TransactionType.TRANSFER
                         ? List.of()
-                        : List.of(new SplitData(edit.category(), transaction.getAmount(), null)));
+                        : List.of(new SplitData(category, transaction.getAmount(), null)));
         transaction.replaceTags(edit.tags());
         transaction.setComment(edit.comment());
+    }
+
+    /** The category the import gave the transaction; none for a transfer. */
+    private static Category suggestedCategory(Transaction transaction) {
+        List<TransactionSplit> splits = transaction.getSplits();
+        return splits.size() == 1 ? splits.getFirst().getCategory() : null;
     }
 }

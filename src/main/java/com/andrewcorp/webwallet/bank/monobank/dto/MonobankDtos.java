@@ -60,7 +60,7 @@ public final class MonobankDtos {
             LocalTime dailyAt) {}
 
     /** @param accountId WebWallet account to import into, or null to stop synchronizing the bank account */
-    public record LinkRequest(Long accountId) {}
+    public record LinkRequest(@Schema(nullable = true) Long accountId) {}
 
     /**
      * @param lastError  error of the last request to the bank, if it failed
@@ -72,8 +72,8 @@ public final class MonobankDtos {
     public record ConnectionResponse(
             String clientName,
             Instant connectedAt,
-            Instant lastRequestAt,
-            String lastError,
+            @Schema(nullable = true) Instant lastRequestAt,
+            @Schema(nullable = true) String lastError,
             boolean webhook,
             SyncMode syncMode,
 
@@ -100,10 +100,10 @@ public final class MonobankDtos {
             Long id,
             String title,
             String currency,
-            Long accountId,
-            String accountName,
+            @Schema(nullable = true) Long accountId,
+            @Schema(nullable = true) String accountName,
             Instant syncedUntil,
-            BigDecimal bankBalance,
-            BigDecimal balance,
-            BigDecimal difference) {}
+            @Schema(nullable = true) BigDecimal bankBalance,
+            @Schema(nullable = true) BigDecimal balance,
+            @Schema(nullable = true) BigDecimal difference) {}
 }

@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.budget;
 
 import com.andrewcorp.webwallet.budget.BudgetDtos.CategoryRow;
 import com.andrewcorp.webwallet.budget.BudgetDtos.MonthResponse;
+import com.andrewcorp.webwallet.budget.BudgetDtos.MoveRequest;
 import com.andrewcorp.webwallet.budget.BudgetRepository.SplitRow;
 import com.andrewcorp.webwallet.budget.BudgetRepository.TransferRow;
 import com.andrewcorp.webwallet.common.error.ApiException;
@@ -71,8 +72,69 @@ public class BudgetService {
         if (category.getKind() != CategoryKind.EXPENSE) {
             throw ApiException.invalid("categoryId", "error.budget.expenseCategory");
         }
+        setAssigned(userId, month.atDay(1), category, amount);
+        budget.flush();
+        return month(userId, month);
+    }
+
+    /** Lowers the own assignment of one envelope and raises that of another by the amount, both or neither. */
+    @Transactional
+    public MonthResponse move(Long userId, YearMonth month, MoveRequest request) {
+        Category from = expenseCategory(userId, request.fromCategoryId(), "fromCategoryId");
+        Category to = expenseCategory(userId, request.toCategoryId(), "toCategoryId");
+        if (from.getId().equals(to.getId())) {
+            throw ApiException.invalid("toCategoryId", "error.budget.sameCategory");
+        }
         LocalDate first = month.atDay(1);
-        budget.findByUserIdAndMonthAndCategory(userId, first, category)
+        setAssigned(userId, first, from, assigned(userId, first, from).subtract(request.amount()));
+        setAssigned(userId, first, to, assigned(userId, first, to).add(request.amount()));
+        budget.flush();
+        return month(userId, month);
+    }
+
+    /**
+     * Assigns to every envelope without an own assignment this month what it had assigned the previous month.
+     * Envelopes already assigned this month and archived categories are left as they are.
+     */
+    @Transactional
+    public MonthResponse copyPrevious(Long userId, YearMonth month) {
+        LocalDate first = month.atDay(1);
+        Map<Long, BigDecimal> current = new HashMap<>();
+        for (BudgetAssignment assignment : budget.findByMonth(userId, first)) {
+            current.put(assignment.getCategory().getId(), assignment.getAmount());
+        }
+        for (BudgetAssignment previous :
+                budget.findByMonth(userId, month.minusMonths(1).atDay(1))) {
+            Category category = previous.getCategory();
+            if (category.getKind() == CategoryKind.EXPENSE
+                    && !category.isArchived()
+                    && current.getOrDefault(category.getId(), BigDecimal.ZERO).signum() == 0) {
+                setAssigned(userId, first, category, previous.getAmount());
+            }
+        }
+        budget.flush();
+        return month(userId, month);
+    }
+
+    private Category expenseCategory(Long userId, Long categoryId, String field) {
+        Category category = categories
+                .findByIdAndUserId(categoryId, userId)
+                .orElseThrow(() -> ApiException.invalid(field, "error.notFound"));
+        if (category.getKind() != CategoryKind.EXPENSE) {
+            throw ApiException.invalid(field, "error.budget.expenseCategory");
+        }
+        return category;
+    }
+
+    /** The own assignment of the envelope in the month, zero when there is none. */
+    private BigDecimal assigned(Long userId, LocalDate month, Category category) {
+        return budget.findByUserIdAndMonthAndCategory(userId, month, category)
+                .map(BudgetAssignment::getAmount)
+                .orElse(BigDecimal.ZERO);
+    }
+
+    private void setAssigned(Long userId, LocalDate month, Category category, BigDecimal amount) {
+        budget.findByUserIdAndMonthAndCategory(userId, month, category)
                 .ifPresentOrElse(
                         assignment -> {
                             if (amount.signum() == 0) {
@@ -83,11 +145,9 @@ public class BudgetService {
                         },
                         () -> {
                             if (amount.signum() != 0) {
-                                budget.save(new BudgetAssignment(userId, first, category, amount));
+                                budget.save(new BudgetAssignment(userId, month, category, amount));
                             }
                         });
-        budget.flush();
-        return month(userId, month);
     }
 
     /** Computes the envelopes month by month from the first month with data up to the requested one. */
@@ -241,6 +301,9 @@ public class BudgetService {
                     ownAssigned.add(sum(children, CategoryRow::assigned)),
                     ownActivity.add(sum(children, CategoryRow::activity)),
                     ownAvailable.add(sum(children, CategoryRow::available)),
+                    ownAssigned,
+                    ownActivity,
+                    ownAvailable,
                     children);
         }
     }
