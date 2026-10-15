@@ -85,6 +85,28 @@ class UserControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void lastNameCanBeRemoved() throws Exception {
+        mockMvc.perform(put("/api/v1/me")
+                        .header("Authorization", bearer(tokens))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(
+                                Map.of("firstName", "Jane", "lastName", " ", "locale", "en", "baseCurrency", "UAH"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lastName").doesNotExist());
+        assertThat(users.findById(user.getId()).orElseThrow().getLastName()).isNull();
+
+        mockMvc.perform(put("/api/v1/me")
+                        .header("Authorization", bearer(tokens))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(
+                                Map.of("firstName", "Jane", "locale", "en", "baseCurrency", "UAH"))))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(tokens)))
+                .andExpect(jsonPath("$.firstName").value("Jane"))
+                .andExpect(jsonPath("$.lastName").doesNotExist());
+    }
+
+    @Test
     void updateProfileRejectsUnsupportedLocale() throws Exception {
         mockMvc.perform(put("/api/v1/me")
                         .header("Authorization", bearer(tokens))

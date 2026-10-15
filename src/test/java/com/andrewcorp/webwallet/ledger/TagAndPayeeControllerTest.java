@@ -6,7 +6,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import java.util.HashMap;
 import java.util.Map;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -44,5 +46,25 @@ class TagAndPayeeControllerTest extends AbstractIntegrationTest {
 
         mockMvc.perform(delete(url + "/" + id).header("Authorization", auth)).andExpect(status().isNoContent());
         mockMvc.perform(delete(url + "/" + id).header("Authorization", auth)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void tagColor() throws Exception {
+        String auth = loginNewUser();
+        Long id = id(json(postJson("/api/v1/tags", Map.of("name", "Trip", "color", "cyan"), auth), 201));
+
+        // An omitted color keeps its value, null removes it
+        mockMvc.perform(putJson("/api/v1/tags/" + id, Map.of("name", "Trips"), auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.color").value("cyan"));
+        mockMvc.perform(get("/api/v1/tags").header("Authorization", auth))
+                .andExpect(jsonPath("$[0].color").value("cyan"));
+        Map<String, Object> cleared = new HashMap<>(Map.of("name", "Trips"));
+        cleared.put("color", null);
+        mockMvc.perform(putJson("/api/v1/tags/" + id, cleared, auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.color").doesNotExist());
+        mockMvc.perform(putJson("/api/v1/tags/" + id, Map.of("name", "Trips", "color", "purple"), auth))
+                .andExpect(status().isBadRequest());
     }
 }

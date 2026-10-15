@@ -1,7 +1,10 @@
 package com.andrewcorp.webwallet.ledger.tag;
 
+import com.andrewcorp.webwallet.ledger.PaletteColor;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -20,6 +23,9 @@ public class Tag {
 
     @Column(nullable = false)
     private String name;
+
+    @Enumerated(EnumType.STRING)
+    private PaletteColor color;
 
     protected Tag() {}
 
@@ -42,5 +48,13 @@ public class Tag {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public PaletteColor getColor() {
+        return color;
+    }
+
+    public void setColor(PaletteColor color) {
+        this.color = color;
     }
 }

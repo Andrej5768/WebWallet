@@ -8,6 +8,7 @@ import com.andrewcorp.webwallet.auth.token.UserTokenRepository;
 import com.andrewcorp.webwallet.auth.token.UserTokenType;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.common.util.Texts;
 import com.andrewcorp.webwallet.config.AppProperties;
 import com.andrewcorp.webwallet.ledger.category.DefaultCategories;
 import com.andrewcorp.webwallet.mail.AuthMailEvent;
@@ -79,7 +80,7 @@ public class AuthService {
                 email,
                 passwordHash,
                 request.firstName().trim(),
-                request.lastName().trim(),
+                Texts.trimToNull(request.lastName()),
                 supportedLanguage(locale)));
         defaultCategories.create(user.getId(), locale(user));
         sendToken(user, UserTokenType.EMAIL_VERIFICATION);

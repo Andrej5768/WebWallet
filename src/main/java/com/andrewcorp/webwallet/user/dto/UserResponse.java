@@ -4,6 +4,7 @@ import com.andrewcorp.webwallet.user.Role;
 import com.andrewcorp.webwallet.user.User;
 import java.time.Instant;
 
+/** @param lastName null when not given */
 public record UserResponse(
         Long id,
         String email,

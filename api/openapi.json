@@ -45,7 +45,13 @@
           "archived" : {
             "type" : "boolean"
           },
+          "availableCredit" : {
+            "type" : "number"
+          },
           "balance" : {
+            "type" : "number"
+          },
+          "balanceInBase" : {
             "type" : "number"
           },
           "creditLimit" : {
@@ -81,6 +87,32 @@
         },
         "type" : "object"
       },
+      "AccountSummaryResponse" : {
+        "properties" : {
+          "available" : {
+            "type" : "number"
+          },
+          "availableWithCredit" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "netWorth" : {
+            "type" : "number"
+          },
+          "readyToAssign" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "ApplyResponse" : {
         "properties" : {
           "categorized" : {
@@ -99,10 +131,36 @@
         "required" : [ "assigned" ],
         "type" : "object"
       },
+      "CategoryOrderRequest" : {
+        "properties" : {
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "parentId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "sortOrder" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "id", "sortOrder" ],
+        "type" : "object"
+      },
       "CategoryRequest" : {
         "properties" : {
           "archived" : {
             "type" : "boolean"
+          },
+          "color" : {
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime" ],
+            "type" : "string"
+          },
+          "icon" : {
+            "pattern" : "[a-z0-9-]{1,50}",
+            "type" : "string"
           },
           "kind" : {
             "enum" : [ "EXPENSE", "INCOME" ],
@@ -111,6 +169,10 @@
           "name" : {
             "maxLength" : 100,
             "minLength" : 0,
+            "type" : "string"
+          },
+          "necessity" : {
+            "enum" : [ "NEEDS", "WANTS" ],
             "type" : "string"
           },
           "parentId" : {
@@ -136,6 +198,13 @@
             },
             "type" : "array"
           },
+          "color" : {
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime" ],
+            "type" : "string"
+          },
+          "icon" : {
+            "type" : "string"
+          },
           "id" : {
             "format" : "int64",
             "type" : "integer"
@@ -145,6 +214,10 @@
             "type" : "string"
           },
           "name" : {
+            "type" : "string"
+          },
+          "necessity" : {
+            "enum" : [ "NEEDS", "WANTS" ],
             "type" : "string"
           },
           "parentId" : {
@@ -502,17 +575,6 @@
         },
         "type" : "object"
       },
-      "NameRequest" : {
-        "properties" : {
-          "name" : {
-            "maxLength" : 100,
-            "minLength" : 0,
-            "type" : "string"
-          }
-        },
-        "required" : [ "name" ],
-        "type" : "object"
-      },
       "NamedResponse" : {
         "properties" : {
           "id" : {
@@ -653,7 +715,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "email", "firstName", "lastName", "password" ],
+        "required" : [ "email", "firstName", "password" ],
         "type" : "object"
       },
       "ResetPasswordRequest" : {
@@ -798,6 +860,37 @@
           "id" : {
             "format" : "int64",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "TagRequest" : {
+        "properties" : {
+          "color" : {
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime" ],
+            "type" : "string"
+          },
+          "name" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "name" ],
+        "type" : "object"
+      },
+      "TagResponse" : {
+        "properties" : {
+          "color" : {
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime" ],
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -992,7 +1085,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "baseCurrency", "firstName", "lastName", "locale" ],
+        "required" : [ "baseCurrency", "firstName", "locale" ],
         "type" : "object"
       },
       "UserResponse" : {
@@ -1058,6 +1151,7 @@
   "paths" : {
     "/api/v1/accounts" : {
       "get" : {
+        "description" : "balanceInBase is the balance in the base currency at today's NBU rate, null when there is no rate; availableCredit is the credit limit plus the balance of a credit card",
         "operationId" : "list_4",
         "responses" : {
           "200" : {
@@ -1107,6 +1201,29 @@
         "security" : [ {
           "bearer" : [ ]
         } ],
+        "tags" : [ "Accounts" ]
+      }
+    },
+    "/api/v1/accounts/summary" : {
+      "get" : {
+        "description" : "Accounts that are not archived, at today's NBU rates; balances in a currency without a rate are left out and listed in unconvertedCurrencies. readyToAssign is that of the budget of the current month.",
+        "operationId" : "summary",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountSummaryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Totals of the accounts in the base currency",
         "tags" : [ "Accounts" ]
       }
     },
@@ -1633,6 +1750,45 @@
         "tags" : [ "Categories" ]
       }
     },
+    "/api/v1/categories/order" : {
+      "put" : {
+        "description" : "Applies all items or none. Categories not listed stay where they are. Only two levels are allowed: a category with subcategories cannot get a parent, and a subcategory must have the kind of its parent. Errors name the item, e.g. the field [2].parentId. Returns the whole tree like the list.",
+        "operationId" : "reorder",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "items" : {
+                  "$ref" : "#/components/schemas/CategoryOrderRequest"
+                },
+                "type" : "array"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/CategoryResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Move and sort categories at once, e.g. after drag and drop",
+        "tags" : [ "Categories" ]
+      }
+    },
     "/api/v1/categories/{id}" : {
       "delete" : {
         "operationId" : "delete_4",
@@ -1657,6 +1813,7 @@
         "tags" : [ "Categories" ]
       },
       "put" : {
+        "description" : "The parent is always applied (null makes a top-level category); other omitted optional fields keep their values. icon, color and necessity sent as null are removed. A necessity is allowed only on expense categories; it is removed when the category becomes income.",
         "operationId" : "update_2",
         "parameters" : [ {
           "in" : "path",
@@ -1692,6 +1849,7 @@
         "security" : [ {
           "bearer" : [ ]
         } ],
+        "summary" : "Update a category",
         "tags" : [ "Categories" ]
       }
     },
@@ -2325,7 +2483,7 @@
               "*/*" : {
                 "schema" : {
                   "items" : {
-                    "$ref" : "#/components/schemas/NamedResponse"
+                    "$ref" : "#/components/schemas/TagResponse"
                   },
                   "type" : "array"
                 }
@@ -2345,7 +2503,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/NameRequest"
+                "$ref" : "#/components/schemas/TagRequest"
               }
             }
           },
@@ -2356,7 +2514,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/NamedResponse"
+                  "$ref" : "#/components/schemas/TagResponse"
                 }
               }
             },
@@ -2393,6 +2551,7 @@
         "tags" : [ "Tags" ]
       },
       "put" : {
+        "description" : "An omitted color keeps its value; a color sent as null is removed",
         "operationId" : "rename",
         "parameters" : [ {
           "in" : "path",
@@ -2407,7 +2566,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/NameRequest"
+                "$ref" : "#/components/schemas/TagRequest"
               }
             }
           },
@@ -2418,7 +2577,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/NamedResponse"
+                  "$ref" : "#/components/schemas/TagResponse"
                 }
               }
             },
@@ -2428,11 +2587,13 @@
         "security" : [ {
           "bearer" : [ ]
         } ],
+        "summary" : "Rename a tag or change its color",
         "tags" : [ "Tags" ]
       }
     },
     "/api/v1/transactions" : {
       "get" : {
+        "description" : "All given filters must match. q searches the payee name, the comment and the comments of splits, ignoring case; when it is a number (1284.50, 1284,50 or 1 284,50), transactions with this amount match too (the amount or, of a transfer, the received amount).",
         "operationId" : "list",
         "parameters" : [ {
           "in" : "query",
@@ -2489,6 +2650,15 @@
           "schema" : {
             "format" : "int64",
             "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
           }
         }, {
           "in" : "query",

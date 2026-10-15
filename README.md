@@ -107,6 +107,24 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
   (`app.auth.refresh-cookie-secure=false`, or `REFRESH_COOKIE_SECURE=false`) for development over plain HTTP.
 - The native mobile apps will need a separate way to keep the refresh token; it is not part of the API yet.
 
+### API conventions
+
+- `PUT` of accounts, categories and tags keeps the values of omitted optional fields. The `icon`, `color` and
+  `necessity` of a category and the `color` of a tag are removed by sending them as `null`; a credit limit or interest
+  rate of an account is removed by sending `0`. The parent of a category is always applied (`null` = top level).
+- Categories and tags have a `color`, one of `blue`, `green`, `orange`, `violet`, `teal`, `pink`, `amber`, `slate`,
+  `red`, `indigo`, `cyan`, `lime` (the client picks the shade for the theme). Categories also have an `icon`
+  (a [Lucide](https://lucide.dev/icons) name in kebab case, e.g. `shopping-cart`) and, for expense categories,
+  `necessity`: `NEEDS` or `WANTS`; `null` on a subcategory means the same as its parent.
+- `PUT /api/v1/categories/order` takes `[{id, parentId, sortOrder}]` after drag and drop, applies all items or none
+  (two levels, kinds of the parent) and returns the tree like `GET /api/v1/categories`.
+- `GET /api/v1/transactions?q=...` searches the payee name, the comment and split comments, ignoring case; a number
+  (`1284.50`, `1284,50`, `1 284,50`) also matches the amount. It combines with the other filters and paging.
+- Accounts have `balanceInBase` (today's NBU rate, `null` without a rate) and, for credit cards with a limit,
+  `availableCredit`. `GET /api/v1/accounts/summary` returns `netWorth`, `available` (cash and cards),
+  `availableWithCredit` and `readyToAssign` in the base currency, with `unconvertedCurrencies` like the reports.
+- The last name of a user is optional (`null` when not given).
+
 ### OpenAPI spec
 
 The spec is committed in `api/openapi.json`; the web client generates its API client from it and downloads it from
@@ -161,11 +179,12 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [ ] Dashboard, transaction feed, envelopes, reports, imports, goals, settings
       (mockups: light and dark themes, Ukrainian and English)
 - [ ] Backend changes the web client needs:
-  - [ ] icon, color and a needs / wants flag on categories (for 50/30/20 analytics);
+  - [x] icon, color and a needs / wants flag on categories (for 50/30/20 analytics);
         reordering and moving categories between groups
-  - [ ] color on tags
-  - [ ] free-text transaction search (payee, comment, amount)
-  - [ ] last name optional at registration
+  - [x] color on tags
+  - [x] free-text transaction search (payee, comment, amount)
+  - [x] last name optional at registration
+  - [x] account balances in the base currency and totals (net worth, available money, ready to assign)
   - [ ] import preview: parse a statement or a Zen Money export without saving, let the user
         change type, category and tags of each operation, then import the reviewed list
   - [ ] Monobank synchronization schedule: every 15 minutes within a time window (default),

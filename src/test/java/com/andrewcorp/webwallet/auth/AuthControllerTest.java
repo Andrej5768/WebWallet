@@ -95,6 +95,24 @@ class AuthControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void lastNameIsOptional() throws Exception {
+        mockMvc.perform(postJson(
+                        "/api/v1/auth/register",
+                        Map.of("email", "solo@test.com", "password", PASSWORD, "firstName", "Solo")))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(postJson(
+                        "/api/v1/auth/register",
+                        Map.of("email", "blank@test.com", "password", PASSWORD, "firstName", "B", "lastName", "  ")))
+                .andExpect(status().isAccepted());
+
+        assertThat(users.findByEmail("solo@test.com").orElseThrow().getLastName())
+                .isNull();
+        assertThat(users.findByEmail("blank@test.com").orElseThrow().getLastName())
+                .isNull();
+        assertThat(lastMail().getText()).doesNotContain("null");
+    }
+
+    @Test
     void registerValidatesInput() throws Exception {
         mockMvc.perform(postJson(
                         "/api/v1/auth/register",

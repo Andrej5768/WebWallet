@@ -36,22 +36,28 @@ public class TagService {
     }
 
     @Transactional
-    public Tag create(Long userId, String name) {
-        String trimmed = name.trim();
+    public Tag create(Long userId, TagRequest request) {
+        String trimmed = request.getName().trim();
         if (tags.existsByUserIdAndNameIgnoreCase(userId, trimmed)) {
             throw ApiException.invalid("name", "error.duplicateName");
         }
-        return tags.save(new Tag(userId, trimmed));
+        Tag tag = new Tag(userId, trimmed);
+        tag.setColor(request.getColor());
+        return tags.save(tag);
     }
 
+    /** An omitted color keeps its value; a color sent as null is removed. */
     @Transactional
-    public Tag rename(Long userId, Long id, String name) {
+    public Tag update(Long userId, Long id, TagRequest request) {
         Tag tag = tags.findByIdAndUserId(id, userId).orElseThrow(ApiException::notFound);
-        String trimmed = name.trim();
+        String trimmed = request.getName().trim();
         if (!tag.getName().equalsIgnoreCase(trimmed) && tags.existsByUserIdAndNameIgnoreCase(userId, trimmed)) {
             throw ApiException.invalid("name", "error.duplicateName");
         }
         tag.setName(trimmed);
+        if (request.colorSent()) {
+            tag.setColor(request.getColor());
+        }
         return tag;
     }
 

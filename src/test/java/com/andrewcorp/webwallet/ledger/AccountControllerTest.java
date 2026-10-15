@@ -8,12 +8,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import com.andrewcorp.webwallet.common.util.Zones;
+import com.andrewcorp.webwallet.currency.ExchangeRate;
+import com.andrewcorp.webwallet.currency.ExchangeRateRepository;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 class AccountControllerTest extends AbstractIntegrationTest {
+
+    @Autowired
+    private ExchangeRateRepository rates;
 
     private String auth;
 
@@ -124,6 +134,49 @@ class AccountControllerTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.archived").value(true));
         mockMvc.perform(get("/api/v1/accounts/" + id).header("Authorization", auth))
                 .andExpect(jsonPath("$.name").value("Wallet"));
+    }
+
+    @Test
+    void balancesInBaseCurrencyAndSummary() throws Exception {
+        LocalDate today = LocalDate.now(Zones.KYIV);
+        rates.save(new ExchangeRate("USD", today, new BigDecimal("40")));
+        Long card = id(json(postJson("/api/v1/accounts", account("Card", "CARD", "UAH", 1000), auth), 201));
+        Long dollars = id(json(postJson("/api/v1/accounts", account("Dollars", "CASH", "USD", 100), auth), 201));
+        Long euros = id(json(postJson("/api/v1/accounts", account("Euros", "CASH", "EUR", 50), auth), 201));
+        Map<String, Object> credit = account("Credit", "CREDIT_CARD", "UAH", -500);
+        credit.put("creditLimit", 2000);
+        Long creditCard = id(json(postJson("/api/v1/accounts", credit, auth), 201));
+        json(postJson("/api/v1/accounts", account("Deposit", "DEPOSIT", "UAH", 10000), auth), 201);
+        Map<String, Object> archived = account("Old", "CASH", "UAH", 777);
+        archived.put("archived", true);
+        json(postJson("/api/v1/accounts", archived, auth), 201);
+
+        mockMvc.perform(get("/api/v1/accounts").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + card + ")].balanceInBase", contains(1000.0)))
+                .andExpect(jsonPath("$[?(@.id == " + dollars + ")].balanceInBase", contains(4000.0)))
+                // No rate, no converted balance
+                .andExpect(jsonPath("$[?(@.id == " + euros + ")].balanceInBase", contains((Object) null)))
+                .andExpect(jsonPath("$[?(@.id == " + creditCard + ")].availableCredit", contains(1500.0)))
+                .andExpect(jsonPath("$[?(@.id == " + card + ")].availableCredit", contains((Object) null)));
+
+        Map<String, Object> budget =
+                json(get("/api/v1/budget/" + YearMonth.from(today)).header("Authorization", auth), 200);
+        mockMvc.perform(get("/api/v1/accounts/summary").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currency").value("UAH"))
+                // 1000 + 4000 - 500 + 10000; the euros are left out, the archived account is not counted
+                .andExpect(jsonPath("$.netWorth").value(14500.0))
+                .andExpect(jsonPath("$.available").value(5000.0))
+                .andExpect(jsonPath("$.availableWithCredit").value(6500.0))
+                .andExpect(jsonPath("$.readyToAssign").value(budget.get("readyToAssign")))
+                .andExpect(jsonPath("$.unconvertedCurrencies", contains("EUR")));
+    }
+
+    private Map<String, Object> account(String name, String type, String currency, double openingBalance) {
+        Map<String, Object> body = account(name, type, currency);
+        body.put("openingBalance", openingBalance);
+        return body;
     }
 
     @Test

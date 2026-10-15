@@ -45,6 +45,12 @@ public class CurrencyConverter {
 
     /** The amount in the target currency at the rates of the date, rounded to 4 decimal places. */
     public BigDecimal convert(BigDecimal amount, String currency, LocalDate date) {
+        BigDecimal converted = convertIfKnown(amount, currency, date);
+        return converted != null ? converted : BigDecimal.ZERO;
+    }
+
+    /** Like {@link #convert}, but null instead of zero when a rate is missing. */
+    public BigDecimal convertIfKnown(BigDecimal amount, String currency, LocalDate date) {
         if (currency.equals(target) || amount.signum() == 0) {
             return amount;
         }
@@ -52,7 +58,7 @@ public class CurrencyConverter {
         Optional<BigDecimal> to = rate(target, date);
         if (from.isEmpty() || to.isEmpty()) {
             unconverted.add(from.isEmpty() ? currency : target);
-            return BigDecimal.ZERO;
+            return null;
         }
         return amount.multiply(from.get())
                 .divide(to.get(), MathContext.DECIMAL64)

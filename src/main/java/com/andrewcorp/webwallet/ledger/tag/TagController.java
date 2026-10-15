@@ -1,8 +1,6 @@
 package com.andrewcorp.webwallet.ledger.tag;
 
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
-import com.andrewcorp.webwallet.ledger.NameRequest;
-import com.andrewcorp.webwallet.ledger.NamedResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -31,20 +29,23 @@ public class TagController {
     }
 
     @GetMapping
-    public List<NamedResponse> list(@CurrentUserId Long userId) {
-        return tagService.list(userId).stream().map(TagController::toResponse).toList();
+    public List<TagResponse> list(@CurrentUserId Long userId) {
+        return tagService.list(userId).stream().map(TagResponse::from).toList();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public NamedResponse create(@CurrentUserId Long userId, @Valid @RequestBody NameRequest request) {
-        return toResponse(tagService.create(userId, request.name()));
+    public TagResponse create(@CurrentUserId Long userId, @Valid @RequestBody TagRequest request) {
+        return TagResponse.from(tagService.create(userId, request));
     }
 
+    @Operation(
+            summary = "Rename a tag or change its color",
+            description = "An omitted color keeps its value; a color sent as null is removed")
     @PutMapping("/{id}")
-    public NamedResponse rename(
-            @CurrentUserId Long userId, @PathVariable Long id, @Valid @RequestBody NameRequest request) {
-        return toResponse(tagService.rename(userId, id, request.name()));
+    public TagResponse rename(
+            @CurrentUserId Long userId, @PathVariable Long id, @Valid @RequestBody TagRequest request) {
+        return TagResponse.from(tagService.update(userId, id, request));
     }
 
     @Operation(summary = "Delete a tag; it is removed from all transactions")
@@ -52,9 +53,5 @@ public class TagController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@CurrentUserId Long userId, @PathVariable Long id) {
         tagService.delete(userId, id);
-    }
-
-    private static NamedResponse toResponse(Tag tag) {
-        return new NamedResponse(tag.getId(), tag.getName());
     }
 }
