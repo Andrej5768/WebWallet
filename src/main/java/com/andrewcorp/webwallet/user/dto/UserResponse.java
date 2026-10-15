@@ -2,13 +2,15 @@ package com.andrewcorp.webwallet.user.dto;
 
 import com.andrewcorp.webwallet.user.Role;
 import com.andrewcorp.webwallet.user.User;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 
+/** @param lastName null when not given */
 public record UserResponse(
         Long id,
         String email,
         String firstName,
-        String lastName,
+        @Schema(nullable = true) String lastName,
         Role role,
         boolean emailVerified,
         String locale,

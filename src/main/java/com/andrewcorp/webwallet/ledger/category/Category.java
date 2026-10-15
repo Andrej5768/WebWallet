@@ -1,5 +1,6 @@
 package com.andrewcorp.webwallet.ledger.category;
 
+import com.andrewcorp.webwallet.ledger.PaletteColor;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -37,6 +38,16 @@ public class Category {
 
     @Column(nullable = false)
     private int sortOrder;
+
+    /** Name of a Lucide icon in kebab case, e.g. {@code shopping-cart}. */
+    private String icon;
+
+    @Enumerated(EnumType.STRING)
+    private PaletteColor color;
+
+    /** Of an expense category; null on a subcategory means the same as its parent. */
+    @Enumerated(EnumType.STRING)
+    private Necessity necessity;
 
     private String externalSource;
 
@@ -110,5 +121,29 @@ public class Category {
 
     public void setSortOrder(int sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public String getIcon() {
+        return icon;
+    }
+
+    public void setIcon(String icon) {
+        this.icon = icon;
+    }
+
+    public PaletteColor getColor() {
+        return color;
+    }
+
+    public void setColor(PaletteColor color) {
+        this.color = color;
+    }
+
+    public Necessity getNecessity() {
+        return necessity;
+    }
+
+    public void setNecessity(Necessity necessity) {
+        this.necessity = necessity;
     }
 }

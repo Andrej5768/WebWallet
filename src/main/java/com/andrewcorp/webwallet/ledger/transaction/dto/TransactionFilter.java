@@ -8,6 +8,8 @@ import java.time.LocalDate;
  *
  * @param accountId  source or target account
  * @param categoryId category or, for a top-level category, any of its subcategories
+ * @param q          text in the payee name, the comment or a split comment, ignoring case; a number also matches
+ *                   the amount
  */
 public record TransactionFilter(
         LocalDate from,
@@ -16,4 +18,5 @@ public record TransactionFilter(
         Long categoryId,
         TransactionType type,
         Long payeeId,
-        Long tagId) {}
+        Long tagId,
+        String q) {}

@@ -34,7 +34,7 @@ public record TransactionRequest(
         @Positive @Digits(integer = 15, fraction = 4) BigDecimal originalAmount,
         @CurrencyCode String originalCurrency,
         Long categoryId,
-        @Valid @Size(max = 100) List<SplitRequest> splits,
+        @Size(max = 100) List<@Valid SplitRequest> splits,
         Long payeeId,
         @Size(max = 200) String payeeName,
         @Size(max = 1000) String comment,

@@ -3,6 +3,7 @@ package com.andrewcorp.webwallet.budget;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -208,6 +209,113 @@ class BudgetControllerTest extends AbstractIntegrationTest {
                 .andExpect(status().isNotFound());
         mockMvc.perform(get("/api/v1/budget/october").header("Authorization", auth))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void parentRowsHaveTheirOwnValuesNextToTheTotals() throws Exception {
+        assign("2026-10", food, 500);
+        assign("2026-10", groceries, 300);
+        transaction("EXPENSE", "2026-10-05", card, 100, food);
+        transaction("EXPENSE", "2026-10-06", card, 50, groceries);
+
+        Map<String, Object> foodRow = row(month("2026-10"), food);
+        assertThat(amount(foodRow, "assigned")).isEqualByComparingTo("800");
+        assertThat(amount(foodRow, "activity")).isEqualByComparingTo("-150");
+        assertThat(amount(foodRow, "available")).isEqualByComparingTo("650");
+        assertThat(amount(foodRow, "ownAssigned")).isEqualByComparingTo("500");
+        assertThat(amount(foodRow, "ownActivity")).isEqualByComparingTo("-100");
+        assertThat(amount(foodRow, "ownAvailable")).isEqualByComparingTo("400");
+        Map<String, Object> groceriesRow = row(month("2026-10"), groceries);
+        assertThat(amount(groceriesRow, "ownAssigned")).isEqualByComparingTo("300");
+        assertThat(amount(groceriesRow, "ownAvailable")).isEqualByComparingTo("250");
+    }
+
+    @Test
+    void moveMoneyBetweenEnvelopes() throws Exception {
+        assign("2026-10", groceries, 300);
+
+        Map<String, Object> october = json(
+                postJson(
+                        "/api/v1/budget/2026-10/move",
+                        Map.of("fromCategoryId", groceries, "toCategoryId", food, "amount", 120.5),
+                        auth),
+                200);
+
+        assertThat(october).containsEntry("month", "2026-10");
+        assertThat(amount(row(october, groceries), "assigned")).isEqualByComparingTo("179.5");
+        assertThat(amount(row(october, food), "ownAssigned")).isEqualByComparingTo("120.5");
+        // The total stays the same
+        assertThat(amount(row(october, food), "assigned")).isEqualByComparingTo("300");
+        assertThat(amount(october, "readyToAssign")).isEqualByComparingTo("700");
+
+        // Moving everything out removes the assignment; moving more takes the envelope below zero
+        json(
+                postJson(
+                        "/api/v1/budget/2026-10/move",
+                        Map.of("fromCategoryId", groceries, "toCategoryId", transport, "amount", 200),
+                        auth),
+                200);
+        Map<String, Object> after = month("2026-10");
+        assertThat(amount(row(after, groceries), "assigned")).isEqualByComparingTo("-20.5");
+        assertThat(amount(row(after, transport), "assigned")).isEqualByComparingTo("200");
+    }
+
+    @Test
+    void moveRules() throws Exception {
+        assign("2026-10", groceries, 300);
+        String url = "/api/v1/budget/2026-10/move";
+
+        mockMvc.perform(postJson(
+                        url, Map.of("fromCategoryId", groceries, "toCategoryId", groceries, "amount", 1), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("toCategoryId"));
+        mockMvc.perform(postJson(url, Map.of("fromCategoryId", groceries, "toCategoryId", salary, "amount", 1), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("toCategoryId"));
+        mockMvc.perform(postJson(url, Map.of("fromCategoryId", groceries, "toCategoryId", food, "amount", 0), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("amount"));
+        mockMvc.perform(postJson(url, Map.of("fromCategoryId", groceries, "toCategoryId", food, "amount", -5), auth))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(postJson(url, Map.of("toCategoryId", food, "amount", 5), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("fromCategoryId"));
+        // Categories of another user are not found, and nothing changed
+        String other = loginNewUser();
+        mockMvc.perform(postJson(url, Map.of("fromCategoryId", groceries, "toCategoryId", food, "amount", 1), other))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("fromCategoryId"));
+        assertThat(amount(row(month("2026-10"), groceries), "assigned")).isEqualByComparingTo("300");
+        assertThat(amount(row(month("2026-10"), food), "ownAssigned")).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void copyThePreviousMonthToEmptyEnvelopes() throws Exception {
+        assign("2026-09", food, 50);
+        assign("2026-09", groceries, 300);
+        assign("2026-09", transport, 100);
+        assign("2026-10", transport, 70);
+        Long old = category("Old", "EXPENSE", null);
+        assign("2026-09", old, 10);
+        mockMvc.perform(putJson(
+                        "/api/v1/categories/" + old, Map.of("name", "Old", "kind", "EXPENSE", "archived", true), auth))
+                .andExpect(status().isOk());
+
+        Map<String, Object> october =
+                json(post("/api/v1/budget/2026-10/copy-previous").header("Authorization", auth), 200);
+
+        assertThat(october).containsEntry("month", "2026-10");
+        assertThat(amount(row(october, groceries), "assigned")).isEqualByComparingTo("300");
+        assertThat(amount(row(october, food), "ownAssigned")).isEqualByComparingTo("50");
+        // Already assigned this month: kept
+        assertThat(amount(row(october, transport), "assigned")).isEqualByComparingTo("70");
+        assertThat(amount(row(october, old), "assigned")).isEqualByComparingTo("0");
+        assertThat(amount(october, "assigned")).isEqualByComparingTo("420");
+
+        // Nothing to copy from an empty month
+        Map<String, Object> december =
+                json(post("/api/v1/budget/2026-12/copy-previous").header("Authorization", auth), 200);
+        assertThat(amount(december, "assigned")).isEqualByComparingTo("0");
     }
 
     @Test

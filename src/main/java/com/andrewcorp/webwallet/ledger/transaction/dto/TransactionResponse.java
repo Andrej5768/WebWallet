@@ -6,6 +6,7 @@ import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSource;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSplit;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -18,19 +19,23 @@ public record TransactionResponse(
         Long accountId,
         BigDecimal amount,
         String currency,
-        Long toAccountId,
-        BigDecimal toAmount,
-        String toCurrency,
-        BigDecimal originalAmount,
-        String originalCurrency,
-        NamedResponse payee,
-        String comment,
+        @Schema(nullable = true) Long toAccountId,
+        @Schema(nullable = true) BigDecimal toAmount,
+        @Schema(nullable = true) String toCurrency,
+        @Schema(nullable = true) BigDecimal originalAmount,
+        @Schema(nullable = true) String originalCurrency,
+        @Schema(nullable = true) NamedResponse payee,
+        @Schema(nullable = true) String comment,
         List<SplitResponse> splits,
         List<Long> tagIds,
         TransactionSource source,
         Instant createdAt) {
 
-    public record SplitResponse(Long id, Long categoryId, BigDecimal amount, String comment) {
+    public record SplitResponse(
+            Long id,
+            @Schema(nullable = true) Long categoryId,
+            BigDecimal amount,
+            @Schema(nullable = true) String comment) {
 
         static SplitResponse from(TransactionSplit split) {
             return new SplitResponse(

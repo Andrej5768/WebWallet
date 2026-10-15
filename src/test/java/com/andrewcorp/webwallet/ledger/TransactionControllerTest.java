@@ -409,6 +409,13 @@ class TransactionControllerTest extends AbstractIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
                 .andExpect(jsonPath("$.errors.length()").value(2));
+
+        // Each split is validated
+        Map<String, Object> body = expense(card, 300);
+        body.put("splits", List.of(Map.of("categoryId", groceries, "amount", 300), Map.of("amount", -1)));
+        mockMvc.perform(postJson("/api/v1/transactions", body, auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("splits[1].amount"));
     }
 
     // update, delete, read
@@ -543,6 +550,51 @@ class TransactionControllerTest extends AbstractIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
                 .andExpect(jsonPath("$.errors[0].field").value("size"));
+    }
+
+    @Test
+    void searchByPayeeCommentAndAmount() throws Exception {
+        Map<String, Object> coffee = expense(card, 1284.5);
+        coffee.put("payeeName", "Aroma Kava");
+        Long byPayee = id(json(postJson("/api/v1/transactions", coffee, auth), 201));
+        Map<String, Object> commented = expense(cash, 30);
+        commented.put("comment", "Birthday cake for KAVA lovers");
+        commented.put("date", "2026-09-01");
+        Long byComment = id(json(postJson("/api/v1/transactions", commented, auth), 201));
+        Map<String, Object> split = expense(card, 100);
+        split.put("date", "2026-08-01");
+        split.put(
+                "splits",
+                List.of(
+                        Map.of("categoryId", groceries, "amount", 60, "comment", "50% off"),
+                        Map.of("categoryId", food, "amount", 40)));
+        Long bySplit = id(json(postJson("/api/v1/transactions", split, auth), 201));
+        Map<String, Object> transfer = new HashMap<>(Map.of(
+                "type", "TRANSFER", "date", "2026-07-01", "accountId", usdAccount, "amount", 31, "toAccountId", card));
+        transfer.put("toAmount", 1284.5);
+        Long byReceivedAmount = id(json(postJson("/api/v1/transactions", transfer, auth), 201));
+        // Another user's transactions are never found
+        String otherAuth = loginNewUser();
+        Long otherAccount = id(json(
+                postJson("/api/v1/accounts", Map.of("name", "x", "type", "CASH", "currency", "UAH"), otherAuth), 201));
+        Map<String, Object> foreign = expense(otherAccount, 1284.5);
+        foreign.put("payeeName", "Kava");
+        json(postJson("/api/v1/transactions", foreign, otherAuth), 201);
+
+        // Case-insensitive, in the payee name and the comment
+        assertThat(ids("q=kava")).containsExactly(byPayee, byComment);
+        // Split comments; LIKE wildcards match only themselves
+        assertThat(ids("q=50%")).containsExactly(bySplit);
+        assertThat(ids("q=_")).isEmpty();
+        // A number also matches the amount, typed in any of the usual ways
+        assertThat(ids("q=1284.50")).containsExactly(byPayee, byReceivedAmount);
+        assertThat(ids("q=1284,5")).containsExactly(byPayee, byReceivedAmount);
+        assertThat(ids("q=1 284,50")).containsExactly(byPayee, byReceivedAmount);
+        assertThat(ids("q=100")).containsExactly(bySplit);
+        // Combined with the other filters
+        assertThat(ids("q=kava&accountId=" + cash)).containsExactly(byComment);
+        assertThat(ids("q=1284.50&type=EXPENSE&size=1")).containsExactly(byPayee);
+        assertThat(ids("q=nothing")).isEmpty();
     }
 
     @SuppressWarnings("unchecked")

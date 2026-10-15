@@ -16,6 +16,9 @@ public interface BudgetRepository extends JpaRepository<BudgetAssignment, Long> 
     @Query("select a from BudgetAssignment a join fetch a.category where a.userId = :userId and a.month <= :month")
     List<BudgetAssignment> findUpTo(Long userId, LocalDate month);
 
+    @Query("select a from BudgetAssignment a join fetch a.category where a.userId = :userId and a.month = :month")
+    List<BudgetAssignment> findByMonth(Long userId, LocalDate month);
+
     Optional<BudgetAssignment> findByUserIdAndMonthAndCategory(Long userId, LocalDate month, Category category);
 
     boolean existsByCategoryIdIn(Collection<Long> categoryIds);

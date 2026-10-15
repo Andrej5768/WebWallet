@@ -15,6 +15,8 @@ import com.andrewcorp.webwallet.currency.NbuClient;
 import com.andrewcorp.webwallet.mail.MailConfig;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
+import jakarta.servlet.http.Cookie;
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -32,6 +34,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.convention.TestBean;
@@ -52,6 +55,7 @@ import tools.jackson.databind.json.JsonMapper;
 public abstract class AbstractIntegrationTest {
 
     protected static final String PASSWORD = "password123";
+    protected static final String REFRESH_COOKIE = "refresh_token";
     private static final Pattern TOKEN_IN_LINK = Pattern.compile("token=([A-Za-z0-9_-]+)");
 
     @Autowired
@@ -89,9 +93,18 @@ public abstract class AbstractIntegrationTest {
         return new SyncTaskExecutor();
     }
 
+    /** A test can move the time of the application with {@link TestClock#set}; it is reset before every test. */
+    @TestBean(name = "clock")
+    private Clock clock;
+
+    static Clock clock() {
+        return TestClock.INSTANCE;
+    }
+
     @BeforeEach
     void cleanDatabase() {
         jdbc.execute("truncate table users, exchange_rates cascade");
+        TestClock.INSTANCE.reset();
         clearInvocations(mailSender);
         rateLimiter.reset();
         exchangeRates.forgetMissingRates();
@@ -113,11 +126,29 @@ public abstract class AbstractIntegrationTest {
     }
 
     protected TokenResponse login(String email, String password) throws Exception {
-        String body = mockMvc.perform(postJson("/api/v1/auth/login", Map.of("email", email, "password", password)))
+        return tokens(loginResponse(email, password));
+    }
+
+    /** Logs in and returns the response: the access token in the body and the refresh token in a cookie. */
+    protected MockHttpServletResponse loginResponse(String email, String password) throws Exception {
+        return mockMvc.perform(postJson("/api/v1/auth/login", Map.of("email", email, "password", password)))
                 .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return jsonMapper.readValue(body, TokenResponse.class);
+                .getResponse();
+    }
+
+    protected TokenResponse tokens(MockHttpServletResponse response) throws Exception {
+        return jsonMapper.readValue(response.getContentAsString(), TokenResponse.class);
+    }
+
+    /** The refresh token cookie set by the response, as the browser sends it back. */
+    protected static Cookie refreshCookie(MockHttpServletResponse response) {
+        Cookie cookie = response.getCookie(REFRESH_COOKIE);
+        assertThat(cookie).as("refresh token cookie").isNotNull();
+        return new Cookie(REFRESH_COOKIE, cookie.getValue());
+    }
+
+    protected static MockHttpServletRequestBuilder refresh(Cookie refreshCookie) {
+        return post("/api/v1/auth/refresh").cookie(refreshCookie);
     }
 
     /** Logs in a new verified user and returns the Authorization header value. */

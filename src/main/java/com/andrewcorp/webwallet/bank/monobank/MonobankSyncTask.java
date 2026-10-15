@@ -9,7 +9,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Makes one Monobank request per connection whenever the rate limit allows it, until all accounts are up to date.
+ * Every tick makes one Monobank request for each connection that has something to do (a due synchronization, see
+ * {@link SyncSchedule}, or the webhook to register or remove) and whose rate limit allows a request.
  */
 @Component
 public class MonobankSyncTask {
@@ -26,7 +27,7 @@ public class MonobankSyncTask {
             fixedDelayString = "${app.monobank.sync-delay:15s}",
             initialDelayString = "${app.monobank.sync-delay:15s}")
     public void sync() {
-        for (Long connectionId : monobank.connectionsReadyForRequest()) {
+        for (Long connectionId : monobank.dueConnections()) {
             try {
                 monobank.syncStep(connectionId);
             } catch (ApiException e) {

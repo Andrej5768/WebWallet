@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.budget;
 
 import com.andrewcorp.webwallet.budget.BudgetDtos.AssignRequest;
 import com.andrewcorp.webwallet.budget.BudgetDtos.MonthResponse;
+import com.andrewcorp.webwallet.budget.BudgetDtos.MoveRequest;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -12,6 +13,7 @@ import java.time.YearMonth;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,5 +49,28 @@ public class BudgetController {
             @PathVariable Long categoryId,
             @Valid @RequestBody AssignRequest request) {
         return budgetService.assign(userId, month, categoryId, request.assigned());
+    }
+
+    @Operation(
+            summary = "Move money from the own envelope of one expense category to another in one step",
+            description = "Lowers the own assignment of fromCategoryId and raises that of toCategoryId by the amount;"
+                    + " both change or neither. Returns the month like GET.")
+    @PostMapping("/move")
+    public MonthResponse move(
+            @CurrentUserId Long userId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM") YearMonth month,
+            @Valid @RequestBody MoveRequest request) {
+        return budgetService.move(userId, month, request);
+    }
+
+    @Operation(
+            summary = "Copy the assignments of the previous month to the envelopes without one this month",
+            description = "Every expense category whose own assignment this month is zero gets its own assignment of"
+                    + " the previous month; envelopes already assigned and archived categories are left as they are."
+                    + " Returns the month like GET.")
+    @PostMapping("/copy-previous")
+    public MonthResponse copyPrevious(
+            @CurrentUserId Long userId, @PathVariable @DateTimeFormat(pattern = "yyyy-MM") YearMonth month) {
+        return budgetService.copyPrevious(userId, month);
     }
 }

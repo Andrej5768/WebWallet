@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -41,7 +42,11 @@ public class TransactionController {
         this.transactionService = transactionService;
     }
 
-    @Operation(summary = "List transactions, newest first")
+    @Operation(
+            summary = "List transactions, newest first",
+            description = "All given filters must match. q searches the payee name, the comment and the comments of"
+                    + " splits, ignoring case; when it is a number (1284.50, 1284,50 or 1 284,50), transactions with"
+                    + " this amount match too (the amount or, of a transfer, the received amount).")
     @GetMapping
     public PageResponse<TransactionResponse> list(
             @CurrentUserId Long userId,
@@ -52,9 +57,10 @@ public class TransactionController {
             @RequestParam(required = false) TransactionType type,
             @RequestParam(required = false) Long payeeId,
             @RequestParam(required = false) Long tagId,
+            @RequestParam(required = false) @Size(max = 100) String q,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
-        TransactionFilter filter = new TransactionFilter(from, to, accountId, categoryId, type, payeeId, tagId);
+        TransactionFilter filter = new TransactionFilter(from, to, accountId, categoryId, type, payeeId, tagId, q);
         return PageResponse.of(
                 transactionService.list(userId, filter, PageRequest.of(page, size, NEWEST_FIRST)), t -> t);
     }

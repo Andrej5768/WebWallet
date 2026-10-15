@@ -2,13 +2,13 @@ package com.andrewcorp.webwallet.auth;
 
 import com.andrewcorp.webwallet.auth.dto.LoginRequest;
 import com.andrewcorp.webwallet.auth.dto.RegisterRequest;
-import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.token.TokenHasher;
 import com.andrewcorp.webwallet.auth.token.UserToken;
 import com.andrewcorp.webwallet.auth.token.UserTokenRepository;
 import com.andrewcorp.webwallet.auth.token.UserTokenType;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.common.util.Texts;
 import com.andrewcorp.webwallet.config.AppProperties;
 import com.andrewcorp.webwallet.ledger.category.DefaultCategories;
 import com.andrewcorp.webwallet.mail.AuthMailEvent;
@@ -80,7 +80,7 @@ public class AuthService {
                 email,
                 passwordHash,
                 request.firstName().trim(),
-                request.lastName().trim(),
+                Texts.trimToNull(request.lastName()),
                 supportedLanguage(locale)));
         defaultCategories.create(user.getId(), locale(user));
         sendToken(user, UserTokenType.EMAIL_VERIFICATION);
@@ -103,7 +103,7 @@ public class AuthService {
     }
 
     @Transactional
-    public TokenResponse login(LoginRequest request, String clientIp) {
+    public IssuedTokens login(LoginRequest request, String clientIp) {
         String email = User.normalizeEmail(request.email());
         rateLimiter.checkLogin(clientIp, email);
         Optional<User> user = users.findByEmail(email);
@@ -143,7 +143,7 @@ public class AuthService {
 
     /** Changes the password, ends all other sessions and returns tokens for a new one. */
     @Transactional
-    public TokenResponse changePassword(Long userId, String currentPassword, String newPassword) {
+    public IssuedTokens changePassword(Long userId, String currentPassword, String newPassword) {
         User user = users.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
         rateLimiter.checkPasswordChange(userId);
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {

@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,7 +57,149 @@ class CategoryControllerTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$[0].name").value("Їжа"))
                 .andExpect(jsonPath("$[0].kind").value("EXPENSE"))
                 .andExpect(jsonPath("$[0].children[0].name").value("Продукти"))
-                .andExpect(jsonPath("$[?(@.name == 'Зарплата')].kind", contains("INCOME")));
+                .andExpect(jsonPath("$[?(@.name == 'Зарплата')].kind", contains("INCOME")))
+                // Icons, colors and needs / wants; subcategories take the color of their group
+                .andExpect(jsonPath("$[0].icon").value("utensils"))
+                .andExpect(jsonPath("$[0].color").value("orange"))
+                .andExpect(jsonPath("$[0].necessity").value("NEEDS"))
+                .andExpect(jsonPath("$[0].children[0].color").value("orange"))
+                .andExpect(jsonPath("$[0].children[0].necessity").doesNotExist())
+                .andExpect(jsonPath("$[0].children[1].necessity").value("WANTS"))
+                .andExpect(jsonPath("$[?(@.name == 'Зарплата')].color", contains("green")));
+    }
+
+    @Test
+    void iconColorAndNecessity() throws Exception {
+        Map<String, Object> body = category("Hobby", "EXPENSE", null);
+        body.put("icon", "shopping-cart");
+        body.put("color", "violet");
+        body.put("necessity", "WANTS");
+        Long id = id(json(postJson("/api/v1/categories", body, auth), 201));
+
+        // Omitted fields keep their values
+        mockMvc.perform(putJson("/api/v1/categories/" + id, category("Hobbies", "EXPENSE", null), auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Hobbies"))
+                .andExpect(jsonPath("$.icon").value("shopping-cart"))
+                .andExpect(jsonPath("$.color").value("violet"))
+                .andExpect(jsonPath("$.necessity").value("WANTS"));
+        // Sent as null, they are removed
+        Map<String, Object> cleared = category("Hobbies", "EXPENSE", null);
+        cleared.put("icon", null);
+        cleared.put("color", null);
+        cleared.put("necessity", null);
+        mockMvc.perform(putJson("/api/v1/categories/" + id, cleared, auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.icon").doesNotExist())
+                .andExpect(jsonPath("$.color").doesNotExist())
+                .andExpect(jsonPath("$.necessity").doesNotExist());
+
+        Map<String, Object> badIcon = category("X", "EXPENSE", null);
+        badIcon.put("icon", "Shopping Cart");
+        mockMvc.perform(postJson("/api/v1/categories", badIcon, auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("icon"));
+        Map<String, Object> badColor = category("X", "EXPENSE", null);
+        badColor.put("color", "purple");
+        mockMvc.perform(postJson("/api/v1/categories", badColor, auth)).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void onlyExpenseCategoriesAreNeedsOrWants() throws Exception {
+        Map<String, Object> income = category("Salary", "INCOME", null);
+        income.put("necessity", "NEEDS");
+        mockMvc.perform(postJson("/api/v1/categories", income, auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("necessity"))
+                .andExpect(jsonPath("$.errors[0].message").value("Only expense categories can be needs or wants"));
+
+        // Turned into income, a category and its subcategories lose the flag
+        Map<String, Object> parent = category("Side jobs", "EXPENSE", null);
+        parent.put("necessity", "NEEDS");
+        Long id = id(json(postJson("/api/v1/categories", parent, auth), 201));
+        Map<String, Object> child = category("Design", "EXPENSE", id);
+        child.put("necessity", "WANTS");
+        json(postJson("/api/v1/categories", child, auth), 201);
+        mockMvc.perform(putJson("/api/v1/categories/" + id, category("Side jobs", "INCOME", null), auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.necessity").doesNotExist())
+                .andExpect(jsonPath("$.children[0].necessity").doesNotExist());
+    }
+
+    @Test
+    void reorderMovesAndSortsCategories() throws Exception {
+        Long food = id(json(postJson("/api/v1/categories", category("Food", "EXPENSE", null), auth), 201));
+        Long cafes = id(json(postJson("/api/v1/categories", category("Cafes", "EXPENSE", food), auth), 201));
+        Long home = id(json(postJson("/api/v1/categories", category("Home", "EXPENSE", null), auth), 201));
+        Long rent = id(json(postJson("/api/v1/categories", category("Rent", "EXPENSE", null), auth), 201));
+
+        // Cafes becomes top-level, rent moves under home, home goes first
+        mockMvc.perform(putJson(
+                        "/api/v1/categories/order",
+                        List.of(
+                                order(home, null, 0),
+                                order(rent, home, 0),
+                                order(food, null, 1),
+                                order(cafes, null, 2)),
+                        auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].id", contains(home.intValue(), food.intValue(), cafes.intValue())))
+                .andExpect(jsonPath("$[0].children[*].id", contains(rent.intValue())))
+                .andExpect(jsonPath("$[1].children").isEmpty());
+    }
+
+    @Test
+    void reorderKeepsTheRulesAndAppliesAllOrNothing() throws Exception {
+        Long food = id(json(postJson("/api/v1/categories", category("Food", "EXPENSE", null), auth), 201));
+        Long cafes = id(json(postJson("/api/v1/categories", category("Cafes", "EXPENSE", food), auth), 201));
+        Long home = id(json(postJson("/api/v1/categories", category("Home", "EXPENSE", null), auth), 201));
+        Long salary = id(json(postJson("/api/v1/categories", category("Salary", "INCOME", null), auth), 201));
+        Long foreign =
+                id(json(postJson("/api/v1/categories", category("Foreign", "EXPENSE", null), loginNewUser()), 201));
+
+        // A category with subcategories cannot get a parent, even when the first item is valid
+        mockMvc.perform(putJson("/api/v1/categories/order", List.of(order(home, null, 5), order(food, home, 0)), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("[1].parentId"))
+                .andExpect(jsonPath("$.errors[0].message")
+                        .value("A category with subcategories cannot become a subcategory"));
+        // A parent cannot become a child of its own child
+        mockMvc.perform(putJson("/api/v1/categories/order", List.of(order(food, cafes, 0)), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("[0].parentId"));
+        // Only two levels
+        mockMvc.perform(putJson("/api/v1/categories/order", List.of(order(home, cafes, 0)), auth))
+                .andExpect(status().isBadRequest());
+        // The kind must match the new parent
+        mockMvc.perform(putJson("/api/v1/categories/order", List.of(order(salary, home, 0)), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].message").value("The category kind does not match"));
+        // Categories of other users are not found, neither as items nor as parents
+        mockMvc.perform(putJson("/api/v1/categories/order", List.of(order(foreign, null, 0)), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("[0].id"));
+        mockMvc.perform(putJson("/api/v1/categories/order", List.of(order(home, foreign, 0)), auth))
+                .andExpect(status().isBadRequest());
+        // Each category at most once
+        mockMvc.perform(putJson("/api/v1/categories/order", List.of(order(home, null, 0), order(home, null, 1)), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("[1].id"));
+        mockMvc.perform(putJson("/api/v1/categories/order", List.of(Map.of("id", home)), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+        // Nothing changed
+        mockMvc.perform(get("/api/v1/categories").header("Authorization", auth))
+                .andExpect(jsonPath("$[?(@.id == " + home + ")].sortOrder", contains(0)))
+                .andExpect(jsonPath("$[?(@.id == " + food + ")].children[*].id", contains(cafes.intValue())));
+    }
+
+    private static Map<String, Object> order(Long id, Long parentId, int sortOrder) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("id", id);
+        item.put("parentId", parentId);
+        item.put("sortOrder", sortOrder);
+        return item;
     }
 
     @Test

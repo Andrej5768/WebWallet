@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,11 +15,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import com.andrewcorp.webwallet.TestClock;
 import com.andrewcorp.webwallet.bank.BankAccountLink;
 import com.andrewcorp.webwallet.bank.BankAccountLinkRepository;
 import com.andrewcorp.webwallet.bank.BankConnection;
 import com.andrewcorp.webwallet.bank.BankConnectionRepository;
 import com.andrewcorp.webwallet.bank.BankProvider;
+import com.andrewcorp.webwallet.bank.SyncMode;
 import com.andrewcorp.webwallet.bank.monobank.MonobankClient.BankAccount;
 import com.andrewcorp.webwallet.bank.monobank.MonobankClient.ClientInfo;
 import com.andrewcorp.webwallet.bank.monobank.MonobankClient.Jar;
@@ -44,6 +47,7 @@ import com.andrewcorp.webwallet.user.User;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -162,8 +166,15 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         });
     }
 
-    /** Runs synchronization steps until everything is up to date. */
+    /** Makes a synchronization due and runs its steps until everything is up to date. */
     private int syncAll() {
+        tx.executeWithoutResult(status -> {
+            BankConnection connection = connection();
+            Instant now = TestClock.INSTANCE.instant();
+            if (connection.getNextSyncAt().isAfter(now)) {
+                connection.setNextSyncAt(now);
+            }
+        });
         int steps = 0;
         while (service.syncStep(connection().getId())) {
             steps++;
@@ -653,24 +664,156 @@ class MonobankSyncTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void webhookIsRegisteredWhenThePublicUrlIsKnown() throws Exception {
+    void webhookIsRegisteredOnlyInTheWebhookMode() throws Exception {
         connect(LocalDate.now());
+        syncAll();
+        // Without the public URL of the server there is no webhook
+        mockMvc.perform(putJson("/api/v1/banks/monobank/schedule", Map.of("syncMode", "WEBHOOK"), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("syncMode"));
+
         // The service is a transactional proxy; the field lives in the target object
         Object target = AopTestUtils.getTargetObject(service);
         ReflectionTestUtils.setField(target, "publicUrl", "https://wallet.test");
         try {
+            // The default INTERVAL mode does not register it
+            assertThat(service.syncStep(connection().getId())).isFalse();
+            verify(client, never()).setWebhook(anyString(), anyString());
+
+            mockMvc.perform(putJson("/api/v1/banks/monobank/schedule", Map.of("syncMode", "WEBHOOK"), auth))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.syncMode").value("WEBHOOK"));
+            assertThat(service.dueConnections()).isEmpty();
+            tx.executeWithoutResult(
+                    status -> connection().setLastRequestAt(Instant.now().minus(2, ChronoUnit.MINUTES)));
+            assertThat(service.dueConnections()).containsExactly(connection().getId());
             assertThat(service.syncStep(connection().getId())).isTrue();
+            verify(client)
+                    .setWebhook(
+                            TOKEN,
+                            "https://wallet.test/api/v1/banks/monobank/webhook/"
+                                    + connection().getWebhookSecret());
+            mockMvc.perform(get("/api/v1/banks/monobank").header("Authorization", auth))
+                    .andExpect(jsonPath("$.webhook").value(true));
+
+            // Another mode removes the webhook with an empty URL
+            mockMvc.perform(putJson("/api/v1/banks/monobank/schedule", Map.of("syncMode", "DAILY"), auth))
+                    .andExpect(status().isOk());
+            assertThat(service.syncStep(connection().getId())).isTrue();
+            verify(client).setWebhook(TOKEN, "");
+            assertThat(connection().isWebhookRegistered()).isFalse();
         } finally {
             ReflectionTestUtils.setField(target, "publicUrl", "");
         }
+    }
 
-        verify(client)
-                .setWebhook(
-                        TOKEN,
-                        "https://wallet.test/api/v1/banks/monobank/webhook/"
-                                + connection().getWebhookSecret());
+    // schedule
+
+    @Test
+    void newConnectionHasTheDefaultSchedule() throws Exception {
+        connect(LocalDate.now().minusDays(5));
+
         mockMvc.perform(get("/api/v1/banks/monobank").header("Authorization", auth))
-                .andExpect(jsonPath("$.webhook").value(true));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.syncMode").value("INTERVAL"))
+                .andExpect(jsonPath("$.windowStart").value("08:00"))
+                .andExpect(jsonPath("$.windowEnd").value("23:00"))
+                .andExpect(jsonPath("$.dailyAt").value("06:00"))
+                .andExpect(jsonPath("$.nextSyncAt").exists());
+        // The history is loaded right away
+        assertThat(connection().getNextSyncAt()).isBeforeOrEqualTo(Instant.now());
+    }
+
+    @Test
+    void synchronizationFollowsTheSchedule() throws Exception {
+        LocalDate day = LocalDate.now(SyncSchedule.ZONE).plusDays(1);
+        TestClock.INSTANCE.set(at(day, "10:07"));
+        connect(LocalDate.now().minusDays(5));
+        assertThat(syncAll()).isEqualTo(4);
+        // Every account was requested: the next synchronization is the next slot of the window
+        assertThat(connection().getNextSyncAt()).isEqualTo(at(day, "10:15"));
+        assertThat(service.syncStep(connection().getId())).isFalse();
+
+        TestClock.INSTANCE.set(at(day, "10:14"));
+        tx.executeWithoutResult(status -> connection().setLastRequestAt(at(day, "10:10")));
+        assertThat(service.dueConnections()).isEmpty();
+
+        TestClock.INSTANCE.set(at(day, "10:15:30"));
+        assertThat(service.dueConnections()).containsExactly(connection().getId());
+        int requests = 0;
+        while (service.syncStep(connection().getId())) {
+            requests++;
+        }
+        assertThat(requests).isEqualTo(4);
+        assertThat(connection().getNextSyncAt()).isEqualTo(at(day, "10:30"));
+
+        // Once a day
+        Map<String, Object> daily = json(
+                putJson("/api/v1/banks/monobank/schedule", Map.of("syncMode", "DAILY", "dailyAt", "07:30"), auth), 200);
+        assertThat(daily).containsEntry("syncMode", "DAILY").containsEntry("dailyAt", "07:30");
+        assertThat(connection().getNextSyncAt()).isEqualTo(at(day.plusDays(1), "07:30"));
+
+        // Another window: after its end the next synchronization is the one at night
+        TestClock.INSTANCE.set(at(day, "20:00"));
+        mockMvc.perform(putJson(
+                        "/api/v1/banks/monobank/schedule",
+                        Map.of("syncMode", "INTERVAL", "windowStart", "09:00", "windowEnd", "18:00"),
+                        auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.windowStart").value("09:00"))
+                .andExpect(jsonPath("$.windowEnd").value("18:00"))
+                .andExpect(jsonPath("$.dailyAt").value("07:30"));
+        assertThat(connection().getNextSyncAt()).isEqualTo(at(day.plusDays(1), "01:30"));
+    }
+
+    @Test
+    void scheduleIsValidated() throws Exception {
+        mockMvc.perform(putJson("/api/v1/banks/monobank/schedule", Map.of("syncMode", "DAILY"), auth))
+                .andExpect(status().isNotFound());
+        connect(LocalDate.now().minusDays(5));
+
+        mockMvc.perform(putJson(
+                        "/api/v1/banks/monobank/schedule",
+                        Map.of("syncMode", "INTERVAL", "windowStart", "20:00", "windowEnd", "09:00"),
+                        auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("windowEnd"));
+        // The end is checked against the saved start
+        mockMvc.perform(putJson(
+                        "/api/v1/banks/monobank/schedule", Map.of("syncMode", "INTERVAL", "windowEnd", "07:00"), auth))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(putJson("/api/v1/banks/monobank/schedule", Map.of("windowStart", "09:00"), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("syncMode"));
+        mockMvc.perform(putJson(
+                        "/api/v1/banks/monobank/schedule", Map.of("syncMode", "DAILY", "dailyAt", "25:00"), auth))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(postJson(
+                        "/api/v1/banks/monobank",
+                        Map.of("token", TOKEN, "windowStart", "10:00", "windowEnd", "10:00"),
+                        auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("windowEnd"));
+    }
+
+    @Test
+    void scheduleIsSetOnConnectAndKeptOnReconnect() throws Exception {
+        json(
+                postJson(
+                        "/api/v1/banks/monobank",
+                        Map.of("token", TOKEN, "syncMode", "DAILY", "dailyAt", "05:45:30"),
+                        auth),
+                200);
+        assertThat(connection().getSyncMode()).isEqualTo(SyncMode.DAILY);
+        assertThat(connection().getDailyAt()).isEqualTo(LocalTime.of(5, 45));
+
+        Map<String, Object> reconnected = connect(null);
+
+        assertThat(reconnected).containsEntry("syncMode", "DAILY").containsEntry("dailyAt", "05:45");
+    }
+
+    private static Instant at(LocalDate day, String time) {
+        return day.atTime(LocalTime.parse(time)).atZone(SyncSchedule.ZONE).toInstant();
     }
 
     // management
@@ -922,7 +1065,7 @@ class MonobankSyncTest extends AbstractIntegrationTest {
     void syncTaskRespectsRateLimitAndRecordsErrors() throws Exception {
         connect(LocalDate.now().minusDays(5));
         // The connection request was just made
-        assertThat(service.connectionsReadyForRequest()).isEmpty();
+        assertThat(service.dueConnections()).isEmpty();
 
         tx.executeWithoutResult(
                 status -> connection().setLastRequestAt(Instant.now().minus(2, ChronoUnit.MINUTES)));
@@ -932,6 +1075,6 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         task.sync();
 
         assertThat(connection().getLastError()).isEqualTo("EXTERNAL_SERVICE_UNAVAILABLE");
-        assertThat(service.connectionsReadyForRequest()).isEmpty();
+        assertThat(service.dueConnections()).isEmpty();
     }
 }

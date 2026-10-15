@@ -1,16 +1,26 @@
 package com.andrewcorp.webwallet.ledger.account;
 
+import com.andrewcorp.webwallet.budget.BudgetDtos.MonthResponse;
+import com.andrewcorp.webwallet.budget.BudgetService;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.currency.CurrencyConverter;
+import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.ledger.account.dto.AccountRequest;
 import com.andrewcorp.webwallet.ledger.account.dto.AccountResponse;
+import com.andrewcorp.webwallet.ledger.account.dto.AccountSummaryResponse;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository.AccountChange;
+import com.andrewcorp.webwallet.user.UserService;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,19 +29,73 @@ public class AccountService {
 
     private final AccountRepository accounts;
     private final TransactionRepository transactions;
+    private final UserService users;
+    private final ExchangeRateService exchangeRates;
+    private final BudgetService budgetService;
+    private final Clock clock;
 
-    public AccountService(AccountRepository accounts, TransactionRepository transactions) {
+    public AccountService(
+            AccountRepository accounts,
+            TransactionRepository transactions,
+            UserService users,
+            ExchangeRateService exchangeRates,
+            BudgetService budgetService,
+            Clock clock) {
         this.accounts = accounts;
         this.transactions = transactions;
+        this.users = users;
+        this.exchangeRates = exchangeRates;
+        this.budgetService = budgetService;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
     public List<AccountResponse> list(Long userId) {
         Map<Long, BigDecimal> balances = balances(userId);
+        CurrencyConverter converter = converter(userId);
         return accounts.findByUserIdOrderBySortOrderAscIdAsc(userId).stream()
-                .map(account -> AccountResponse.from(
-                        account, balances.getOrDefault(account.getId(), account.getOpeningBalance())))
+                .map(account -> response(
+                        account, balances.getOrDefault(account.getId(), account.getOpeningBalance()), converter))
                 .toList();
+    }
+
+    /** Totals of the accounts that are not archived in the base currency, at today's rates. */
+    @Transactional(readOnly = true)
+    public AccountSummaryResponse summary(Long userId) {
+        Map<Long, BigDecimal> balances = balances(userId);
+        CurrencyConverter converter = converter(userId);
+        LocalDate today = LocalDate.now(clock);
+        BigDecimal netWorth = BigDecimal.ZERO;
+        BigDecimal available = BigDecimal.ZERO;
+        BigDecimal credit = BigDecimal.ZERO;
+        for (Account account : accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)) {
+            if (account.isArchived()) {
+                continue;
+            }
+            BigDecimal balance = balances.getOrDefault(account.getId(), account.getOpeningBalance());
+            BigDecimal converted = converter.convert(balance, account.getCurrency(), today);
+            netWorth = netWorth.add(converted);
+            switch (account.getType()) {
+                case CASH, CARD -> available = available.add(converted);
+                case CREDIT_CARD -> {
+                    // Own money on the card counts too; a card over its limit adds nothing
+                    BigDecimal limit = account.getCreditLimit() != null ? account.getCreditLimit() : BigDecimal.ZERO;
+                    BigDecimal spendable = limit.add(balance).max(BigDecimal.ZERO);
+                    credit = credit.add(converter.convert(spendable, account.getCurrency(), today));
+                }
+                default -> {}
+            }
+        }
+        MonthResponse budget = budgetService.month(userId, YearMonth.now(clock));
+        TreeSet<String> unconverted = new TreeSet<>(converter.unconverted());
+        unconverted.addAll(budget.unconvertedCurrencies());
+        return new AccountSummaryResponse(
+                converter.target(),
+                netWorth,
+                available,
+                available.add(credit),
+                budget.readyToAssign(),
+                List.copyOf(unconverted));
     }
 
     @Transactional(readOnly = true)
@@ -46,7 +110,7 @@ public class AccountService {
         }
         Account account = new Account(userId, request.name().trim(), request.type(), request.currency());
         apply(account, request);
-        return AccountResponse.from(accounts.save(account), account.getOpeningBalance());
+        return response(accounts.save(account), account.getOpeningBalance(), converter(userId));
     }
 
     @Transactional
@@ -111,8 +175,19 @@ public class AccountService {
     }
 
     private AccountResponse toResponse(Long userId, Account account) {
+        return response(
+                account,
+                balances(userId).getOrDefault(account.getId(), account.getOpeningBalance()),
+                converter(userId));
+    }
+
+    private AccountResponse response(Account account, BigDecimal balance, CurrencyConverter converter) {
         return AccountResponse.from(
-                account, balances(userId).getOrDefault(account.getId(), account.getOpeningBalance()));
+                account, balance, converter.convertIfKnown(balance, account.getCurrency(), LocalDate.now(clock)));
+    }
+
+    private CurrencyConverter converter(Long userId) {
+        return exchangeRates.converterTo(users.get(userId).getBaseCurrency());
     }
 
     /**

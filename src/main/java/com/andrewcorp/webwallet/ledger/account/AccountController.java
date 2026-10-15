@@ -3,6 +3,7 @@ package com.andrewcorp.webwallet.ledger.account;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.ledger.account.dto.AccountRequest;
 import com.andrewcorp.webwallet.ledger.account.dto.AccountResponse;
+import com.andrewcorp.webwallet.ledger.account.dto.AccountSummaryResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,10 +32,23 @@ public class AccountController {
         this.accountService = accountService;
     }
 
-    @Operation(summary = "List accounts with current balances")
+    @Operation(
+            summary = "List accounts with current balances",
+            description = "balanceInBase is the balance in the base currency at today's NBU rate, null when there is"
+                    + " no rate; availableCredit is the credit limit plus the balance of a credit card")
     @GetMapping
     public List<AccountResponse> list(@CurrentUserId Long userId) {
         return accountService.list(userId);
+    }
+
+    @Operation(
+            summary = "Totals of the accounts in the base currency",
+            description = "Accounts that are not archived, at today's NBU rates; balances in a currency without a rate"
+                    + " are left out and listed in unconvertedCurrencies. readyToAssign is that of the budget of the"
+                    + " current month.")
+    @GetMapping("/summary")
+    public AccountSummaryResponse summary(@CurrentUserId Long userId) {
+        return accountService.summary(userId);
     }
 
     @GetMapping("/{id}")

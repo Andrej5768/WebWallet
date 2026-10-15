@@ -1,27 +1,36 @@
 package com.andrewcorp.webwallet.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import com.andrewcorp.webwallet.TestClock;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
 import com.andrewcorp.webwallet.user.Role;
 import com.andrewcorp.webwallet.user.User;
+import jakarta.servlet.http.Cookie;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 class AuthControllerTest extends AbstractIntegrationTest {
@@ -86,6 +95,24 @@ class AuthControllerTest extends AbstractIntegrationTest {
         assertThat(users.findByEmail("taken@test.com").orElseThrow().getPasswordHash())
                 .isEqualTo(owner.getPasswordHash());
         assertThat(users.count()).isOne();
+    }
+
+    @Test
+    void lastNameIsOptional() throws Exception {
+        mockMvc.perform(postJson(
+                        "/api/v1/auth/register",
+                        Map.of("email", "solo@test.com", "password", PASSWORD, "firstName", "Solo")))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(postJson(
+                        "/api/v1/auth/register",
+                        Map.of("email", "blank@test.com", "password", PASSWORD, "firstName", "B", "lastName", "  ")))
+                .andExpect(status().isAccepted());
+
+        assertThat(users.findByEmail("solo@test.com").orElseThrow().getLastName())
+                .isNull();
+        assertThat(users.findByEmail("blank@test.com").orElseThrow().getLastName())
+                .isNull();
+        assertThat(lastMail().getText()).doesNotContain("null");
     }
 
     @Test
@@ -192,10 +219,26 @@ class AuthControllerTest extends AbstractIntegrationTest {
 
         assertThat(tokens.tokenType()).isEqualTo("Bearer");
         assertThat(tokens.expiresIn()).isEqualTo(15 * 60);
-        assertThat(tokens.refreshToken()).isNotBlank();
         mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(tokens)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(user.getId()));
+    }
+
+    @Test
+    void loginSetsTheRefreshTokenInAnHttpOnlyCookie() throws Exception {
+        createUser("cookie@test.com", true);
+
+        mockMvc.perform(postJson("/api/v1/auth/login", Map.of("email", "cookie@test.com", "password", PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                // Scripts of the web client must not be able to read the refresh token
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(cookie().value(REFRESH_COOKIE, not(emptyString())))
+                .andExpect(cookie().httpOnly(REFRESH_COOKIE, true))
+                .andExpect(cookie().secure(REFRESH_COOKIE, true))
+                .andExpect(cookie().sameSite(REFRESH_COOKIE, "Strict"))
+                .andExpect(cookie().path(REFRESH_COOKIE, "/api/v1/auth"))
+                .andExpect(cookie().maxAge(REFRESH_COOKIE, 30 * 24 * 60 * 60));
     }
 
     @Test
@@ -356,73 +399,118 @@ class AuthControllerTest extends AbstractIntegrationTest {
     // refresh and logout
 
     @Test
-    void refreshRotatesTheRefreshToken() throws Exception {
+    void refreshRotatesTheRefreshTokenCookie() throws Exception {
         createUser("refresh@test.com", true);
-        TokenResponse tokens = login("refresh@test.com", PASSWORD);
+        Cookie cookie = refreshCookie(loginResponse("refresh@test.com", PASSWORD));
 
-        String body = mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", tokens.refreshToken())))
+        MockHttpServletResponse response = mockMvc.perform(refresh(cookie))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(cookie().httpOnly(REFRESH_COOKIE, true))
+                .andExpect(cookie().sameSite(REFRESH_COOKIE, "Strict"))
+                .andExpect(cookie().path(REFRESH_COOKIE, "/api/v1/auth"))
                 .andReturn()
-                .getResponse()
-                .getContentAsString();
-        TokenResponse refreshed = jsonMapper.readValue(body, TokenResponse.class);
+                .getResponse();
 
-        assertThat(refreshed.refreshToken()).isNotEqualTo(tokens.refreshToken());
-        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(refreshed)))
+        assertThat(refreshCookie(response).getValue()).isNotEqualTo(cookie.getValue());
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(tokens(response))))
                 .andExpect(status().isOk());
     }
 
     @Test
     void reusingRotatedRefreshTokenRevokesTheSession() throws Exception {
         createUser("reuse@test.com", true);
-        TokenResponse tokens = login("reuse@test.com", PASSWORD);
-        String body = mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", tokens.refreshToken())))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        TokenResponse refreshed = jsonMapper.readValue(body, TokenResponse.class);
+        Cookie cookie = refreshCookie(loginResponse("reuse@test.com", PASSWORD));
+        Cookie refreshed =
+                refreshCookie(mockMvc.perform(refresh(cookie)).andReturn().getResponse());
 
         // The old token is presented again, e.g. by an attacker who stole it
-        mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", tokens.refreshToken())))
+        mockMvc.perform(refresh(cookie))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"));
 
         // The legitimate newer token is revoked as well
-        mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", refreshed.refreshToken())))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(refresh(refreshed)).andExpect(status().isUnauthorized());
     }
 
     @Test
     void refreshWithUnknownToken() throws Exception {
-        mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", "unknown")))
+        mockMvc.perform(refresh(new Cookie(REFRESH_COOKIE, "unknown")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"));
+    }
+
+    @Test
+    void refreshWithoutCookie() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"));
+    }
+
+    @Test
+    void refreshTokenInTheBodyIsNotAccepted() throws Exception {
+        createUser("body@test.com", true);
+        Cookie cookie = refreshCookie(loginResponse("body@test.com", PASSWORD));
+
+        mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", cookie.getValue())))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
     void refreshForDisabledUserIsRejected() throws Exception {
         User user = createUser("disabled-later@test.com", true);
-        TokenResponse tokens = login("disabled-later@test.com", PASSWORD);
+        Cookie cookie = refreshCookie(loginResponse("disabled-later@test.com", PASSWORD));
         user.setEnabled(false);
         users.save(user);
 
-        mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", tokens.refreshToken())))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(refresh(cookie)).andExpect(status().isUnauthorized());
     }
 
     @Test
-    void logoutRevokesTheRefreshToken() throws Exception {
+    void logoutRevokesTheSessionAndClearsTheCookie() throws Exception {
         createUser("logout@test.com", true);
-        TokenResponse tokens = login("logout@test.com", PASSWORD);
+        Cookie cookie = refreshCookie(loginResponse("logout@test.com", PASSWORD));
 
-        mockMvc.perform(postJson("/api/v1/auth/logout", Map.of("refreshToken", tokens.refreshToken())))
-                .andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/v1/auth/logout").cookie(cookie))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().value(REFRESH_COOKIE, ""))
+                .andExpect(cookie().maxAge(REFRESH_COOKIE, 0))
+                .andExpect(cookie().path(REFRESH_COOKIE, "/api/v1/auth"));
 
-        mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", tokens.refreshToken())))
-                .andExpect(status().isUnauthorized());
-        // Unknown tokens are ignored
-        mockMvc.perform(postJson("/api/v1/auth/logout", Map.of("refreshToken", "unknown")))
+        mockMvc.perform(refresh(cookie)).andExpect(status().isUnauthorized());
+        // Unknown and missing tokens are ignored
+        mockMvc.perform(post("/api/v1/auth/logout").cookie(new Cookie(REFRESH_COOKIE, "unknown")))
                 .andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge(REFRESH_COOKIE, 0));
+    }
+
+    @Test
+    void anExpiredOrInvalidAccessTokenIsIgnoredByTheAuthEndpoints() throws Exception {
+        createUser("stale@test.com", true);
+        // Signed in an hour ago, so the access token (15 minutes) has expired
+        TestClock.INSTANCE.set(Instant.now().minus(Duration.ofHours(1)));
+        MockHttpServletResponse login = loginResponse("stale@test.com", PASSWORD);
+        TestClock.INSTANCE.reset();
+        String expired = bearer(tokens(login));
+        Cookie cookie = refreshCookie(login);
+        mockMvc.perform(get("/api/v1/me").header("Authorization", expired)).andExpect(status().isUnauthorized());
+
+        MockHttpServletResponse refreshed = mockMvc.perform(refresh(cookie).header("Authorization", expired))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse();
+        Cookie rotated = refreshCookie(refreshed);
+        assertThat(rotated.getValue()).isNotEqualTo(cookie.getValue());
+
+        mockMvc.perform(post("/api/v1/auth/logout").cookie(rotated).header("Authorization", "Bearer garbage"))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge(REFRESH_COOKIE, 0));
+        mockMvc.perform(refresh(rotated)).andExpect(status().isUnauthorized());
+        mockMvc.perform(postJson("/api/v1/auth/login", Map.of("email", "stale@test.com", "password", PASSWORD))
+                        .header("Authorization", expired))
+                .andExpect(status().isOk());
     }
 
     // password reset
@@ -430,7 +518,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
     @Test
     void passwordResetFlow() throws Exception {
         createUser("reset@test.com", false);
-        TokenResponse oldSession = loginBypassingVerification("reset@test.com");
+        IssuedTokens oldSession = loginBypassingVerification("reset@test.com");
 
         mockMvc.perform(postJson("/api/v1/auth/forgot-password", Map.of("email", "reset@test.com")))
                 .andExpect(status().isAccepted());
@@ -449,14 +537,14 @@ class AuthControllerTest extends AbstractIntegrationTest {
         // Following the link proves ownership of the email address
         assertThat(user.isEmailVerified()).isTrue();
         // Existing sessions are ended, including the access tokens
-        mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", oldSession.refreshToken())))
+        mockMvc.perform(refresh(new Cookie(REFRESH_COOKIE, oldSession.refreshToken())))
                 .andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(oldSession)))
+        mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + oldSession.accessToken()))
                 .andExpect(status().isUnauthorized());
     }
 
     /** Issues tokens directly, since an unverified user cannot log in. */
-    private TokenResponse loginBypassingVerification(String email) {
+    private IssuedTokens loginBypassingVerification(String email) {
         return tokenService.issueTokens(users.findByEmail(email).orElseThrow());
     }
 

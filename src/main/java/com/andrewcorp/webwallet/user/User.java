@@ -31,7 +31,7 @@ public class User {
     @Column(nullable = false)
     private String firstName;
 
-    @Column(nullable = false)
+    /** Optional. */
     private String lastName;
 
     @Enumerated(EnumType.STRING)

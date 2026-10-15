@@ -1,4 +1,4 @@
 package com.andrewcorp.webwallet.ledger;
 
-/** A tag or a payee. */
+/** A payee, by id and name. */
 public record NamedResponse(Long id, String name) {}

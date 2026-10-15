@@ -8,6 +8,7 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import java.util.List;
 import java.util.Locale;
+import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -55,5 +56,10 @@ public class WebConfig implements WebMvcConfigurer {
                                         .type(SecurityScheme.Type.HTTP)
                                         .scheme("bearer")
                                         .bearerFormat("JWT")));
+    }
+
+    @Bean
+    public OpenApiCustomizer openApiTypingCustomizer() {
+        return new OpenApiTypingCustomizer();
     }
 }

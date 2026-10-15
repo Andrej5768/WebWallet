@@ -6,6 +6,7 @@ import com.andrewcorp.webwallet.bank.BankAccountLinkRepository;
 import com.andrewcorp.webwallet.bank.BankConnection;
 import com.andrewcorp.webwallet.bank.BankConnectionRepository;
 import com.andrewcorp.webwallet.bank.BankProvider;
+import com.andrewcorp.webwallet.bank.SyncMode;
 import com.andrewcorp.webwallet.bank.monobank.MonobankClient.BankAccount;
 import com.andrewcorp.webwallet.bank.monobank.MonobankClient.ClientInfo;
 import com.andrewcorp.webwallet.bank.monobank.MonobankClient.Jar;
@@ -13,6 +14,7 @@ import com.andrewcorp.webwallet.bank.monobank.MonobankClient.StatementItem;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ConnectRequest;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ConnectionResponse;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.LinkResponse;
+import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ScheduleRequest;
 import com.andrewcorp.webwallet.common.crypto.SecretCipher;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.util.Lists;
@@ -27,6 +29,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +44,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Connects Monobank accounts and imports their operations. Monobank allows one request per minute per token, so the
- * history is loaded step by step in the background: every {@link #syncStep} makes at most one request.
+ * history is loaded step by step in the background: every {@link #syncStep} makes at most one request. A
+ * synchronization is due at the {@link BankConnection#getNextSyncAt() next sync time} of the connection, set by its
+ * {@link SyncSchedule schedule}; it then requests every linked account once (and the history of new ones in monthly
+ * periods) and sets the next time.
  */
 @Service
 public class MonobankService {
@@ -54,8 +61,6 @@ public class MonobankService {
     static final Duration MAX_HOLD_WINDOW = Duration.ofDays(30);
     /** Monobank allows one request a minute per token; one second of margin. */
     static final Duration REQUEST_INTERVAL = Duration.ofSeconds(61);
-    /** Accounts synchronized more recently than this are not requested again. */
-    static final Duration SYNC_INTERVAL = Duration.ofMinutes(5);
 
     private static final int DEFAULT_HISTORY_DAYS = 31;
     /** Each month of history takes a request a minute; years of it would block the synchronization for hours. */
@@ -106,6 +111,13 @@ public class MonobankService {
      * response does not hold a database connection.
      */
     public ConnectionResponse connect(Long userId, ConnectRequest request) {
+        // Checked before the bank is asked as far as possible without the saved schedule
+        checkWebhookMode(request.syncMode());
+        if (request.windowStart() != null
+                && request.windowEnd() != null
+                && !minutes(request.windowStart()).isBefore(minutes(request.windowEnd()))) {
+            throw ApiException.invalid("windowEnd", "error.bank.window");
+        }
         if (request.since() != null
                 && request.since()
                         .isBefore(LocalDate.now(clock.withZone(MonobankStatementImporter.BANK_ZONE))
@@ -127,7 +139,13 @@ public class MonobankService {
         connection.setClientName(info.name());
         connection.setLastRequestAt(now);
         connection.setLastError(null);
-        connection.setWebhookRegistered(false);
+        applySchedule(connection, request.syncMode(), request.windowStart(), request.windowEnd(), request.dailyAt());
+        // The webhook is registered again with the new URL; a webhook of another mode is removed
+        if (connection.getSyncMode() == SyncMode.WEBHOOK) {
+            connection.setWebhookRegistered(false);
+        }
+        // The history is loaded right away
+        connection.setNextSyncAt(now);
         connections.save(connection);
 
         LocalDate since = request.since() != null
@@ -148,6 +166,50 @@ public class MonobankService {
     @Transactional(readOnly = true)
     public ConnectionResponse status(Long userId) {
         return status(connection(userId));
+    }
+
+    /**
+     * Changes when the connection is synchronized; omitted times are kept. A synchronization in progress (e.g. the
+     * history being loaded) goes on, otherwise the next one follows the new schedule.
+     */
+    @Transactional
+    public ConnectionResponse schedule(Long userId, ScheduleRequest request) {
+        BankConnection connection = connection(userId);
+        checkWebhookMode(request.syncMode());
+        applySchedule(connection, request.syncMode(), request.windowStart(), request.windowEnd(), request.dailyAt());
+        Instant now = clock.instant();
+        if (connection.getNextSyncAt().isAfter(now)) {
+            connection.setNextSyncAt(SyncSchedule.next(connection, now));
+        }
+        return status(connection);
+    }
+
+    private void checkWebhookMode(SyncMode mode) {
+        if (mode == SyncMode.WEBHOOK && publicUrl.isEmpty()) {
+            throw ApiException.invalid("syncMode", "error.bank.webhookUnavailable");
+        }
+    }
+
+    /** Sets the given values of the schedule; null keeps the current one. Times are kept to the minute. */
+    private static void applySchedule(
+            BankConnection connection, SyncMode mode, LocalTime windowStart, LocalTime windowEnd, LocalTime dailyAt) {
+        LocalTime start = windowStart != null ? minutes(windowStart) : connection.getWindowStart();
+        LocalTime end = windowEnd != null ? minutes(windowEnd) : connection.getWindowEnd();
+        if (!start.isBefore(end)) {
+            throw ApiException.invalid("windowEnd", "error.bank.window");
+        }
+        if (mode != null) {
+            connection.setSyncMode(mode);
+        }
+        connection.setWindowStart(start);
+        connection.setWindowEnd(end);
+        if (dailyAt != null) {
+            connection.setDailyAt(minutes(dailyAt));
+        }
+    }
+
+    private static LocalTime minutes(LocalTime time) {
+        return time.truncatedTo(ChronoUnit.MINUTES);
     }
 
     /** Links a bank account to another WebWallet account, or stops synchronizing it with a null account. */
@@ -183,15 +245,10 @@ public class MonobankService {
         connections.delete(connection(userId));
     }
 
-    /** Whether the connection may make a request now without exceeding the Monobank limit. */
-    boolean canRequest(BankConnection connection) {
-        Instant last = connection.getLastRequestAt();
-        return last == null || !last.plus(REQUEST_INTERVAL).isAfter(clock.instant());
-    }
-
     /**
-     * Makes the next request of the connection: registers the webhook if needed, or loads the next period of the
-     * account that is the most behind. Returns false when there was nothing to do. The bank is asked between two
+     * Makes the next request of the connection: registers or removes the webhook if the mode needs it, or, when a
+     * synchronization is due, loads the next period of the account that is the most behind. Returns false when there
+     * was nothing to do; when a due synchronization is complete, the next one is scheduled. The bank is asked between two
      * short transactions, so that a slow response does not hold a database connection or lock.
      */
     public boolean syncStep(Long connectionId) {
@@ -202,7 +259,7 @@ public class MonobankService {
         if (request.webhookUrl() != null) {
             client.setWebhook(request.token(), request.webhookUrl());
             tx.executeWithoutResult(status -> connections.findById(connectionId).ifPresent(connection -> {
-                connection.setWebhookRegistered(true);
+                connection.setWebhookRegistered(!request.webhookUrl().isEmpty());
                 connection.setLastError(null);
             }));
             return true;
@@ -213,7 +270,10 @@ public class MonobankService {
         return true;
     }
 
-    /** What to ask the bank for: the webhook registration or a statement period of one account. */
+    /**
+     * What to ask the bank for: the webhook registration (an empty URL removes the webhook) or a statement period of
+     * one account.
+     */
     private record SyncRequest(
             String token,
             String webhookUrl,
@@ -232,11 +292,12 @@ public class MonobankService {
         }
         Instant now = clock.instant();
         String token = cipher.decrypt(connection.getEncryptedToken());
-        if (!publicUrl.isEmpty() && !connection.isWebhookRegistered()) {
+        boolean webhook = connection.getSyncMode() == SyncMode.WEBHOOK && !publicUrl.isEmpty();
+        if (webhook != connection.isWebhookRegistered()) {
             connection.setLastRequestAt(now);
             return new SyncRequest(
                     token,
-                    publicUrl + WEBHOOK_PATH + connection.getWebhookSecret(),
+                    webhook ? publicUrl + WEBHOOK_PATH + connection.getWebhookSecret() : "",
                     null,
                     null,
                     null,
@@ -245,11 +306,16 @@ public class MonobankService {
                     null,
                     now);
         }
+        Instant due = connection.getNextSyncAt();
+        if (due.isAfter(now)) {
+            return null;
+        }
         Optional<BankAccountLink> next = links.findByConnectionOrderByIdAsc(connection).stream()
                 .filter(link -> link.getAccount() != null)
-                .filter(link -> link.getGapTo() != null || link.getSyncedUntil().isBefore(now.minus(SYNC_INTERVAL)))
+                .filter(link -> link.getGapTo() != null || link.getSyncedUntil().isBefore(due))
                 .min(Comparator.comparing(BankAccountLink::getSyncedUntil));
         if (next.isEmpty()) {
+            connection.setNextSyncAt(SyncSchedule.next(connection, now));
             return null;
         }
         BankAccountLink link = next.get();
@@ -332,13 +398,14 @@ public class MonobankService {
                 });
     }
 
-    /** Ids of the connections that may make a request now. */
+    /**
+     * Ids of the connections that have something to do (a due synchronization, the webhook to register or remove)
+     * and may make a request now without exceeding the Monobank limit.
+     */
     @Transactional(readOnly = true)
-    public List<Long> connectionsReadyForRequest() {
-        return connections.findByProvider(BankProvider.MONOBANK).stream()
-                .filter(this::canRequest)
-                .map(BankConnection::getId)
-                .toList();
+    public List<Long> dueConnections() {
+        Instant now = clock.instant();
+        return connections.findDue(BankProvider.MONOBANK, now, now.minus(REQUEST_INTERVAL), !publicUrl.isEmpty());
     }
 
     @Transactional
@@ -487,6 +554,11 @@ public class MonobankService {
                 connection.getLastRequestAt(),
                 connection.getLastError(),
                 connection.isWebhookRegistered(),
+                connection.getSyncMode(),
+                connection.getWindowStart(),
+                connection.getWindowEnd(),
+                connection.getDailyAt(),
+                connection.getNextSyncAt(),
                 linkResponses);
     }
 

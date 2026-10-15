@@ -13,6 +13,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 class UserControllerTest extends AbstractIntegrationTest {
 
@@ -84,6 +85,28 @@ class UserControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void lastNameCanBeRemoved() throws Exception {
+        mockMvc.perform(put("/api/v1/me")
+                        .header("Authorization", bearer(tokens))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(
+                                Map.of("firstName", "Jane", "lastName", " ", "locale", "en", "baseCurrency", "UAH"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lastName").doesNotExist());
+        assertThat(users.findById(user.getId()).orElseThrow().getLastName()).isNull();
+
+        mockMvc.perform(put("/api/v1/me")
+                        .header("Authorization", bearer(tokens))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(
+                                Map.of("firstName", "Jane", "locale", "en", "baseCurrency", "UAH"))))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(tokens)))
+                .andExpect(jsonPath("$.firstName").value("Jane"))
+                .andExpect(jsonPath("$.lastName").doesNotExist());
+    }
+
+    @Test
     void updateProfileRejectsUnsupportedLocale() throws Exception {
         mockMvc.perform(put("/api/v1/me")
                         .header("Authorization", bearer(tokens))
@@ -96,24 +119,24 @@ class UserControllerTest extends AbstractIntegrationTest {
 
     @Test
     void changePasswordEndsOtherSessionsAndReturnsNewTokens() throws Exception {
-        TokenResponse otherSession = login(user.getEmail(), PASSWORD);
+        MockHttpServletResponse otherLogin = loginResponse(user.getEmail(), PASSWORD);
+        TokenResponse otherSession = tokens(otherLogin);
 
-        String body = mockMvc.perform(postJson(
+        MockHttpServletResponse response = mockMvc.perform(postJson(
                                 "/api/v1/me/password",
                                 Map.of("currentPassword", PASSWORD, "newPassword", "newPassword123"))
                         .header("Authorization", bearer(tokens)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
                 .andReturn()
-                .getResponse()
-                .getContentAsString();
-        TokenResponse newTokens = jsonMapper.readValue(body, TokenResponse.class);
+                .getResponse();
+        TokenResponse newTokens = tokens(response);
 
         assertThat(passwordEncoder.matches(
                         "newPassword123",
                         users.findById(user.getId()).orElseThrow().getPasswordHash()))
                 .isTrue();
-        mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", otherSession.refreshToken())))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(refresh(refreshCookie(otherLogin))).andExpect(status().isUnauthorized());
         // Access tokens issued before the change stop working at once, not when they expire
         mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(otherSession)))
                 .andExpect(status().isUnauthorized());
@@ -121,8 +144,7 @@ class UserControllerTest extends AbstractIntegrationTest {
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(newTokens)))
                 .andExpect(status().isOk());
-        mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", newTokens.refreshToken())))
-                .andExpect(status().isOk());
+        mockMvc.perform(refresh(refreshCookie(response))).andExpect(status().isOk());
     }
 
     @Test

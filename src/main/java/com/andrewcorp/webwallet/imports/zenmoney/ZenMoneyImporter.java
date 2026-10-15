@@ -4,7 +4,9 @@ import com.andrewcorp.webwallet.budget.BudgetAssignment;
 import com.andrewcorp.webwallet.budget.BudgetRepository;
 import com.andrewcorp.webwallet.common.util.Lists;
 import com.andrewcorp.webwallet.common.util.Texts;
+import com.andrewcorp.webwallet.imports.ImportPreviewCollector;
 import com.andrewcorp.webwallet.imports.ImportResult;
+import com.andrewcorp.webwallet.imports.ImportReview;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountService;
@@ -90,7 +92,17 @@ public class ZenMoneyImporter {
 
     @Transactional
     public ImportResult importDump(Long userId, ZenMoneyDump dump) {
-        return new Run(userId, dump).execute();
+        return importDump(userId, dump, ImportReview.NONE, null);
+    }
+
+    /**
+     * @param review  changes of the user to the transactions, keyed by the Zen Money id
+     * @param preview records what is done with each transaction, or null
+     */
+    @Transactional
+    public ImportResult importDump(
+            Long userId, ZenMoneyDump dump, ImportReview review, ImportPreviewCollector preview) {
+        return new Run(userId, dump, review, preview).execute();
     }
 
     /** State of one import. */
@@ -98,6 +110,8 @@ public class ZenMoneyImporter {
 
         private final Long userId;
         private final ZenMoneyDump dump;
+        private final ImportReview review;
+        private final ImportPreviewCollector preview;
         private final ImportResult.Builder result = new ImportResult.Builder();
         private final Map<Integer, String> currencies = new HashMap<>();
         private final Map<String, Account> accountsById = new HashMap<>();
@@ -113,9 +127,11 @@ public class ZenMoneyImporter {
         /** The budget of Zen Money is in its currency, which may differ from the base currency kept. */
         private boolean budgetInOtherCurrency;
 
-        Run(Long userId, ZenMoneyDump dump) {
+        Run(Long userId, ZenMoneyDump dump, ImportReview review, ImportPreviewCollector preview) {
             this.userId = userId;
             this.dump = dump;
+            this.review = review;
+            this.preview = preview;
         }
 
         ImportResult execute() {
@@ -187,7 +203,11 @@ public class ZenMoneyImporter {
                             : null);
             account.setCardNumbers(
                     source.syncID() == null || source.syncID().isEmpty() ? null : List.copyOf(source.syncID()));
-            accountsById.put(source.id(), accounts.save(account));
+            Account saved = accounts.save(account);
+            accountsById.put(source.id(), saved);
+            if (preview != null && createdAccounts.contains(source.id())) {
+                preview.accountCreated(saved);
+            }
         }
 
         private void importTransactions() {
@@ -195,8 +215,13 @@ public class ZenMoneyImporter {
             Set<String> bankIds = new HashSet<>(transactions.findBankIds(userId));
             bankIds.addAll(transactions.findToBankIds(userId));
             for (ZenMoneyDump.Transaction source : Lists.orEmpty(dump.transaction())) {
-                if (Boolean.TRUE.equals(source.deleted()) || imported.contains(source.id())) {
+                if (Boolean.TRUE.equals(source.deleted()) || review.excludes(source.id())) {
                     result.transactionsSkipped++;
+                    continue;
+                }
+                if (imported.contains(source.id())) {
+                    result.transactionsSkipped++;
+                    previewKnown(source);
                     continue;
                 }
                 Transaction transaction = toTransaction(source);
@@ -206,9 +231,16 @@ public class ZenMoneyImporter {
                 if (bankIds.contains(transaction.getBankId()) || bankIds.contains(transaction.getToBankId())) {
                     // Already imported from the bank directly (Monobank, PrivatBank)
                     result.transactionsSkipped++;
+                    if (preview != null) {
+                        preview.add(source.id(), transaction, true);
+                    }
                     continue;
                 }
+                review.apply(source.id(), transaction);
                 transactions.save(transaction);
+                if (preview != null) {
+                    preview.add(source.id(), transaction, false);
+                }
                 Stream.of(transaction.getBankId(), transaction.getToBankId())
                         .filter(Objects::nonNull)
                         .forEach(bankIds::add);
@@ -220,18 +252,44 @@ public class ZenMoneyImporter {
             }
         }
 
+        /**
+         * A transaction imported before, as it appears in the preview: described without creating its payee or
+         * category.
+         */
+        private void previewKnown(ZenMoneyDump.Transaction source) {
+            if (preview == null) {
+                return;
+            }
+            Transaction transaction = toTransaction(source, false);
+            if (transaction != null) {
+                preview.add(source.id(), transaction, true);
+            }
+        }
+
         private Transaction toTransaction(ZenMoneyDump.Transaction source) {
+            return toTransaction(source, true);
+        }
+
+        /**
+         * @param create whether the payee and the category are found or created; otherwise the transaction only
+         *     describes the operation, has a payee that is not saved and no category, and is not saved itself
+         */
+        private Transaction toTransaction(ZenMoneyDump.Transaction source, boolean create) {
             Account incomeAccount = accountsById.get(source.incomeAccount());
             Account outcomeAccount = accountsById.get(source.outcomeAccount());
             if (incomeAccount == null || outcomeAccount == null) {
-                result.warn("Transaction " + source.id() + " skipped: unknown account");
+                if (create) {
+                    result.warn("Transaction " + source.id() + " skipped: unknown account");
+                }
                 return null;
             }
             BigDecimal income = amount(source.income());
             BigDecimal outcome = amount(source.outcome());
             LocalDate date = date(source.date());
             if (date == null || !isValidAmount(income) || !isValidAmount(outcome)) {
-                result.warn("Transaction " + source.id() + " skipped: invalid date or amount");
+                if (create) {
+                    result.warn("Transaction " + source.id() + " skipped: invalid date or amount");
+                }
                 return null;
             }
 
@@ -240,7 +298,12 @@ public class ZenMoneyImporter {
             transaction.setExternalId(source.id());
             transaction.setDate(date);
             transaction.setComment(Texts.truncate(source.comment(), MAX_COMMENT_LENGTH));
-            transaction.setPayee(payee(source));
+            if (create) {
+                transaction.setPayee(payee(source));
+            } else {
+                String name = payeeName(source);
+                transaction.setPayee(name == null ? null : new Payee(userId, name));
+            }
             String outcomeBankId = OperationMatcher.normalizeBankId(source.outcomeBankID());
             String incomeBankId = OperationMatcher.normalizeBankId(source.incomeBankID());
 
@@ -259,7 +322,9 @@ public class ZenMoneyImporter {
             // An expense or income; a "transfer" with one empty side is treated the same way
             BigDecimal net = income.subtract(outcome);
             if (net.signum() == 0) {
-                result.warn("Transaction " + source.id() + " of " + source.date() + " skipped: zero amount");
+                if (create) {
+                    result.warn("Transaction " + source.id() + " of " + source.date() + " skipped: zero amount");
+                }
                 return null;
             }
             boolean isIncome = net.signum() > 0;
@@ -280,7 +345,7 @@ public class ZenMoneyImporter {
             String tagId = source.tag() == null || source.tag().isEmpty()
                     ? null
                     : source.tag().get(0);
-            transaction.replaceSplits(List.of(new SplitData(category(tagId, kind), net.abs(), null)));
+            transaction.replaceSplits(List.of(new SplitData(create ? category(tagId, kind) : null, net.abs(), null)));
             return transaction;
         }
 
@@ -358,13 +423,22 @@ public class ZenMoneyImporter {
                         created.setArchived(Boolean.TRUE.equals(tag.archive()));
                         created.setExternal(SOURCE, externalId);
                         result.categoriesCreated++;
-                        return categories.save(created);
+                        Category saved = categories.save(created);
+                        if (preview != null) {
+                            preview.categoryCreated(saved);
+                        }
+                        return saved;
                     });
             categoriesByKey.put(key, category);
             return category;
         }
 
         private Payee payee(ZenMoneyDump.Transaction source) {
+            String name = payeeName(source);
+            return name == null ? null : payeeLookup.findOrCreate(name);
+        }
+
+        private String payeeName(ZenMoneyDump.Transaction source) {
             String name = source.merchant() != null ? merchantNames.get(source.merchant()) : null;
             if (name == null || name.isBlank()) {
                 name = source.payee();
@@ -372,7 +446,7 @@ public class ZenMoneyImporter {
             if (name == null || name.isBlank()) {
                 return null;
             }
-            return payeeLookup.findOrCreate(Texts.truncate(name, MAX_PAYEE_LENGTH));
+            return Texts.truncate(name.trim(), MAX_PAYEE_LENGTH);
         }
 
         /**

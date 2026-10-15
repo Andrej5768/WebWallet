@@ -1,0 +1,3515 @@
+{
+  "components" : {
+    "schemas" : {
+      "AccountRequest" : {
+        "properties" : {
+          "archived" : {
+            "type" : "boolean"
+          },
+          "creditLimit" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "inBudget" : {
+            "type" : "boolean"
+          },
+          "interestRate" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "name" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "openingBalance" : {
+            "type" : "number"
+          },
+          "sortOrder" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "type" : {
+            "enum" : [ "CASH", "CARD", "CREDIT_CARD", "LOAN", "DEPOSIT", "SAVINGS", "DEBT", "INVESTMENT" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "name", "type" ],
+        "type" : "object"
+      },
+      "AccountResponse" : {
+        "properties" : {
+          "archived" : {
+            "type" : "boolean"
+          },
+          "availableCredit" : {
+            "type" : [ "number", "null" ]
+          },
+          "balance" : {
+            "type" : "number"
+          },
+          "balanceInBase" : {
+            "type" : [ "number", "null" ]
+          },
+          "creditLimit" : {
+            "type" : [ "number", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "inBudget" : {
+            "type" : "boolean"
+          },
+          "interestRate" : {
+            "type" : [ "number", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "openingBalance" : {
+            "type" : "number"
+          },
+          "sortOrder" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "type" : {
+            "enum" : [ "CASH", "CARD", "CREDIT_CARD", "LOAN", "DEPOSIT", "SAVINGS", "DEBT", "INVESTMENT" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "archived", "availableCredit", "balance", "balanceInBase", "creditLimit", "currency", "id", "inBudget", "interestRate", "name", "openingBalance", "sortOrder", "type" ],
+        "type" : "object"
+      },
+      "AccountSummaryResponse" : {
+        "properties" : {
+          "available" : {
+            "type" : "number"
+          },
+          "availableWithCredit" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "netWorth" : {
+            "type" : "number"
+          },
+          "readyToAssign" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "available", "availableWithCredit", "currency", "netWorth", "readyToAssign", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "ApplyResponse" : {
+        "properties" : {
+          "categorized" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "categorized" ],
+        "type" : "object"
+      },
+      "AssignRequest" : {
+        "properties" : {
+          "assigned" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "assigned" ],
+        "type" : "object"
+      },
+      "CategoryOrderRequest" : {
+        "properties" : {
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "parentId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "sortOrder" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "id", "sortOrder" ],
+        "type" : "object"
+      },
+      "CategoryRequest" : {
+        "properties" : {
+          "archived" : {
+            "type" : "boolean"
+          },
+          "color" : {
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime", null ],
+            "type" : [ "string", "null" ]
+          },
+          "icon" : {
+            "pattern" : "[a-z0-9-]{1,50}",
+            "type" : [ "string", "null" ]
+          },
+          "kind" : {
+            "enum" : [ "EXPENSE", "INCOME" ],
+            "type" : "string"
+          },
+          "name" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "necessity" : {
+            "enum" : [ "NEEDS", "WANTS", null ],
+            "type" : [ "string", "null" ]
+          },
+          "parentId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "sortOrder" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "kind", "name" ],
+        "type" : "object"
+      },
+      "CategoryResponse" : {
+        "properties" : {
+          "archived" : {
+            "type" : "boolean"
+          },
+          "children" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CategoryResponse"
+            },
+            "type" : "array"
+          },
+          "color" : {
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime", null ],
+            "type" : [ "string", "null" ]
+          },
+          "icon" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "kind" : {
+            "enum" : [ "EXPENSE", "INCOME" ],
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "necessity" : {
+            "enum" : [ "NEEDS", "WANTS", null ],
+            "type" : [ "string", "null" ]
+          },
+          "parentId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "sortOrder" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "archived", "children", "color", "icon", "id", "kind", "name", "necessity", "parentId", "sortOrder" ],
+        "type" : "object"
+      },
+      "CategoryRow" : {
+        "properties" : {
+          "activity" : {
+            "type" : "number"
+          },
+          "archived" : {
+            "type" : "boolean"
+          },
+          "assigned" : {
+            "type" : "number"
+          },
+          "available" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "children" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CategoryRow"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "ownActivity" : {
+            "type" : "number"
+          },
+          "ownAssigned" : {
+            "type" : "number"
+          },
+          "ownAvailable" : {
+            "type" : "number"
+          },
+          "parentId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          }
+        },
+        "required" : [ "activity", "archived", "assigned", "available", "categoryId", "children", "name", "ownActivity", "ownAssigned", "ownAvailable", "parentId" ],
+        "type" : "object"
+      },
+      "CategorySpending" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "children" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CategorySpending"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "share" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "amount", "categoryId", "children", "name", "share" ],
+        "type" : "object"
+      },
+      "ChangePasswordRequest" : {
+        "properties" : {
+          "currentPassword" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "newPassword" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "currentPassword", "newPassword" ],
+        "type" : "object"
+      },
+      "ConfirmRequest" : {
+        "properties" : {
+          "operations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OperationEdit"
+            },
+            "maxItems" : 100000,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "ConnectRequest" : {
+        "properties" : {
+          "dailyAt" : {
+            "example" : "06:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "since" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "syncMode" : {
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
+            "type" : "string"
+          },
+          "token" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "pattern" : "[A-Za-z0-9_-]+",
+            "type" : "string"
+          },
+          "windowEnd" : {
+            "example" : "23:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "windowStart" : {
+            "example" : "08:00",
+            "format" : "time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "token" ],
+        "type" : "object"
+      },
+      "ConnectionResponse" : {
+        "properties" : {
+          "accounts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LinkResponse"
+            },
+            "type" : "array"
+          },
+          "clientName" : {
+            "type" : "string"
+          },
+          "connectedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "dailyAt" : {
+            "example" : "06:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "lastError" : {
+            "type" : [ "string", "null" ]
+          },
+          "lastRequestAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "nextSyncAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "syncMode" : {
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
+            "type" : "string"
+          },
+          "webhook" : {
+            "type" : "boolean"
+          },
+          "windowEnd" : {
+            "example" : "23:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "windowStart" : {
+            "example" : "08:00",
+            "format" : "time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "accounts", "clientName", "connectedAt", "dailyAt", "lastError", "lastRequestAt", "nextSyncAt", "syncMode", "webhook", "windowEnd", "windowStart" ],
+        "type" : "object"
+      },
+      "EmailRequest" : {
+        "properties" : {
+          "email" : {
+            "format" : "email",
+            "maxLength" : 320,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "email" ],
+        "type" : "object"
+      },
+      "ImportAccount" : {
+        "properties" : {
+          "created" : {
+            "type" : "boolean"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "created", "currency", "id", "name" ],
+        "type" : "object"
+      },
+      "ImportOperation" : {
+        "properties" : {
+          "account" : {
+            "$ref" : "#/components/schemas/ImportAccount"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "categoryName" : {
+            "type" : [ "string", "null" ]
+          },
+          "comment" : {
+            "type" : [ "string", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "duplicate" : {
+            "type" : "boolean"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "payee" : {
+            "type" : [ "string", "null" ]
+          },
+          "tagIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "toAccount" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/ImportAccount"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "toAmount" : {
+            "type" : [ "number", "null" ]
+          },
+          "type" : {
+            "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "account", "amount", "categoryId", "categoryName", "comment", "currency", "date", "duplicate", "key", "payee", "tagIds", "toAccount", "toAmount", "type" ],
+        "type" : "object"
+      },
+      "ImportPreviewResponse" : {
+        "properties" : {
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "operations" : {
+            "$ref" : "#/components/schemas/PageResponseImportOperation"
+          },
+          "source" : {
+            "enum" : [ "PRIVATBANK", "ZENMONEY" ],
+            "type" : "string"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/ImportResult"
+          }
+        },
+        "required" : [ "expiresAt", "id", "operations", "source", "summary" ],
+        "type" : "object"
+      },
+      "ImportResult" : {
+        "properties" : {
+          "accountsCreated" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "accountsUpdated" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "budgetsImported" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "categoriesCreated" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "payeesCreated" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "transactionsImported" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "transactionsMatched" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "transactionsSkipped" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "warnings" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "accountsCreated", "accountsUpdated", "budgetsImported", "categoriesCreated", "payeesCreated", "transactionsImported", "transactionsMatched", "transactionsSkipped", "warnings" ],
+        "type" : "object"
+      },
+      "IncomeExpenseResponse" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "expense" : {
+            "type" : "number"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "months" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MonthIncomeExpense"
+            },
+            "type" : "array"
+          },
+          "net" : {
+            "type" : "number"
+          },
+          "savingsRate" : {
+            "type" : [ "number", "null" ]
+          },
+          "to" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "currency", "expense", "from", "income", "months", "net", "savingsRate", "to", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "LinkRequest" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "LinkResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "accountName" : {
+            "type" : [ "string", "null" ]
+          },
+          "balance" : {
+            "type" : [ "number", "null" ]
+          },
+          "bankBalance" : {
+            "type" : [ "number", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "difference" : {
+            "type" : [ "number", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "syncedUntil" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "accountName", "balance", "bankBalance", "currency", "difference", "id", "syncedUntil", "title" ],
+        "type" : "object"
+      },
+      "LoginRequest" : {
+        "properties" : {
+          "email" : {
+            "maxLength" : 320,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "password" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "email", "password" ],
+        "type" : "object"
+      },
+      "MonthIncomeExpense" : {
+        "properties" : {
+          "expense" : {
+            "type" : "number"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "net" : {
+            "type" : "number"
+          },
+          "savingsRate" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "expense", "income", "month", "net", "savingsRate" ],
+        "type" : "object"
+      },
+      "MonthNetWorth" : {
+        "properties" : {
+          "assets" : {
+            "type" : "number"
+          },
+          "liabilities" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "netWorth" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "assets", "liabilities", "month", "netWorth" ],
+        "type" : "object"
+      },
+      "MonthResponse" : {
+        "properties" : {
+          "activity" : {
+            "type" : "number"
+          },
+          "assigned" : {
+            "type" : "number"
+          },
+          "available" : {
+            "type" : "number"
+          },
+          "categories" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CategoryRow"
+            },
+            "type" : "array"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "readyToAssign" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "activity", "assigned", "available", "categories", "currency", "month", "readyToAssign", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "MoveRequest" : {
+        "properties" : {
+          "amount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "fromCategoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "toCategoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amount", "fromCategoryId", "toCategoryId" ],
+        "type" : "object"
+      },
+      "NamedResponse" : {
+        "properties" : {
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name" ],
+        "type" : "object"
+      },
+      "NetWorthResponse" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "months" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MonthNetWorth"
+            },
+            "type" : "array"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "currency", "months", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "OperationEdit" : {
+        "properties" : {
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "comment" : {
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "include" : {
+            "type" : "boolean"
+          },
+          "keepSuggestedCategory" : {
+            "type" : "boolean"
+          },
+          "key" : {
+            "maxLength" : 300,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "rememberRule" : {
+            "type" : "boolean"
+          },
+          "tagIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "transferAccountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "type" : {
+            "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "key" ],
+        "type" : "object"
+      },
+      "PageResponseImportOperation" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ImportOperation"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalItems" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalPages" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "items", "page", "size", "totalItems", "totalPages" ],
+        "type" : "object"
+      },
+      "PageResponseTransactionResponse" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TransactionResponse"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalItems" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalPages" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "items", "page", "size", "totalItems", "totalPages" ],
+        "type" : "object"
+      },
+      "PayeeRequest" : {
+        "properties" : {
+          "name" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "name" ],
+        "type" : "object"
+      },
+      "PayeeSpending" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "payeeId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "transactions" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amount", "name", "payeeId", "transactions" ],
+        "type" : "object"
+      },
+      "PayeesResponse" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "payees" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PayeeSpending"
+            },
+            "type" : "array"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "currency", "from", "payees", "to", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "RegisterRequest" : {
+        "properties" : {
+          "email" : {
+            "format" : "email",
+            "maxLength" : 320,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "firstName" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "lastName" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "password" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "email", "firstName", "password" ],
+        "type" : "object"
+      },
+      "ResetPasswordRequest" : {
+        "properties" : {
+          "newPassword" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "token" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "newPassword", "token" ],
+        "type" : "object"
+      },
+      "ResetRequest" : {
+        "properties" : {
+          "confirm" : {
+            "type" : "string"
+          },
+          "keepCategories" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "RuleRequest" : {
+        "properties" : {
+          "bankCategory" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "mcc" : {
+            "format" : "int32",
+            "maximum" : 9999,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "payeeId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "payeePattern" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "categoryId" ],
+        "type" : "object"
+      },
+      "RuleResponse" : {
+        "properties" : {
+          "bankCategory" : {
+            "type" : [ "string", "null" ]
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "learned" : {
+            "type" : "boolean"
+          },
+          "mcc" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "payee" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/NamedResponse"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "payeePattern" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "bankCategory", "categoryId", "id", "learned", "mcc", "payee", "payeePattern" ],
+        "type" : "object"
+      },
+      "ScheduleRequest" : {
+        "properties" : {
+          "dailyAt" : {
+            "example" : "06:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "syncMode" : {
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
+            "type" : "string"
+          },
+          "windowEnd" : {
+            "example" : "23:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "windowStart" : {
+            "example" : "08:00",
+            "format" : "time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "syncMode" ],
+        "type" : "object"
+      },
+      "SpendingResponse" : {
+        "properties" : {
+          "categories" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CategorySpending"
+            },
+            "type" : "array"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "total" : {
+            "type" : "number"
+          },
+          "uncategorized" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "categories", "currency", "from", "to", "total", "uncategorized", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "SplitRequest" : {
+        "properties" : {
+          "amount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "comment" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "amount" ],
+        "type" : "object"
+      },
+      "SplitResponse" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "comment" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amount", "categoryId", "comment", "id" ],
+        "type" : "object"
+      },
+      "TagRequest" : {
+        "properties" : {
+          "color" : {
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime", null ],
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "name" ],
+        "type" : "object"
+      },
+      "TagResponse" : {
+        "properties" : {
+          "color" : {
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime", null ],
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "color", "id", "name" ],
+        "type" : "object"
+      },
+      "TokenRequest" : {
+        "properties" : {
+          "token" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "token" ],
+        "type" : "object"
+      },
+      "TokenResponse" : {
+        "properties" : {
+          "accessToken" : {
+            "type" : "string"
+          },
+          "expiresIn" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "tokenType" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "accessToken", "expiresIn", "tokenType" ],
+        "type" : "object"
+      },
+      "TransactionRequest" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "comment" : {
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "originalAmount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "originalCurrency" : {
+            "type" : "string"
+          },
+          "payeeId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "payeeName" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "splits" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SplitRequest"
+            },
+            "maxItems" : 100,
+            "minItems" : 0,
+            "type" : "array"
+          },
+          "tagIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "maxItems" : 50,
+            "minItems" : 0,
+            "type" : "array"
+          },
+          "toAccountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "toAmount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "type" : {
+            "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "amount", "date", "type" ],
+        "type" : "object"
+      },
+      "TransactionResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "comment" : {
+            "type" : [ "string", "null" ]
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "originalAmount" : {
+            "type" : [ "number", "null" ]
+          },
+          "originalCurrency" : {
+            "type" : [ "string", "null" ]
+          },
+          "payee" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/NamedResponse"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "source" : {
+            "enum" : [ "MANUAL", "ZENMONEY", "MONOBANK", "PRIVATBANK" ],
+            "type" : "string"
+          },
+          "splits" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SplitResponse"
+            },
+            "type" : "array"
+          },
+          "tagIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "toAccountId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "toAmount" : {
+            "type" : [ "number", "null" ]
+          },
+          "toCurrency" : {
+            "type" : [ "string", "null" ]
+          },
+          "type" : {
+            "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "amount", "comment", "createdAt", "currency", "date", "id", "originalAmount", "originalCurrency", "payee", "source", "splits", "tagIds", "toAccountId", "toAmount", "toCurrency", "type" ],
+        "type" : "object"
+      },
+      "UpdateProfileRequest" : {
+        "properties" : {
+          "baseCurrency" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "firstName" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "lastName" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "locale" : {
+            "minLength" : 1,
+            "pattern" : "en|uk",
+            "type" : "string"
+          }
+        },
+        "required" : [ "baseCurrency", "firstName", "locale" ],
+        "type" : "object"
+      },
+      "UserResponse" : {
+        "properties" : {
+          "baseCurrency" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "emailVerified" : {
+            "type" : "boolean"
+          },
+          "firstName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "lastName" : {
+            "type" : [ "string", "null" ]
+          },
+          "locale" : {
+            "type" : "string"
+          },
+          "role" : {
+            "enum" : [ "USER", "ADMIN" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "baseCurrency", "createdAt", "email", "emailVerified", "firstName", "id", "lastName", "locale", "role" ],
+        "type" : "object"
+      },
+      "VerifyEmailRequest" : {
+        "properties" : {
+          "token" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "token" ],
+        "type" : "object"
+      }
+    },
+    "securitySchemes" : {
+      "bearer" : {
+        "bearerFormat" : "JWT",
+        "scheme" : "bearer",
+        "type" : "http"
+      }
+    }
+  },
+  "info" : {
+    "title" : "WebWallet API",
+    "version" : "v1"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/api/v1/accounts" : {
+      "get" : {
+        "description" : "balanceInBase is the balance in the base currency at today's NBU rate, null when there is no rate; availableCredit is the credit limit plus the balance of a credit card",
+        "operationId" : "list_4",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/AccountResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "List accounts with current balances",
+        "tags" : [ "Accounts" ]
+      },
+      "post" : {
+        "operationId" : "create_5",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Accounts" ]
+      }
+    },
+    "/api/v1/accounts/summary" : {
+      "get" : {
+        "description" : "Accounts that are not archived, at today's NBU rates; balances in a currency without a rate are left out and listed in unconvertedCurrencies. readyToAssign is that of the budget of the current month.",
+        "operationId" : "summary",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountSummaryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Totals of the accounts in the base currency",
+        "tags" : [ "Accounts" ]
+      }
+    },
+    "/api/v1/accounts/{id}" : {
+      "delete" : {
+        "operationId" : "delete_5",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Delete an account without transactions; accounts with history should be archived",
+        "tags" : [ "Accounts" ]
+      },
+      "get" : {
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Accounts" ]
+      },
+      "put" : {
+        "description" : "Omitted optional fields keep their values; a credit limit or interest rate of 0 removes it",
+        "operationId" : "update_3",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Update an account; the currency cannot be changed",
+        "tags" : [ "Accounts" ]
+      }
+    },
+    "/api/v1/auth/forgot-password" : {
+      "post" : {
+        "operationId" : "forgotPassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmailRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted"
+          }
+        },
+        "summary" : "Send a password reset link",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/login" : {
+      "post" : {
+        "description" : "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only to /api/v1/auth",
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Sign in with email and password",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/logout" : {
+      "post" : {
+        "description" : "Succeeds without the cookie or with an unknown token as well",
+        "operationId" : "logout",
+        "parameters" : [ {
+          "description" : "Refresh token set by login or a previous refresh",
+          "in" : "cookie",
+          "name" : "refresh_token",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "summary" : "End the session of the refresh token cookie and delete the cookie",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/refresh" : {
+      "post" : {
+        "description" : "The refresh token is rotated: the response sets a new cookie and the presented token stops working. Presenting an already rotated token ends the whole session.",
+        "operationId" : "refresh",
+        "parameters" : [ {
+          "description" : "Refresh token set by login or a previous refresh",
+          "in" : "cookie",
+          "name" : "refresh_token",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Exchange the refresh token cookie for a new access token",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/register" : {
+      "post" : {
+        "description" : "The response is the same when the email is taken; the owner gets an email instead",
+        "operationId" : "register",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted"
+          }
+        },
+        "summary" : "Register a new user and send an email verification link",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/resend-verification" : {
+      "post" : {
+        "operationId" : "resendVerification",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmailRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted"
+          }
+        },
+        "summary" : "Send the email verification link again",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/reset-password" : {
+      "post" : {
+        "operationId" : "resetPassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "summary" : "Set a new password with the token from the password reset email",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/verify-email" : {
+      "post" : {
+        "operationId" : "verifyEmail",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VerifyEmailRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "summary" : "Confirm the email address with the token from the verification email",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/banks/monobank" : {
+      "delete" : {
+        "operationId" : "disconnect",
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Disconnect Monobank; imported transactions stay",
+        "tags" : [ "Monobank" ]
+      },
+      "get" : {
+        "operationId" : "status",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConnectionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Connection status, linked accounts and synchronization progress",
+        "tags" : [ "Monobank" ]
+      },
+      "post" : {
+        "operationId" : "connect",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConnectRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConnectionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Connect Monobank with a personal token; operations are then imported in the background",
+        "tags" : [ "Monobank" ]
+      }
+    },
+    "/api/v1/banks/monobank/accounts/{linkId}" : {
+      "put" : {
+        "operationId" : "link",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "linkId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LinkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConnectionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Link a Monobank card or jar to another account, or stop synchronizing it with a null account",
+        "tags" : [ "Monobank" ]
+      }
+    },
+    "/api/v1/banks/monobank/schedule" : {
+      "put" : {
+        "description" : "INTERVAL: every 15 minutes from windowStart to windowEnd (Kyiv time) and once at night halfway between windowEnd and windowStart; DAILY: once a day at dailyAt; WEBHOOK: the bank pushes new operations (needs the public URL of the server) and the accounts are also checked once a day at dailyAt. Omitted times are kept.",
+        "operationId" : "schedule",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ScheduleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConnectionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Change when Monobank is synchronized",
+        "tags" : [ "Monobank" ]
+      }
+    },
+    "/api/v1/budget/{month}" : {
+      "get" : {
+        "operationId" : "month",
+        "parameters" : [ {
+          "example" : "2026-10",
+          "in" : "path",
+          "name" : "month",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MonthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Envelopes of the month: assigned, activity and available per expense category, and the money ready to assign",
+        "tags" : [ "Budget" ]
+      }
+    },
+    "/api/v1/budget/{month}/categories/{categoryId}" : {
+      "put" : {
+        "operationId" : "assign",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "month",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "categoryId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MonthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Set the money assigned to an expense category for the month; 0 removes it",
+        "tags" : [ "Budget" ]
+      }
+    },
+    "/api/v1/budget/{month}/copy-previous" : {
+      "post" : {
+        "description" : "Every expense category whose own assignment this month is zero gets its own assignment of the previous month; envelopes already assigned and archived categories are left as they are. Returns the month like GET.",
+        "operationId" : "copyPrevious",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "month",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MonthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Copy the assignments of the previous month to the envelopes without one this month",
+        "tags" : [ "Budget" ]
+      }
+    },
+    "/api/v1/budget/{month}/move" : {
+      "post" : {
+        "description" : "Lowers the own assignment of fromCategoryId and raises that of toCategoryId by the amount; both change or neither. Returns the month like GET.",
+        "operationId" : "move",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "month",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MoveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MonthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Move money from the own envelope of one expense category to another in one step",
+        "tags" : [ "Budget" ]
+      }
+    },
+    "/api/v1/categories" : {
+      "get" : {
+        "operationId" : "tree",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/CategoryResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "List categories as a tree of top-level categories and their subcategories",
+        "tags" : [ "Categories" ]
+      },
+      "post" : {
+        "operationId" : "create_4",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CategoryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CategoryResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Categories" ]
+      }
+    },
+    "/api/v1/categories/order" : {
+      "put" : {
+        "description" : "Applies all items or none. Categories not listed stay where they are. Only two levels are allowed: a category with subcategories cannot get a parent, and a subcategory must have the kind of its parent. Errors name the item, e.g. the field [2].parentId. Returns the whole tree like the list.",
+        "operationId" : "reorder",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "items" : {
+                  "$ref" : "#/components/schemas/CategoryOrderRequest"
+                },
+                "type" : "array"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/CategoryResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Move and sort categories at once, e.g. after drag and drop",
+        "tags" : [ "Categories" ]
+      }
+    },
+    "/api/v1/categories/{id}" : {
+      "delete" : {
+        "operationId" : "delete_4",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Delete an unused category without subcategories; others should be archived",
+        "tags" : [ "Categories" ]
+      },
+      "put" : {
+        "description" : "The parent is always applied (null makes a top-level category); other omitted optional fields keep their values. icon, color and necessity sent as null are removed. A necessity is allowed only on expense categories; it is removed when the category becomes income.",
+        "operationId" : "update_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CategoryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CategoryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Update a category",
+        "tags" : [ "Categories" ]
+      }
+    },
+    "/api/v1/categorization-rules" : {
+      "get" : {
+        "operationId" : "list_3",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/RuleResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "List the rules, including the ones learned from manual category changes",
+        "tags" : [ "Categorization rules" ]
+      },
+      "post" : {
+        "operationId" : "create_3",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RuleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RuleResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Categorization rules" ]
+      }
+    },
+    "/api/v1/categorization-rules/apply" : {
+      "post" : {
+        "operationId" : "apply",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApplyResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Put uncategorized expenses and incomes into categories by the rules",
+        "tags" : [ "Categorization rules" ]
+      }
+    },
+    "/api/v1/categorization-rules/{id}" : {
+      "delete" : {
+        "operationId" : "delete_3",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Categorization rules" ]
+      },
+      "put" : {
+        "operationId" : "update_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RuleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RuleResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Categorization rules" ]
+      }
+    },
+    "/api/v1/imports/previews/{id}" : {
+      "delete" : {
+        "operationId" : "discard",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Discard an import preview",
+        "tags" : [ "Imports" ]
+      },
+      "get" : {
+        "operationId" : "get_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 100,
+            "format" : "int32",
+            "maximum" : 500,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportPreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "A page of the operations of an import preview, newest first; 404 when it expired",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/previews/{id}/confirm" : {
+      "post" : {
+        "description" : "Operations not listed are imported as previewed. The preview is removed afterwards; 404 when it is unknown or expired.",
+        "operationId" : "confirm",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConfirmRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Import the previewed operations with the changes of the user",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/privatbank" : {
+      "post" : {
+        "operationId" : "importStatement",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "file" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Import a PrivatBank card statement (PDF from Privat24); the file is not stored. Without accountId the account with the card number of the statement is used or created.",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/privatbank/preview" : {
+      "post" : {
+        "description" : "Returns the operations as they would be imported and the first page of them; review them and import with POST /api/v1/imports/previews/{id}/confirm within an hour. Only the parsed operations are kept, not the file.",
+        "operationId" : "preview",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "file" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportPreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Preview a PrivatBank card statement without saving anything",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/zenmoney" : {
+      "post" : {
+        "operationId" : "importWithToken",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TokenRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Import everything from Zen Money with an API token; the token is not stored",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/zenmoney/file" : {
+      "post" : {
+        "operationId" : "importFile",
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "file" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Import a saved response of the Zen Money sync API (POST /v8/diff/ with serverTimestamp 0)",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/zenmoney/file/preview" : {
+      "post" : {
+        "description" : "Like POST /api/v1/imports/zenmoney/preview; only the parsed records are kept, not the file.",
+        "operationId" : "previewFile",
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "file" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportPreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Preview a saved response of the Zen Money sync API without saving anything",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/zenmoney/preview" : {
+      "post" : {
+        "description" : "Returns a summary (accounts, categories and payees to create, budgets) and the first page of the transactions; review them and import with POST /api/v1/imports/previews/{id}/confirm within an hour. The token is not stored.",
+        "operationId" : "previewWithToken",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TokenRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportPreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Preview everything from Zen Money with an API token without saving anything",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/me" : {
+      "get" : {
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Get the profile of the current user",
+        "tags" : [ "Current user" ]
+      },
+      "put" : {
+        "operationId" : "updateProfile",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Update the profile of the current user",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/password" : {
+      "post" : {
+        "description" : "All sessions are ended, including the current one; a new session is started: the response contains a new access token and sets a new refresh token cookie",
+        "operationId" : "changePassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Change the password",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/reset" : {
+      "post" : {
+        "description" : "Deletes all accounts, transactions, payees, tags, the budget, bank connections and import previews; with keepCategories false also the categories and categorization rules, and the default categories are created again. confirm must be exactly DELETE. The profile, the password and the sessions stay.",
+        "operationId" : "reset",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Start over: delete all finance data",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/payees" : {
+      "get" : {
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/NamedResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Payees" ]
+      },
+      "post" : {
+        "operationId" : "create_2",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PayeeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NamedResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Payees" ]
+      }
+    },
+    "/api/v1/payees/{id}" : {
+      "delete" : {
+        "operationId" : "delete_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Delete a payee; its transactions stay without a payee",
+        "tags" : [ "Payees" ]
+      },
+      "put" : {
+        "operationId" : "rename_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PayeeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NamedResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Payees" ]
+      }
+    },
+    "/api/v1/reports/income-expense" : {
+      "get" : {
+        "operationId" : "incomeExpense",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IncomeExpenseResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Income and expenses per month and the savings rate",
+        "tags" : [ "Reports" ]
+      }
+    },
+    "/api/v1/reports/net-worth" : {
+      "get" : {
+        "operationId" : "netWorth",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NetWorthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Net worth at the end of every month: assets, liabilities and their sum",
+        "tags" : [ "Reports" ]
+      }
+    },
+    "/api/v1/reports/payees" : {
+      "get" : {
+        "operationId" : "payees",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 20,
+            "format" : "int32",
+            "maximum" : 200,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PayeesResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Spending by payee, largest first",
+        "tags" : [ "Reports" ]
+      }
+    },
+    "/api/v1/reports/spending" : {
+      "get" : {
+        "operationId" : "spending",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SpendingResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Spending by category",
+        "tags" : [ "Reports" ]
+      }
+    },
+    "/api/v1/tags" : {
+      "get" : {
+        "operationId" : "list_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/TagResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Tags" ]
+      },
+      "post" : {
+        "operationId" : "create_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TagRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TagResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Tags" ]
+      }
+    },
+    "/api/v1/tags/{id}" : {
+      "delete" : {
+        "operationId" : "delete_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Delete a tag; it is removed from all transactions",
+        "tags" : [ "Tags" ]
+      },
+      "put" : {
+        "description" : "An omitted color keeps its value; a color sent as null is removed",
+        "operationId" : "rename",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TagRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TagResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Rename a tag or change its color",
+        "tags" : [ "Tags" ]
+      }
+    },
+    "/api/v1/transactions" : {
+      "get" : {
+        "description" : "All given filters must match. q searches the payee name, the comment and the comments of splits, ignoring case; when it is a number (1284.50, 1284,50 or 1 284,50), transactions with this amount match too (the amount or, of a transfer, the received amount).",
+        "operationId" : "list",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "categoryId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "type",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "payeeId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "tagId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "maximum" : 200,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseTransactionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "List transactions, newest first",
+        "tags" : [ "Transactions" ]
+      },
+      "post" : {
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TransactionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TransactionResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Transactions" ]
+      }
+    },
+    "/api/v1/transactions/{id}" : {
+      "delete" : {
+        "operationId" : "delete",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Transactions" ]
+      },
+      "get" : {
+        "operationId" : "get",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TransactionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Transactions" ]
+      },
+      "put" : {
+        "operationId" : "update",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TransactionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TransactionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Transactions" ]
+      }
+    }
+  }
+}
