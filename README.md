@@ -110,8 +110,7 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 ### OpenAPI spec
 
 The spec is committed in `api/openapi.json`; the web client generates its API client from it and downloads it from
-the `dev` branch: https://raw.githubusercontent.com/Andrej5768/WebWallet/dev/api/openapi.json (the repository is
-private, so the download needs a GitHub token with read access).
+the `dev` branch: https://raw.githubusercontent.com/Andrej5768/WebWallet/dev/api/openapi.json.
 
 `OpenApiSpecTest` compares the file with the spec served at `/v3/api-docs` (sorted keys, without `servers`) and
 fails when the API changed without updating it; the current spec is then written to `target/openapi.json`.
