@@ -107,6 +107,20 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
   (`app.auth.refresh-cookie-secure=false`, or `REFRESH_COOKIE_SECURE=false`) for development over plain HTTP.
 - The native mobile apps will need a separate way to keep the refresh token; it is not part of the API yet.
 
+### OpenAPI spec
+
+The spec is committed in `api/openapi.json`; the web client generates its API client from it and downloads it from
+the `dev` branch: https://raw.githubusercontent.com/Andrej5768/WebWallet/dev/api/openapi.json (the repository is
+private, so the download needs a GitHub token with read access).
+
+`OpenApiSpecTest` compares the file with the spec served at `/v3/api-docs` (sorted keys, without `servers`) and
+fails when the API changed without updating it; the current spec is then written to `target/openapi.json`.
+Regenerate the file and commit it together with the API change:
+
+```bash
+mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
+```
+
 ## Development workflow
 
 - `dev` is the default branch and holds ongoing development.
@@ -144,6 +158,7 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 
 ### Phase 2 — Web client (separate repository)
 - [ ] React + TypeScript app with an API client generated from the OpenAPI spec
+      (committed in `api/openapi.json`)
 - [ ] Dashboard, transaction feed, envelopes, reports, imports
 
 ### Phase 3 — Planning
