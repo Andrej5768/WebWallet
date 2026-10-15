@@ -24,7 +24,9 @@ class SecurityConfigTest {
                         Duration.ofHours(1),
                         5,
                         20,
-                        Duration.ofHours(1)));
+                        Duration.ofHours(1),
+                        "refresh_token",
+                        true));
     }
 
     @Test

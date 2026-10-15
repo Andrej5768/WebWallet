@@ -1,6 +1,7 @@
 package com.andrewcorp.webwallet.user;
 
 import com.andrewcorp.webwallet.auth.AuthService;
+import com.andrewcorp.webwallet.auth.RefreshTokenCookie;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.user.dto.ChangePasswordRequest;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -25,10 +27,12 @@ public class UserController {
 
     private final UserService userService;
     private final AuthService authService;
+    private final RefreshTokenCookie refreshTokenCookie;
 
-    public UserController(UserService userService, AuthService authService) {
+    public UserController(UserService userService, AuthService authService, RefreshTokenCookie refreshTokenCookie) {
         this.userService = userService;
         this.authService = authService;
+        this.refreshTokenCookie = refreshTokenCookie;
     }
 
     @Operation(summary = "Get the profile of the current user")
@@ -43,9 +47,14 @@ public class UserController {
         return UserResponse.from(userService.updateProfile(userId, request));
     }
 
-    @Operation(summary = "Change the password; all other sessions are ended and a new token pair is returned")
+    @Operation(
+            summary = "Change the password",
+            description = "All sessions are ended, including the current one; a new session is started: the response"
+                    + " contains a new access token and sets a new refresh token cookie")
     @PostMapping("/password")
-    public TokenResponse changePassword(@CurrentUserId Long userId, @Valid @RequestBody ChangePasswordRequest request) {
-        return authService.changePassword(userId, request.currentPassword(), request.newPassword());
+    public ResponseEntity<TokenResponse> changePassword(
+            @CurrentUserId Long userId, @Valid @RequestBody ChangePasswordRequest request) {
+        return refreshTokenCookie.respond(
+                authService.changePassword(userId, request.currentPassword(), request.newPassword()));
     }
 }

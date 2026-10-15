@@ -62,7 +62,8 @@ public class SecurityConfig {
                 false);
         // @formatter:off
         http
-                // Stateless bearer-token API: no session, no cookies, so no CSRF
+                // Stateless bearer-token API without a session, so no CSRF. The only cookie, the refresh token, is
+                // SameSite=Strict and limited to the auth endpoints (see RefreshTokenCookie)
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

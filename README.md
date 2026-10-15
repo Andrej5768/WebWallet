@@ -88,8 +88,38 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 `ENCRYPTION_KEY` (encrypts bank tokens), `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`,
 `APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `APP_PUBLIC_URL` (enables bank webhooks), `TRUSTED_PROXIES`
 (a regular expression of reverse proxy addresses allowed to set `X-Forwarded-For`, loopback by default),
-`API_DOCS_ENABLED`
+`API_DOCS_ENABLED`, `REFRESH_COOKIE_SECURE`
 (see `src/main/resources/application.properties`).
+
+### Authentication
+
+- `POST /api/v1/auth/login` returns the access token (JWT, 15 minutes) in the body and sets the refresh token
+  (30 days) in the `refresh_token` cookie: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth`.
+  The refresh token never appears in a response body, so scripts of the web client cannot read it.
+- Requests to the rest of the API send the access token in `Authorization: Bearer <token>`.
+- `POST /api/v1/auth/refresh` takes the cookie (no body), rotates the refresh token and returns a new access
+  token; a missing, unknown or already rotated token is rejected with 401 `INVALID_REFRESH_TOKEN`, and presenting
+  a rotated token ends the whole session.
+- `POST /api/v1/auth/logout` ends the session of the cookie and deletes the cookie.
+- `POST /api/v1/me/password` ends all sessions and starts a new one the same way as login.
+- The web client is served from the same domain as the API (a reverse proxy sends `/api` to the backend), so the
+  browser sends the cookie without CORS. The `local` profile drops the `Secure` flag
+  (`app.auth.refresh-cookie-secure=false`, or `REFRESH_COOKIE_SECURE=false`) for development over plain HTTP.
+- The native mobile apps will need a separate way to keep the refresh token; it is not part of the API yet.
+
+### OpenAPI spec
+
+The spec is committed in `api/openapi.json`; the web client generates its API client from it and downloads it from
+the `dev` branch: https://raw.githubusercontent.com/Andrej5768/WebWallet/dev/api/openapi.json (the repository is
+private, so the download needs a GitHub token with read access).
+
+`OpenApiSpecTest` compares the file with the spec served at `/v3/api-docs` (sorted keys, without `servers`) and
+fails when the API changed without updating it; the current spec is then written to `target/openapi.json`.
+Regenerate the file and commit it together with the API change:
+
+```bash
+mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
+```
 
 ## Development workflow
 
@@ -107,7 +137,7 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 - [x] Flyway migrations with a new baseline schema, `ddl-auto=validate`
 - [x] Integration tests on PostgreSQL via Testcontainers instead of H2
 - [x] REST API under `/api/v1` with an OpenAPI spec (springdoc) and ProblemDetail errors
-- [x] Stateless JWT authentication (access + rotating refresh tokens) for the web and mobile clients;
+- [x] Stateless JWT authentication (access token + rotating refresh token in an HttpOnly cookie);
       registration, email confirmation and password reset as API endpoints
 - [x] Remove Thymeleaf pages, session-based login and the old controllers
 - [x] Dockerfile and Docker Compose (backend + PostgreSQL + Mailpit)
@@ -128,6 +158,7 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 
 ### Phase 2 — Web client (separate repository)
 - [ ] React + TypeScript app with an API client generated from the OpenAPI spec
+      (committed in `api/openapi.json`)
 - [ ] Dashboard, transaction feed, envelopes, reports, imports
 
 ### Phase 3 — Planning

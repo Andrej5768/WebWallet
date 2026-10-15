@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Positive;
 import java.time.Duration;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
 
 @Validated
@@ -32,6 +33,8 @@ public record AppProperties(
      *     and the account for {@code accountBlockDuration}
      * @param maxEmailRequestsPerAddress requests that send an email (registration, verification, password reset)
      *     per address within {@code emailRequestWindow}
+     * @param refreshCookieSecure whether the refresh token cookie is sent over HTTPS only; disabled only for local
+     *     development over plain HTTP
      */
     public record Auth(
             @NotNull Duration emailVerificationTtl,
@@ -41,5 +44,7 @@ public record AppProperties(
             @NotNull Duration accountBlockDuration,
             @Positive int maxEmailRequestsPerAddress,
             @Positive int maxEmailRequestsPerIp,
-            @NotNull Duration emailRequestWindow) {}
+            @NotNull Duration emailRequestWindow,
+            @NotBlank String refreshCookieName,
+            @DefaultValue("true") boolean refreshCookieSecure) {}
 }
