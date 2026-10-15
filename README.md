@@ -158,18 +158,35 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 ### Phase 2 — Web client (separate repository)
 - [ ] React + TypeScript app with an API client generated from the OpenAPI spec
       (committed in `api/openapi.json`)
-- [ ] Dashboard, transaction feed, envelopes, reports, imports
+- [ ] Dashboard, transaction feed, envelopes, reports, imports, goals, settings
+      (mockups: light and dark themes, Ukrainian and English)
+- [ ] Backend changes the web client needs:
+  - [ ] icon, color and a needs / wants flag on categories (for 50/30/20 analytics);
+        reordering and moving categories between groups
+  - [ ] color on tags
+  - [ ] free-text transaction search (payee, comment, amount)
+  - [ ] last name optional at registration
+  - [ ] import preview: parse a statement or a Zen Money export without saving, let the user
+        change type, category and tags of each operation, then import the reviewed list
+  - [ ] Monobank synchronization schedule: every 15 minutes within a time window (default),
+        once a day, or webhook (opt-in, as it costs the most)
+  - [ ] "start over": delete all accounts, transactions, envelopes and bank connections,
+        optionally keeping categories and rules
 
 ### Phase 3 — Planning
 - [ ] Recurring payments (reminders or automatic creation)
 - [ ] Balance forecast
-- [ ] Financial goals
+- [ ] Savings goals: target amount and date, linked account or Monobank jar, monthly amount needed,
+      on-track / behind status
+- [ ] 50/30/20 analytics based on the needs / wants flag of categories
 
 ### Phase 4 — Investments
 - [ ] Instruments, positions, trades, dividends and coupons, corporate actions (splits)
 - [ ] Market data provider abstraction with free providers
 - [ ] Imports: Interactive Brokers, Freedom Finance, Ukrainian brokers, Binance, WhiteBIT, BTC / ETH addresses
 - [ ] Analytics: dividend calendar and forecast, XIRR / TWR, benchmark, allocation, rebalancing
+- [ ] Financial independence: FIRE number (lean / regular / fat / coast) and years to reach it,
+      FYM (months of expenses covered by liquid money), compound interest calculator
 
 ### Phase 5 — Ukrainian taxes
 - [ ] Dividend tax with foreign withholding credit
