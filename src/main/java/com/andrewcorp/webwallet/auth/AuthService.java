@@ -2,7 +2,6 @@ package com.andrewcorp.webwallet.auth;
 
 import com.andrewcorp.webwallet.auth.dto.LoginRequest;
 import com.andrewcorp.webwallet.auth.dto.RegisterRequest;
-import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.token.TokenHasher;
 import com.andrewcorp.webwallet.auth.token.UserToken;
 import com.andrewcorp.webwallet.auth.token.UserTokenRepository;
@@ -103,7 +102,7 @@ public class AuthService {
     }
 
     @Transactional
-    public TokenResponse login(LoginRequest request, String clientIp) {
+    public IssuedTokens login(LoginRequest request, String clientIp) {
         String email = User.normalizeEmail(request.email());
         rateLimiter.checkLogin(clientIp, email);
         Optional<User> user = users.findByEmail(email);
@@ -143,7 +142,7 @@ public class AuthService {
 
     /** Changes the password, ends all other sessions and returns tokens for a new one. */
     @Transactional
-    public TokenResponse changePassword(Long userId, String currentPassword, String newPassword) {
+    public IssuedTokens changePassword(Long userId, String currentPassword, String newPassword) {
         User user = users.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
         rateLimiter.checkPasswordChange(userId);
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {

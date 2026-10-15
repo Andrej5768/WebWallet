@@ -1,6 +1,5 @@
 package com.andrewcorp.webwallet.auth;
 
-import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.token.RefreshToken;
 import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
 import com.andrewcorp.webwallet.auth.token.TokenHasher;
@@ -49,7 +48,7 @@ public class TokenService {
 
     /** Starts a new session (refresh token family) for the user. */
     @Transactional
-    public TokenResponse issueTokens(User user) {
+    public IssuedTokens issueTokens(User user) {
         return issueTokens(user, UUID.randomUUID());
     }
 
@@ -58,7 +57,7 @@ public class TokenService {
      * and revokes the whole session.
      */
     @Transactional(noRollbackFor = ApiException.class)
-    public TokenResponse refresh(String rawRefreshToken) {
+    public IssuedTokens refresh(String rawRefreshToken) {
         Instant now = clock.instant();
         RefreshToken token = refreshTokens
                 .findByTokenHash(TokenHasher.hash(rawRefreshToken))
@@ -91,12 +90,12 @@ public class TokenService {
         refreshTokens.revokeAllForUser(user, clock.instant());
     }
 
-    private TokenResponse issueTokens(User user, UUID familyId) {
+    private IssuedTokens issueTokens(User user, UUID familyId) {
         Instant now = clock.instant();
         String rawRefreshToken = TokenHasher.newToken();
         refreshTokens.save(new RefreshToken(
                 user, familyId, TokenHasher.hash(rawRefreshToken), now.plus(properties.refreshTokenTtl())));
-        return TokenResponse.bearer(
+        return new IssuedTokens(
                 createAccessToken(user, now),
                 rawRefreshToken,
                 properties.accessTokenTtl().toSeconds());

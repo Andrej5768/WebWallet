@@ -2,17 +2,23 @@ package com.andrewcorp.webwallet.auth;
 
 import com.andrewcorp.webwallet.auth.dto.EmailRequest;
 import com.andrewcorp.webwallet.auth.dto.LoginRequest;
-import com.andrewcorp.webwallet.auth.dto.RefreshTokenRequest;
 import com.andrewcorp.webwallet.auth.dto.RegisterRequest;
 import com.andrewcorp.webwallet.auth.dto.ResetPasswordRequest;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.dto.VerifyEmailRequest;
+import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.error.ErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.util.Locale;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,12 +30,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
+    /** Name of the refresh token cookie from {@code AppProperties.Auth#refreshCookieName}. */
+    private static final String REFRESH_COOKIE = "${app.auth.refresh-cookie-name}";
+
     private final AuthService authService;
     private final TokenService tokenService;
+    private final RefreshTokenCookie refreshTokenCookie;
 
-    public AuthController(AuthService authService, TokenService tokenService) {
+    public AuthController(AuthService authService, TokenService tokenService, RefreshTokenCookie refreshTokenCookie) {
         this.authService = authService;
         this.tokenService = tokenService;
+        this.refreshTokenCookie = refreshTokenCookie;
     }
 
     @Operation(
@@ -55,23 +66,45 @@ public class AuthController {
         authService.resendVerification(request.email(), httpRequest.getRemoteAddr());
     }
 
-    @Operation(summary = "Sign in with email and password")
+    @Operation(
+            summary = "Sign in with email and password",
+            description = "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only"
+                    + " to /api/v1/auth")
     @PostMapping("/login")
-    public TokenResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        return authService.login(request, httpRequest.getRemoteAddr());
+    public ResponseEntity<TokenResponse> login(
+            @Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        return refreshTokenCookie.respond(authService.login(request, httpRequest.getRemoteAddr()));
     }
 
-    @Operation(summary = "Exchange a refresh token for a new token pair")
+    @Operation(
+            summary = "Exchange the refresh token cookie for a new access token",
+            description = "The refresh token is rotated: the response sets a new cookie and the presented token stops"
+                    + " working. Presenting an already rotated token ends the whole session.")
     @PostMapping("/refresh")
-    public TokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
-        return tokenService.refresh(request.refreshToken());
+    public ResponseEntity<TokenResponse> refresh(
+            @Parameter(description = "Refresh token set by login or a previous refresh")
+                    @CookieValue(name = REFRESH_COOKIE, required = false)
+                    String refreshToken) {
+        if (refreshToken == null) {
+            throw new ApiException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+        return refreshTokenCookie.respond(tokenService.refresh(refreshToken));
     }
 
-    @Operation(summary = "End the session of the given refresh token")
+    @Operation(
+            summary = "End the session of the refresh token cookie and delete the cookie",
+            description = "Succeeds without the cookie or with an unknown token as well")
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@Valid @RequestBody RefreshTokenRequest request) {
-        tokenService.revokeSession(request.refreshToken());
+    public void logout(
+            @Parameter(description = "Refresh token set by login or a previous refresh")
+                    @CookieValue(name = REFRESH_COOKIE, required = false)
+                    String refreshToken,
+            HttpServletResponse response) {
+        if (refreshToken != null) {
+            tokenService.revokeSession(refreshToken);
+        }
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.cleared());
     }
 
     @Operation(summary = "Send a password reset link")
