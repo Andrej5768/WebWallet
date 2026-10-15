@@ -179,6 +179,12 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [ ] Savings goals: target amount and date, linked account or Monobank jar, monthly amount needed,
       on-track / behind status
 - [ ] 50/30/20 analytics based on the needs / wants flag of categories
+- [ ] Analytics endpoints for the reports:
+  - [ ] plan vs actual per envelope with an end-of-month forecast from the current pace
+  - [ ] period comparison: cumulative spending by day for two periods (month to month, year to year,
+        custom), optionally up to the same day, and the change per category
+  - [ ] spending trends: monthly amounts per category over a range, averages and anomalies
+  - [ ] savings: net saved and cumulative savings per month, savings rate against a target
 
 ### Phase 4 — Investments
 - [ ] Instruments, positions, trades, dividends and coupons, corporate actions (splits)
