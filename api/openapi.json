@@ -304,16 +304,48 @@
         "required" : [ "currentPassword", "newPassword" ],
         "type" : "object"
       },
+      "ConfirmRequest" : {
+        "properties" : {
+          "operations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OperationEdit"
+            },
+            "maxItems" : 100000,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "ConnectRequest" : {
         "properties" : {
+          "dailyAt" : {
+            "example" : "06:00",
+            "format" : "time",
+            "type" : "string"
+          },
           "since" : {
             "format" : "date",
+            "type" : "string"
+          },
+          "syncMode" : {
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
             "type" : "string"
           },
           "token" : {
             "maxLength" : 100,
             "minLength" : 0,
             "pattern" : "[A-Za-z0-9_-]+",
+            "type" : "string"
+          },
+          "windowEnd" : {
+            "example" : "23:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "windowStart" : {
+            "example" : "08:00",
+            "format" : "time",
             "type" : "string"
           }
         },
@@ -335,6 +367,11 @@
             "format" : "date-time",
             "type" : "string"
           },
+          "dailyAt" : {
+            "example" : "06:00",
+            "format" : "time",
+            "type" : "string"
+          },
           "lastError" : {
             "type" : "string"
           },
@@ -342,8 +379,26 @@
             "format" : "date-time",
             "type" : "string"
           },
+          "nextSyncAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "syncMode" : {
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
+            "type" : "string"
+          },
           "webhook" : {
             "type" : "boolean"
+          },
+          "windowEnd" : {
+            "example" : "23:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "windowStart" : {
+            "example" : "08:00",
+            "format" : "time",
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -358,6 +413,101 @@
           }
         },
         "required" : [ "email" ],
+        "type" : "object"
+      },
+      "ImportAccount" : {
+        "properties" : {
+          "created" : {
+            "type" : "boolean"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ImportOperation" : {
+        "properties" : {
+          "account" : {
+            "$ref" : "#/components/schemas/ImportAccount"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "categoryName" : {
+            "type" : "string"
+          },
+          "comment" : {
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "duplicate" : {
+            "type" : "boolean"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "payee" : {
+            "type" : "string"
+          },
+          "tagIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "toAccount" : {
+            "$ref" : "#/components/schemas/ImportAccount"
+          },
+          "toAmount" : {
+            "type" : "number"
+          },
+          "type" : {
+            "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ImportPreviewResponse" : {
+        "properties" : {
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "operations" : {
+            "$ref" : "#/components/schemas/PageResponseImportOperation"
+          },
+          "source" : {
+            "enum" : [ "PRIVATBANK", "ZENMONEY" ],
+            "type" : "string"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/ImportResult"
+          }
+        },
         "type" : "object"
       },
       "ImportResult" : {
@@ -607,6 +757,74 @@
         },
         "type" : "object"
       },
+      "OperationEdit" : {
+        "properties" : {
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "comment" : {
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "include" : {
+            "type" : "boolean"
+          },
+          "key" : {
+            "maxLength" : 300,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "rememberRule" : {
+            "type" : "boolean"
+          },
+          "tagIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "transferAccountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "type" : {
+            "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "key" ],
+        "type" : "object"
+      },
+      "PageResponseImportOperation" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ImportOperation"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalItems" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalPages" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "PageResponseTransactionResponse" : {
         "properties" : {
           "items" : {
@@ -733,6 +951,17 @@
         "required" : [ "newPassword", "token" ],
         "type" : "object"
       },
+      "ResetRequest" : {
+        "properties" : {
+          "confirm" : {
+            "type" : "string"
+          },
+          "keepCategories" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "RuleRequest" : {
         "properties" : {
           "bankCategory" : {
@@ -790,6 +1019,31 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "ScheduleRequest" : {
+        "properties" : {
+          "dailyAt" : {
+            "example" : "06:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "syncMode" : {
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
+            "type" : "string"
+          },
+          "windowEnd" : {
+            "example" : "23:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "windowStart" : {
+            "example" : "08:00",
+            "format" : "time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "syncMode" ],
         "type" : "object"
       },
       "SpendingResponse" : {
@@ -1617,6 +1871,39 @@
         "tags" : [ "Monobank" ]
       }
     },
+    "/api/v1/banks/monobank/schedule" : {
+      "put" : {
+        "description" : "INTERVAL: every 15 minutes from windowStart to windowEnd (Kyiv time) and once at night halfway between windowEnd and windowStart; DAILY: once a day at dailyAt; WEBHOOK: the bank pushes new operations (needs the public URL of the server) and the accounts are also checked once a day at dailyAt. Omitted times are kept.",
+        "operationId" : "schedule",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ScheduleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConnectionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Change when Monobank is synchronized",
+        "tags" : [ "Monobank" ]
+      }
+    },
     "/api/v1/budget/{month}" : {
       "get" : {
         "operationId" : "month",
@@ -1990,6 +2277,122 @@
         "tags" : [ "Categorization rules" ]
       }
     },
+    "/api/v1/imports/previews/{id}" : {
+      "delete" : {
+        "operationId" : "discard",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Discard an import preview",
+        "tags" : [ "Imports" ]
+      },
+      "get" : {
+        "operationId" : "get_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 100,
+            "format" : "int32",
+            "maximum" : 500,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportPreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "A page of the operations of an import preview, newest first; 404 when it expired",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/previews/{id}/confirm" : {
+      "post" : {
+        "description" : "Operations not listed are imported as previewed. The preview is removed afterwards; 404 when it is unknown or expired.",
+        "operationId" : "confirm",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConfirmRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Import the previewed operations with the changes of the user",
+        "tags" : [ "Imports" ]
+      }
+    },
     "/api/v1/imports/privatbank" : {
       "post" : {
         "operationId" : "importStatement",
@@ -2034,6 +2437,54 @@
           "bearer" : [ ]
         } ],
         "summary" : "Import a PrivatBank card statement (PDF from Privat24); the file is not stored. Without accountId the account with the card number of the statement is used or created.",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/privatbank/preview" : {
+      "post" : {
+        "description" : "Returns the operations as they would be imported and the first page of them; review them and import with POST /api/v1/imports/previews/{id}/confirm within an hour. Only the parsed operations are kept, not the file.",
+        "operationId" : "preview",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "file" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportPreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Preview a PrivatBank card statement without saving anything",
         "tags" : [ "Imports" ]
       }
     },
@@ -2104,6 +2555,78 @@
           "bearer" : [ ]
         } ],
         "summary" : "Import a saved response of the Zen Money sync API (POST /v8/diff/ with serverTimestamp 0)",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/zenmoney/file/preview" : {
+      "post" : {
+        "description" : "Like POST /api/v1/imports/zenmoney/preview; only the parsed records are kept, not the file.",
+        "operationId" : "previewFile",
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "file" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportPreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Preview a saved response of the Zen Money sync API without saving anything",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/zenmoney/preview" : {
+      "post" : {
+        "description" : "Returns a summary (accounts, categories and payees to create, budgets) and the first page of the transactions; review them and import with POST /api/v1/imports/previews/{id}/confirm within an hour. The token is not stored.",
+        "operationId" : "previewWithToken",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TokenRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportPreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Preview everything from Zen Money with an API token without saving anything",
         "tags" : [ "Imports" ]
       }
     },
@@ -2189,6 +2712,32 @@
           "bearer" : [ ]
         } ],
         "summary" : "Change the password",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/reset" : {
+      "post" : {
+        "description" : "Deletes all accounts, transactions, payees, tags, the budget, bank connections and import previews; with keepCategories false also the categories and categorization rules, and the default categories are created again. confirm must be exactly DELETE. The profile, the password and the sessions stay.",
+        "operationId" : "reset",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Start over: delete all finance data",
         "tags" : [ "Current user" ]
       }
     },

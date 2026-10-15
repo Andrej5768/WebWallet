@@ -16,6 +16,7 @@ import com.andrewcorp.webwallet.mail.MailConfig;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
 import jakarta.servlet.http.Cookie;
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -92,9 +93,18 @@ public abstract class AbstractIntegrationTest {
         return new SyncTaskExecutor();
     }
 
+    /** A test can move the time of the application with {@link TestClock#set}; it is reset before every test. */
+    @TestBean(name = "clock")
+    private Clock clock;
+
+    static Clock clock() {
+        return TestClock.INSTANCE;
+    }
+
     @BeforeEach
     void cleanDatabase() {
         jdbc.execute("truncate table users, exchange_rates cascade");
+        TestClock.INSTANCE.reset();
         clearInvocations(mailSender);
         rateLimiter.reset();
         exchangeRates.forgetMissingRates();

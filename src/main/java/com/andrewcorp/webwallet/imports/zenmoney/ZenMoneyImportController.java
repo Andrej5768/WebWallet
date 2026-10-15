@@ -4,6 +4,8 @@ import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.imports.ImportResult;
+import com.andrewcorp.webwallet.imports.preview.ImportPreviewDtos.ImportPreviewResponse;
+import com.andrewcorp.webwallet.imports.preview.ImportPreviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,11 +32,14 @@ public class ZenMoneyImportController {
 
     private final ZenMoneyClient client;
     private final ZenMoneyImporter importer;
+    private final ImportPreviewService previews;
     private final JsonMapper jsonMapper;
 
-    public ZenMoneyImportController(ZenMoneyClient client, ZenMoneyImporter importer, JsonMapper jsonMapper) {
+    public ZenMoneyImportController(
+            ZenMoneyClient client, ZenMoneyImporter importer, ImportPreviewService previews, JsonMapper jsonMapper) {
         this.client = client;
         this.importer = importer;
+        this.previews = previews;
         this.jsonMapper = jsonMapper;
     }
 
@@ -47,6 +52,29 @@ public class ZenMoneyImportController {
     @Operation(summary = "Import a saved response of the Zen Money sync API (POST /v8/diff/ with serverTimestamp 0)")
     @PostMapping(path = "/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ImportResult importFile(@CurrentUserId Long userId, @RequestPart("file") MultipartFile file) {
+        return importer.importDump(userId, parse(file));
+    }
+
+    @Operation(
+            summary = "Preview everything from Zen Money with an API token without saving anything",
+            description = "Returns a summary (accounts, categories and payees to create, budgets) and the first page"
+                    + " of the transactions; review them and import with POST /api/v1/imports/previews/{id}/confirm"
+                    + " within an hour. The token is not stored.")
+    @PostMapping("/preview")
+    public ImportPreviewResponse previewWithToken(
+            @CurrentUserId Long userId, @Valid @RequestBody TokenRequest request) {
+        return previews.previewZenMoney(userId, client.fetchAll(request.token()));
+    }
+
+    @Operation(
+            summary = "Preview a saved response of the Zen Money sync API without saving anything",
+            description = "Like POST /api/v1/imports/zenmoney/preview; only the parsed records are kept, not the file.")
+    @PostMapping(path = "/file/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ImportPreviewResponse previewFile(@CurrentUserId Long userId, @RequestPart("file") MultipartFile file) {
+        return previews.previewZenMoney(userId, parse(file));
+    }
+
+    private ZenMoneyDump parse(MultipartFile file) {
         ZenMoneyDump dump;
         try (InputStream input = file.getInputStream()) {
             dump = jsonMapper.readValue(input, ZenMoneyDump.class);
@@ -56,7 +84,7 @@ public class ZenMoneyImportController {
         if (dump == null || dump.account() == null) {
             throw new ApiException(ErrorCode.INVALID_IMPORT_FILE);
         }
-        return importer.importDump(userId, dump);
+        return dump;
     }
 
     public record TokenRequest(@NotBlank @Size(max = 200) String token) {}

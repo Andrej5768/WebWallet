@@ -86,7 +86,7 @@ docker compose --profile app up -d --build
 
 Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`,
 `ENCRYPTION_KEY` (encrypts bank tokens), `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`,
-`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `APP_PUBLIC_URL` (enables bank webhooks), `TRUSTED_PROXIES`
+`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `APP_PUBLIC_URL` (makes the Monobank `WEBHOOK` mode available), `TRUSTED_PROXIES`
 (a regular expression of reverse proxy addresses allowed to set `X-Forwarded-For`, loopback by default),
 `API_DOCS_ENABLED`, `REFRESH_COOKIE_SECURE`
 (see `src/main/resources/application.properties`).
@@ -124,6 +124,41 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
   `availableCredit`. `GET /api/v1/accounts/summary` returns `netWorth`, `available` (cash and cards),
   `availableWithCredit` and `readyToAssign` in the base currency, with `unconvertedCurrencies` like the reports.
 - The last name of a user is optional (`null` when not given).
+- Monobank synchronization schedule: `GET /api/v1/banks/monobank` returns `syncMode` (`INTERVAL`, `DAILY` or
+  `WEBHOOK`), `windowStart`, `windowEnd` and `dailyAt` (Kyiv local times, `HH:mm`) and `nextSyncAt`.
+  `INTERVAL` (the default) synchronizes every 15 minutes from `windowStart` to `windowEnd` (08:00–23:00 by default)
+  and once at night, halfway between the end and the next start of the window; `DAILY` once a day at `dailyAt`
+  (06:00 by default); `WEBHOOK` registers the bank webhook (only possible with `APP_PUBLIC_URL`) and also checks the
+  accounts once a day at `dailyAt`. The webhook is removed at the bank in the other modes. The schedule is set with
+  `POST /api/v1/banks/monobank` (optional, a reconnect keeps it) or `PUT /api/v1/banks/monobank/schedule`
+  (`syncMode` required, omitted times kept; the window must start before it ends). A synchronization requests every
+  linked account once; Monobank allows one request a minute per token, so with many accounts it takes several minutes
+  and the next one is scheduled after it is complete. `nextSyncAt` in the past means a synchronization (e.g. loading
+  the history after connecting) is in progress.
+- Import preview: `POST /api/v1/imports/privatbank/preview` (multipart `file`, optional `accountId`),
+  `POST /api/v1/imports/zenmoney/preview` (`{token}`) and `POST /api/v1/imports/zenmoney/file/preview` (multipart
+  `file`) parse the input and run the import in a transaction that is rolled back, so nothing is saved. They return
+  `{id, source, expiresAt, summary, operations}`: `summary` is the `ImportResult` that importing everything as
+  previewed would give (accounts, categories, payees created, transactions imported or skipped as duplicates,
+  budgets, warnings) and `operations` the first page (100) of the operations, newest first: `key`, `date`, `payee`,
+  `amount`, `currency`, `account` and `toAccount` (`{id, name, currency, created}`; `id` is `null` when the import
+  creates the account), `toAmount`, `type` (`EXPENSE`, `INCOME`, `TRANSFER`), `categoryId` and `categoryName` (the
+  suggested category; `categoryId` is `null` for a category the import creates), `tagIds` (empty), `comment` and
+  `duplicate`. A Zen Money export may hold tens of thousands of operations, so they are paged:
+  `GET /api/v1/imports/previews/{id}?page=0&size=100` (at most 500). The parsed records (never the file or a token)
+  are kept in the database for an hour. `POST /api/v1/imports/previews/{id}/confirm` with
+  `{operations: [{key, include, type, transferAccountId, categoryId, tagIds, comment, rememberRule}]}` imports through
+  the same importers as the direct endpoints and returns the `ImportResult`; operations not listed are imported as
+  previewed, a listed one gets exactly the given category, tags and comment (`null` = none), `include: false` leaves it
+  out, an expense or income may become a transfer to or from `transferAccountId` (same currency), and `rememberRule`
+  creates a categorization rule for the payee before the import. `DELETE /api/v1/imports/previews/{id}` discards a
+  preview; an unknown or expired one is 404 `NOT_FOUND`. A user keeps at most 3 previews.
+- Start over: `POST /api/v1/me/reset` with `{keepCategories, confirm: "DELETE"}` (any other `confirm` is 400) deletes
+  all accounts, transactions, payees, tags, the budget, bank connections and import previews of the user in one
+  transaction and answers 204. With `keepCategories: false` the categories and categorization rules are deleted too
+  and the default categories are created again; with `true` they stay, and so do the payees the rules refer to. The
+  profile, the password and the sessions stay. It is a `POST` to an action rather than a `DELETE`, because it takes
+  a body and leaves the user with fresh default data.
 
 ### OpenAPI spec
 
@@ -185,11 +220,11 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
   - [x] free-text transaction search (payee, comment, amount)
   - [x] last name optional at registration
   - [x] account balances in the base currency and totals (net worth, available money, ready to assign)
-  - [ ] import preview: parse a statement or a Zen Money export without saving, let the user
+  - [x] import preview: parse a statement or a Zen Money export without saving, let the user
         change type, category and tags of each operation, then import the reviewed list
-  - [ ] Monobank synchronization schedule: every 15 minutes within a time window (default),
+  - [x] Monobank synchronization schedule: every 15 minutes within a time window (default),
         once a day, or webhook (opt-in, as it costs the most)
-  - [ ] "start over": delete all accounts, transactions, envelopes and bank connections,
+  - [x] "start over": delete all accounts, transactions, envelopes and bank connections,
         optionally keeping categories and rules
 
 ### Phase 3 — Planning

@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalTime;
 
 /**
  * Access of a user to a bank API. The token is stored encrypted.
@@ -44,6 +45,25 @@ public class BankConnection {
     @Column(nullable = false)
     private boolean webhookRegistered;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private SyncMode syncMode = SyncMode.INTERVAL;
+
+    /** Window of the {@link SyncMode#INTERVAL} mode, in Kyiv time. */
+    @Column(nullable = false)
+    private LocalTime windowStart = LocalTime.of(8, 0);
+
+    @Column(nullable = false)
+    private LocalTime windowEnd = LocalTime.of(23, 0);
+
+    /** Time of the daily synchronization in the {@link SyncMode#DAILY} and {@link SyncMode#WEBHOOK} modes. */
+    @Column(nullable = false)
+    private LocalTime dailyAt = LocalTime.of(6, 0);
+
+    /** Due moment of the next synchronization; every linked account is then requested up to at least this moment. */
+    @Column(nullable = false)
+    private Instant nextSyncAt;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -59,6 +79,9 @@ public class BankConnection {
     @PrePersist
     void onCreate() {
         createdAt = Instant.now();
+        if (nextSyncAt == null) {
+            nextSyncAt = createdAt;
+        }
     }
 
     public Long getId() {
@@ -119,6 +142,46 @@ public class BankConnection {
 
     public void setWebhookRegistered(boolean webhookRegistered) {
         this.webhookRegistered = webhookRegistered;
+    }
+
+    public SyncMode getSyncMode() {
+        return syncMode;
+    }
+
+    public void setSyncMode(SyncMode syncMode) {
+        this.syncMode = syncMode;
+    }
+
+    public LocalTime getWindowStart() {
+        return windowStart;
+    }
+
+    public void setWindowStart(LocalTime windowStart) {
+        this.windowStart = windowStart;
+    }
+
+    public LocalTime getWindowEnd() {
+        return windowEnd;
+    }
+
+    public void setWindowEnd(LocalTime windowEnd) {
+        this.windowEnd = windowEnd;
+    }
+
+    public LocalTime getDailyAt() {
+        return dailyAt;
+    }
+
+    public void setDailyAt(LocalTime dailyAt) {
+        this.dailyAt = dailyAt;
+    }
+
+    public Instant getNextSyncAt() {
+        return nextSyncAt;
+    }
+
+    public void setNextSyncAt(Instant nextSyncAt) {
+        this.nextSyncAt = nextSyncAt;
     }
 
     public Instant getCreatedAt() {

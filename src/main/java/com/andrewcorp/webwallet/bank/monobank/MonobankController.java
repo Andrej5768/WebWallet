@@ -4,6 +4,7 @@ import com.andrewcorp.webwallet.bank.monobank.MonobankClient.StatementItem;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ConnectRequest;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ConnectionResponse;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.LinkRequest;
+import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ScheduleRequest;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.Hidden;
@@ -58,6 +59,18 @@ public class MonobankController {
     public ConnectionResponse link(
             @CurrentUserId Long userId, @PathVariable Long linkId, @RequestBody LinkRequest request) {
         return monobank.link(userId, linkId, request.accountId());
+    }
+
+    @Operation(
+            summary = "Change when Monobank is synchronized",
+            description = "INTERVAL: every 15 minutes from windowStart to windowEnd (Kyiv time) and once at night"
+                    + " halfway between windowEnd and windowStart; DAILY: once a day at dailyAt; WEBHOOK: the bank"
+                    + " pushes new operations (needs the public URL of the server) and the accounts are also checked"
+                    + " once a day at dailyAt. Omitted times are kept.")
+    @SecurityRequirement(name = "bearer")
+    @PutMapping("/schedule")
+    public ConnectionResponse schedule(@CurrentUserId Long userId, @Valid @RequestBody ScheduleRequest request) {
+        return monobank.schedule(userId, request);
     }
 
     @Operation(summary = "Disconnect Monobank; imported transactions stay")
