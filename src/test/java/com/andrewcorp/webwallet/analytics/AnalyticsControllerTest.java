@@ -154,6 +154,37 @@ class AnalyticsControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void planCountsRecurringPaymentsOnce() throws Exception {
+        Long home = category("Home", "EXPENSE", null, "NEEDS");
+        transaction("EXPENSE", "2026-10-02", card, 14000, home);
+        recurring("Rent", 14000, "2026-10-02", home);
+        recurring("Internet", 300, "2026-10-28", home);
+
+        Map<String, Object> homeRow = row(list(analytics("plan/2026-10"), "categories"), home);
+
+        assertThat(amount(homeRow, "actual")).isEqualByComparingTo("14000");
+        assertThat(amount(homeRow, "plannedRemaining")).isEqualByComparingTo("300");
+        // The rent is paid once a month: it does not go on at the pace of the everyday spending
+        assertThat(amount(homeRow, "forecast")).isEqualByComparingTo("14300");
+    }
+
+    private void recurring(String name, double amount, String start, Long categoryId) throws Exception {
+        json(
+                postJson(
+                        "/api/v1/recurring",
+                        Map.of(
+                                "name", name,
+                                "type", "EXPENSE",
+                                "accountId", card,
+                                "amount", amount,
+                                "categoryId", categoryId,
+                                "frequency", "MONTHLY",
+                                "startDate", start),
+                        auth),
+                201);
+    }
+
+    @Test
     void planOfPastAndFutureMonths() throws Exception {
         assign("2026-11", fun, 800);
 

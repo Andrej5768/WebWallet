@@ -24,6 +24,11 @@ import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
 import com.andrewcorp.webwallet.ledger.category.Necessity;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
+import com.andrewcorp.webwallet.planning.OccurrenceStatus;
+import com.andrewcorp.webwallet.planning.PlanningRepository;
+import com.andrewcorp.webwallet.planning.PlanningRepository.CategoryAmount;
+import com.andrewcorp.webwallet.planning.RecurringDtos.OccurrenceResponse;
+import com.andrewcorp.webwallet.planning.RecurringService;
 import com.andrewcorp.webwallet.report.ReportRepository;
 import com.andrewcorp.webwallet.report.ReportRepository.BoundaryTransferRow;
 import com.andrewcorp.webwallet.report.ReportRepository.SplitRow;
@@ -69,6 +74,8 @@ public class AnalyticsService {
     private final ReportRepository reports;
     private final CategoryRepository categories;
     private final BudgetService budgetService;
+    private final RecurringService recurringService;
+    private final PlanningRepository planning;
     private final UserService users;
     private final ExchangeRateService exchangeRates;
     private final Clock clock;
@@ -77,19 +84,26 @@ public class AnalyticsService {
             ReportRepository reports,
             CategoryRepository categories,
             BudgetService budgetService,
+            RecurringService recurringService,
+            PlanningRepository planning,
             UserService users,
             ExchangeRateService exchangeRates,
             Clock clock) {
         this.reports = reports;
         this.categories = categories;
         this.budgetService = budgetService;
+        this.recurringService = recurringService;
+        this.planning = planning;
         this.users = users;
         this.exchangeRates = exchangeRates;
         this.clock = clock;
     }
 
-    /** Plan vs actual of the envelopes, with a forecast of the spending at the end of the month. */
-    @Transactional(readOnly = true)
+    /**
+     * Plan vs actual of the envelopes, with a forecast of the spending at the end of the month: the everyday spending
+     * continued at its pace so far, the payments of recurring payments already made, and those still due.
+     */
+    @Transactional
     public PlanResponse plan(Long userId, YearMonth month) {
         MonthResponse budget = budgetService.month(userId, month);
         YearMonth current = YearMonth.now(clock);
@@ -97,9 +111,31 @@ public class AnalyticsService {
         int daysElapsed = month.isBefore(current)
                 ? daysInMonth
                 : month.isAfter(current) ? 0 : LocalDate.now(clock).getDayOfMonth();
-        // Planned recurring payments still due this month, per expense category; none are planned yet
-        Map<Long, BigDecimal> plannedRemaining = Map.of();
-        PlanForecast forecast = new PlanForecast(month, current, daysElapsed, daysInMonth, plannedRemaining);
+        Map<Long, BigDecimal> plannedRemaining = new HashMap<>();
+        Map<Long, BigDecimal> recurringActual = new HashMap<>();
+        if (month.equals(current)) {
+            CurrencyConverter converter = converter(userId);
+            LocalDate today = LocalDate.now(clock);
+            for (OccurrenceResponse occurrence :
+                    recurringService.occurrences(userId, month.atDay(1), month.atEndOfMonth())) {
+                if (occurrence.status() == OccurrenceStatus.PENDING
+                        && occurrence.type() == TransactionType.EXPENSE
+                        && occurrence.categoryId() != null) {
+                    plannedRemaining.merge(
+                            occurrence.categoryId(),
+                            converter.convert(occurrence.amount(), occurrence.currency(), today),
+                            BigDecimal::add);
+                }
+            }
+            for (CategoryAmount paid : planning.findRecurringExpenses(userId, month.atDay(1), today)) {
+                recurringActual.merge(
+                        paid.getCategoryId(),
+                        converter.convert(paid.getAmount(), paid.getCurrency(), paid.getDate()),
+                        BigDecimal::add);
+            }
+        }
+        PlanForecast forecast =
+                new PlanForecast(month, current, daysElapsed, daysInMonth, plannedRemaining, recurringActual);
         List<PlanRow> rows = budget.categories().stream()
                 .map(forecast::row)
                 .filter(AnalyticsService::hasValues)
@@ -317,7 +353,8 @@ public class AnalyticsService {
             YearMonth current,
             int daysElapsed,
             int daysInMonth,
-            Map<Long, BigDecimal> plannedRemaining) {
+            Map<Long, BigDecimal> plannedRemaining,
+            Map<Long, BigDecimal> recurringActual) {
 
         PlanRow row(CategoryRow row) {
             List<PlanRow> children = row.children().stream()
@@ -337,18 +374,27 @@ public class AnalyticsService {
                     planned.subtract(actual),
                     share(actual, planned),
                     remaining,
-                    forecast(planned, actual, remaining),
+                    forecast(planned, actual, recurring(row), remaining),
                     children);
         }
 
-        private BigDecimal forecast(BigDecimal planned, BigDecimal actual, BigDecimal remaining) {
+        /** Spending of the category and its subcategories on recurring payments this month. */
+        private BigDecimal recurring(CategoryRow row) {
+            return row.children().stream()
+                    .map(this::recurring)
+                    .reduce(recurringActual.getOrDefault(row.categoryId(), BigDecimal.ZERO), BigDecimal::add);
+        }
+
+        /** Only the everyday spending goes on at its pace; recurring payments come once, by their schedule. */
+        private BigDecimal forecast(BigDecimal planned, BigDecimal actual, BigDecimal recurring, BigDecimal remaining) {
             if (month.isBefore(current)) {
                 return actual;
             }
             if (month.isAfter(current)) {
                 return planned;
             }
-            BigDecimal pace = actual.multiply(BigDecimal.valueOf(daysInMonth - daysElapsed))
+            BigDecimal everyday = actual.subtract(recurring).max(BigDecimal.ZERO);
+            BigDecimal pace = everyday.multiply(BigDecimal.valueOf(daysInMonth - daysElapsed))
                     .divide(BigDecimal.valueOf(daysElapsed), 4, RoundingMode.HALF_UP);
             return actual.add(pace).add(remaining);
         }

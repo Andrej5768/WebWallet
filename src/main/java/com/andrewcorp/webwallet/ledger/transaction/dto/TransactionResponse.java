@@ -29,7 +29,16 @@ public record TransactionResponse(
         List<SplitResponse> splits,
         List<Long> tagIds,
         TransactionSource source,
-        Instant createdAt) {
+        Instant createdAt,
+        @Schema(nullable = true) RecurringRef recurring) {
+
+    /**
+     * The occurrence of a recurring payment the transaction pays.
+     *
+     * @param id      the recurring payment
+     * @param dueDate the scheduled date of the occurrence
+     */
+    public record RecurringRef(Long id, String name, LocalDate dueDate) {}
 
     public record SplitResponse(
             Long id,
@@ -46,7 +55,7 @@ public record TransactionResponse(
         }
     }
 
-    public static TransactionResponse from(Transaction t) {
+    public static TransactionResponse from(Transaction t, RecurringRef recurring) {
         boolean transfer = t.getToAccount() != null;
         return new TransactionResponse(
                 t.getId(),
@@ -67,6 +76,7 @@ public record TransactionResponse(
                 t.getSplits().stream().map(SplitResponse::from).toList(),
                 t.getTags().stream().map(Tag::getId).sorted().toList(),
                 t.getSource(),
-                t.getCreatedAt());
+                t.getCreatedAt(),
+                recurring);
     }
 }

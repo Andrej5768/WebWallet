@@ -239,8 +239,10 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
 - Analytics (`/api/v1/analytics`, base currency, refunds reduce the spending, transfers left out, with
   `unconvertedCurrencies` like the reports): `GET /plan/{month}` compares the envelopes (`planned` = assigned,
   `actual` = spending, `difference`, `completion`) per top-level expense category with nested subcategories and
-  forecasts the end of the month: for the current month the spending continued at its pace so far
-  (`daysElapsed` of `daysInMonth`) plus `plannedRemaining`, for a past month the actual and for a future one the plan.
+  forecasts the end of the month: for the current month the spending so far, plus the everyday spending (without
+  the payments of recurring payments) continued at its pace (`daysElapsed` of `daysInMonth`), plus `plannedRemaining`:
+  the pending occurrences of recurring payments in the category this month; for a past month the actual and for a
+  future one the plan.
   `GET /compare?fromA&toA&fromB&toB` (each at most 366 days) returns the cumulative spending by day of both periods
   (`null` after the end of the shorter one) and per top-level category `a`, `b`, `change = a - b` and
   `changeShare = change / b`, largest change first. `GET /trends?from&to` (`yyyy-MM`, by default the last 12
@@ -253,6 +255,41 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   by the `necessity` of the categories (a subcategory without one takes its parent's; no category or no flag is
   `unclassified`) and returns needs, wants and savings (income minus all spending) with their share of the income
   and the targets 0.5 / 0.3 / 0.2.
+- Recurring payments: `GET/POST /api/v1/recurring`, `GET/PUT/DELETE /api/v1/recurring/{id}` (`PUT` replaces all
+  fields). A payment has the fields of a transaction (`type`, `accountId`, `amount`, `toAccountId` and `toAmount` of a
+  transfer, `categoryId`, `payeeId` or `payeeName`, `comment`) and a schedule: `frequency` (`DAILY`, `WEEKLY`,
+  `MONTHLY`, `YEARLY`), `interval` (every N, 1 by default), `startDate` and an optional `endDate`; the dates are counted
+  from the start, so a payment on the 31st falls on the last day of shorter months. `nextDate` is the earliest
+  occurrence neither paid nor skipped (`null` once the schedule has ended). An occurrence is paid in one of four ways:
+  a transaction of the same type on the account (between the same accounts for a transfer) within `tolerance` percent
+  of the amount (10 by default, 25 with `variableAmount`) and up to 5 days from the date (fewer for weekly and daily
+  payments) is matched automatically, the same payee first, then the closest amount and date; a transaction with
+  another payee and another category is never matched. `POST .../occurrences/{date}/link` with `{transactionId}`
+  links an existing transaction (`GET .../occurrences/{date}/candidates` offers those of the same type within 10 days
+  and half the amount); `POST .../occurrences/{date}/confirm` (optional `{date, amount, toAmount}`) creates the
+  transaction; with `autoCreate` it is created on the due date (only for dates from the day the payment was created
+  on). `POST .../skip` skips one, `DELETE .../occurrences/{date}` makes it pending again (a linked transaction stays)
+  and stops matching and creating it automatically; so does deleting the transaction that paid it. Matching runs
+  before the occurrences are read and every hour. `GET /api/v1/recurring/occurrences?from&to` lists the occurrences
+  of all payments by date (by default from 31 days ago to 31 days ahead, at most 400 days) with `status` (`PENDING`,
+  `PAID`, `SKIPPED`), `overdue` and `transactionId`; pending ones overdue for more than 31 days are dropped. A
+  transaction that pays an occurrence has `recurring: {id, name, dueDate}`.
+- Balance forecast: `GET /api/v1/forecast?to=` (by default the end of the month, at most 366 days ahead) returns the
+  balance of cash and cards (like `available` of the summary) in the base currency for every day from the first of
+  the month: `days: [{date, balance, actual}]`, actual up to today, then today's balance minus `dailySpending` (the
+  average expenses of the last 90 days, or since the first transaction, without the payments of recurring payments)
+  plus the pending occurrences (`events`: `{date, recurringId, name, amount, overdue, categoryId}`, an overdue one is
+  expected tomorrow) and transactions entered ahead of time; `lowest` is the lowest day ahead. Transfers between cash
+  and cards do not change it.
+- Savings goals: `GET /api/v1/goals` returns `{currency, saved, target, monthlyNeeded, goals}` (totals in the base
+  currency); `POST`, `GET/PUT/DELETE /api/v1/goals/{id}` (`PUT` replaces all fields; omitted `achieved` and
+  `sortOrder` keep their values). A goal has `name`, `targetAmount`, `currency` (by default that of the account, or the
+  base currency), optional `targetDate`, `icon` (Lucide) and `color`, and either `accountId` (e.g. a Monobank jar: its
+  balance at today's rate is the progress) or `saved`, kept by hand with `POST /api/v1/goals/{id}/contributions`
+  `{amount}` (negative takes money out). The pace is linear from the progress when the goal was set (`startDate`,
+  `startAmount`; again when it moves to another account) to the target on the deadline: `expected` by today,
+  `monthsLeft` (a started month counts), `monthlyNeeded` and `status`: `ACHIEVED` (marked with `achieved: true`, or
+  the target is reached), `NO_DATE`, `ON_TRACK`, `BEHIND` (more than 3% of the target below the pace) or `OVERDUE`.
 
 ### OpenAPI spec
 
@@ -324,9 +361,10 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
         own values of a parent envelope; exact required / nullable typing in the OpenAPI spec
 
 ### Phase 3 — Planning
-- [ ] Recurring payments (reminders or automatic creation)
-- [ ] Balance forecast
-- [ ] Savings goals: target amount and date, linked account or Monobank jar, monthly amount needed,
+- [x] Recurring payments: reminders matched with bank operations, manual linking, confirmation or automatic
+      creation
+- [x] Balance forecast
+- [x] Savings goals: target amount and date, linked account or Monobank jar, monthly amount needed,
       on-track / behind status
 - [x] 50/30/20 analytics based on the needs / wants flag of categories
 - [x] Analytics endpoints for the reports:

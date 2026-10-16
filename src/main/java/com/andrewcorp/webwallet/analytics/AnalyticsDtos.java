@@ -37,10 +37,12 @@ public final class AnalyticsDtos {
      * An envelope; the values of a parent include its subcategories.
      *
      * @param completion       {@code actual / planned}, null without a plan
-     * @param plannedRemaining planned recurring payments still due this month, added by the forecast
-     * @param forecast         for the current month the spending so far continued at its pace to the end of the month
-     *                         plus {@code plannedRemaining}; for a past month the actual spending, for a future month
-     *                         the plan
+     * @param plannedRemaining pending occurrences of recurring payments in the category this month (overdue ones
+     *                         included), at today's rates
+     * @param forecast         for the current month the spending so far, plus the everyday spending (without the
+     *                         payments of recurring payments) continued at its pace to the end of the month, plus
+     *                         {@code plannedRemaining}; for a past month the actual spending, for a future month the
+     *                         plan
      */
     public record PlanRow(
             Long categoryId,

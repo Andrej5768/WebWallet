@@ -16,10 +16,15 @@ import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionFilter;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionRequest;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionRequest.SplitRequest;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionResponse;
+import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionResponse.RecurringRef;
+import com.andrewcorp.webwallet.planning.RecurringOccurrence;
+import com.andrewcorp.webwallet.planning.RecurringOccurrenceRepository;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -35,6 +40,7 @@ public class TransactionService {
     private final PayeeService payeeService;
     private final TagService tagService;
     private final RuleService ruleService;
+    private final RecurringOccurrenceRepository occurrences;
 
     public TransactionService(
             TransactionRepository transactions,
@@ -43,7 +49,8 @@ public class TransactionService {
             PayeeRepository payees,
             PayeeService payeeService,
             TagService tagService,
-            RuleService ruleService) {
+            RuleService ruleService,
+            RecurringOccurrenceRepository occurrences) {
         this.transactions = transactions;
         this.accounts = accounts;
         this.categories = categories;
@@ -51,25 +58,35 @@ public class TransactionService {
         this.payeeService = payeeService;
         this.tagService = tagService;
         this.ruleService = ruleService;
+        this.occurrences = occurrences;
     }
 
     @Transactional(readOnly = true)
     public Page<TransactionResponse> list(Long userId, TransactionFilter filter, Pageable pageable) {
-        return transactions
-                .findAll(TransactionSpecifications.matching(userId, filter, categoryIds(userId, filter)), pageable)
-                .map(TransactionResponse::from);
+        Page<Transaction> page = transactions.findAll(
+                TransactionSpecifications.matching(userId, filter, categoryIds(userId, filter)), pageable);
+        Map<Long, RecurringRef> recurring =
+                recurring(page.map(Transaction::getId).getContent());
+        return page.map(transaction -> TransactionResponse.from(transaction, recurring.get(transaction.getId())));
     }
 
     @Transactional(readOnly = true)
     public TransactionResponse get(Long userId, Long id) {
-        return TransactionResponse.from(find(userId, id));
+        return response(find(userId, id));
+    }
+
+    /** The response of the transaction, with the recurring payment it pays. */
+    @Transactional(readOnly = true)
+    public TransactionResponse response(Transaction transaction) {
+        return TransactionResponse.from(
+                transaction, recurring(List.of(transaction.getId())).get(transaction.getId()));
     }
 
     @Transactional
     public TransactionResponse create(Long userId, TransactionRequest request) {
         Transaction transaction = new Transaction(userId);
         apply(userId, transaction, request);
-        return TransactionResponse.from(transactions.save(transaction));
+        return TransactionResponse.from(transactions.save(transaction), null);
     }
 
     @Transactional
@@ -84,12 +101,32 @@ public class TransactionService {
                 && (before == null || !before.getId().equals(after.getId()))) {
             ruleService.learn(userId, transaction.getPayee(), after);
         }
-        return TransactionResponse.from(transaction);
+        return response(transaction);
     }
 
+    /**
+     * Deletes the transaction. The occurrence of a recurring payment it paid becomes pending again, and is not matched
+     * or created automatically again.
+     */
     @Transactional
     public void delete(Long userId, Long id) {
-        transactions.delete(find(userId, id));
+        Transaction transaction = find(userId, id);
+        occurrences.findByTransactionIds(List.of(id)).forEach(RecurringOccurrence::pending);
+        occurrences.flush();
+        transactions.delete(transaction);
+    }
+
+    private Map<Long, RecurringRef> recurring(List<Long> transactionIds) {
+        if (transactionIds.isEmpty()) {
+            return Map.of();
+        }
+        return occurrences.findByTransactionIds(transactionIds).stream()
+                .collect(Collectors.toMap(
+                        occurrence -> occurrence.getTransaction().getId(),
+                        occurrence -> new RecurringRef(
+                                occurrence.getRecurring().getId(),
+                                occurrence.getRecurring().getName(),
+                                occurrence.getDueDate())));
     }
 
     private static Category singleCategory(Transaction transaction) {
