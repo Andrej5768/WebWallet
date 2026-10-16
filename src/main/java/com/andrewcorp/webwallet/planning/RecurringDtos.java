@@ -111,11 +111,11 @@ public final class RecurringDtos {
      * @param amount   the actual amount, e.g. of a utility bill
      * @param toAmount the amount received by a transfer between currencies
      */
-    public record ConfirmRequest(
+    public record OccurrenceConfirmRequest(
             LocalDate date,
             @Positive @Digits(integer = 15, fraction = 4) BigDecimal amount,
             @Positive @Digits(integer = 15, fraction = 4) BigDecimal toAmount) {}
 
     /** @param transactionId an existing transaction that pays the occurrence */
-    public record LinkRequest(@NotNull Long transactionId) {}
+    public record OccurrenceLinkRequest(@NotNull Long transactionId) {}
 }

@@ -3,8 +3,8 @@ package com.andrewcorp.webwallet.planning;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionResponse;
-import com.andrewcorp.webwallet.planning.RecurringDtos.ConfirmRequest;
-import com.andrewcorp.webwallet.planning.RecurringDtos.LinkRequest;
+import com.andrewcorp.webwallet.planning.RecurringDtos.OccurrenceConfirmRequest;
+import com.andrewcorp.webwallet.planning.RecurringDtos.OccurrenceLinkRequest;
 import com.andrewcorp.webwallet.planning.RecurringDtos.OccurrenceResponse;
 import com.andrewcorp.webwallet.planning.RecurringDtos.RecurringRequest;
 import com.andrewcorp.webwallet.planning.RecurringDtos.RecurringResponse;
@@ -105,9 +105,9 @@ public class RecurringController {
             @CurrentUserId Long userId,
             @PathVariable Long id,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @Valid @RequestBody(required = false) ConfirmRequest request) {
+            @Valid @RequestBody(required = false) OccurrenceConfirmRequest request) {
         return recurringService.confirm(
-                userId, id, date, request != null ? request : new ConfirmRequest(null, null, null));
+                userId, id, date, request != null ? request : new OccurrenceConfirmRequest(null, null, null));
     }
 
     @Operation(
@@ -118,7 +118,7 @@ public class RecurringController {
             @CurrentUserId Long userId,
             @PathVariable Long id,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @Valid @RequestBody LinkRequest request) {
+            @Valid @RequestBody OccurrenceLinkRequest request) {
         return recurringService.link(userId, id, date, request.transactionId());
     }
 

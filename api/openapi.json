@@ -466,17 +466,13 @@
       },
       "ConfirmRequest" : {
         "properties" : {
-          "amount" : {
-            "exclusiveMinimum" : 0,
-            "type" : "number"
-          },
-          "date" : {
-            "format" : "date",
-            "type" : "string"
-          },
-          "toAmount" : {
-            "exclusiveMinimum" : 0,
-            "type" : "number"
+          "operations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OperationEdit"
+            },
+            "maxItems" : 100000,
+            "minItems" : 0,
+            "type" : "array"
           }
         },
         "type" : "object"
@@ -1297,6 +1293,33 @@
         "required" : [ "currency", "months", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "OccurrenceConfirmRequest" : {
+        "properties" : {
+          "amount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "toAmount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "OccurrenceLinkRequest" : {
+        "properties" : {
+          "transactionId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "transactionId" ],
+        "type" : "object"
+      },
       "OccurrenceResponse" : {
         "properties" : {
           "accountId" : {
@@ -1361,6 +1384,50 @@
           }
         },
         "required" : [ "accountId", "amount", "autoCreate", "categoryId", "currency", "date", "name", "overdue", "payee", "recurringId", "status", "toAccountId", "toAmount", "transactionId", "type", "variableAmount" ],
+        "type" : "object"
+      },
+      "OperationEdit" : {
+        "properties" : {
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "comment" : {
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "include" : {
+            "type" : "boolean"
+          },
+          "keepSuggestedCategory" : {
+            "type" : "boolean"
+          },
+          "key" : {
+            "maxLength" : 300,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "rememberRule" : {
+            "type" : "boolean"
+          },
+          "tagIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "transferAccountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "type" : {
+            "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "key" ],
         "type" : "object"
       },
       "PageResponseImportOperation" : {
@@ -4598,7 +4665,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/ConfirmRequest"
+                "$ref" : "#/components/schemas/OccurrenceConfirmRequest"
               }
             }
           }
@@ -4647,7 +4714,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/LinkRequest"
+                "$ref" : "#/components/schemas/OccurrenceLinkRequest"
               }
             }
           },

@@ -17,7 +17,7 @@ import com.andrewcorp.webwallet.ledger.transaction.TransactionService;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionRequest;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionResponse;
-import com.andrewcorp.webwallet.planning.RecurringDtos.ConfirmRequest;
+import com.andrewcorp.webwallet.planning.RecurringDtos.OccurrenceConfirmRequest;
 import com.andrewcorp.webwallet.planning.RecurringDtos.OccurrenceResponse;
 import com.andrewcorp.webwallet.planning.RecurringDtos.RecurringRequest;
 import com.andrewcorp.webwallet.planning.RecurringDtos.RecurringResponse;
@@ -169,7 +169,7 @@ public class RecurringService {
 
     /** Creates the transaction of the occurrence with the values of the recurring payment and the given ones. */
     @Transactional
-    public OccurrenceResponse confirm(Long userId, Long id, LocalDate date, ConfirmRequest request) {
+    public OccurrenceResponse confirm(Long userId, Long id, LocalDate date, OccurrenceConfirmRequest request) {
         RecurringPayment recurring = find(userId, id);
         RecurringOccurrence occurrence = occurrence(recurring, date);
         if (occurrence.getStatus() == OccurrenceStatus.PAID) {
