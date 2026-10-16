@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -17,6 +18,7 @@ import org.springframework.web.client.RestClientException;
  * when the limit is reached.
  */
 @Component
+@ConditionalOnProperty(name = "app.market-data.prices-provider", havingValue = "twelve-data", matchIfMissing = true)
 public class TwelveDataClient implements MarketDataProvider {
 
     private static final int MAX_SEARCH_RESULTS = 20;

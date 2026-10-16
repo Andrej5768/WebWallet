@@ -187,6 +187,128 @@
         "required" : [ "key", "name", "pricesFrom", "symbol" ],
         "type" : "object"
       },
+      "CalendarEvent" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "exDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "gross" : {
+            "type" : "number"
+          },
+          "grossInTarget" : {
+            "type" : "number"
+          },
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "net" : {
+            "type" : "number"
+          },
+          "netInTarget" : {
+            "type" : "number"
+          },
+          "perShare" : {
+            "type" : [ "number", "null" ]
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "status" : {
+            "enum" : [ "RECEIVED", "EXPECTED", "DECLARED", "FORECAST" ],
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "tax" : {
+            "type" : "number"
+          },
+          "taxEstimated" : {
+            "type" : "boolean"
+          },
+          "type" : {
+            "enum" : [ "STOCK", "ETF", "FUND", "BOND", "GOVERNMENT_BOND", "CRYPTO", "OTHER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "currency", "date", "exDate", "gross", "grossInTarget", "instrumentId", "name", "net", "netInTarget", "perShare", "quantity", "status", "symbol", "tax", "taxEstimated", "type" ],
+        "type" : "object"
+      },
+      "CalendarResponse" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "events" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CalendarEvent"
+            },
+            "type" : "array"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "monthly" : {
+            "type" : "number"
+          },
+          "months" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MonthPayments"
+            },
+            "type" : "array"
+          },
+          "next12Months" : {
+            "type" : "number"
+          },
+          "next12MonthsNet" : {
+            "type" : "number"
+          },
+          "received12Months" : {
+            "type" : "number"
+          },
+          "receivedByInstrument" : {
+            "items" : {
+              "$ref" : "#/components/schemas/InstrumentIncome"
+            },
+            "type" : "array"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "yield" : {
+            "type" : [ "number", "null" ]
+          },
+          "yieldOnCost" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "currency", "events", "from", "monthly", "months", "next12Months", "next12MonthsNet", "received12Months", "receivedByInstrument", "to", "unconvertedCurrencies", "yield", "yieldOnCost" ],
+        "type" : "object"
+      },
       "CashResponse" : {
         "properties" : {
           "accountId" : {
@@ -1131,6 +1253,22 @@
         "required" : [ "currency", "expense", "from", "income", "months", "net", "savingsRate", "to", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "InstrumentIncome" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "amount", "instrumentId", "symbol" ],
+        "type" : "object"
+      },
       "InstrumentResponse" : {
         "properties" : {
           "couponFrequency" : {
@@ -1331,6 +1469,27 @@
           }
         },
         "required" : [ "assets", "liabilities", "month", "netWorth" ],
+        "type" : "object"
+      },
+      "MonthPayments" : {
+        "properties" : {
+          "declared" : {
+            "type" : "number"
+          },
+          "expected" : {
+            "type" : "number"
+          },
+          "forecast" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "received" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "declared", "expected", "forecast", "month", "received" ],
         "type" : "object"
       },
       "MonthResponse" : {
@@ -4835,6 +4994,61 @@
         } ],
         "summary" : "Preview everything from Zen Money with an API token without saving anything",
         "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/investments/dividends" : {
+      "get" : {
+        "description" : "By default from a year ago to a year ahead, at most 5 years. Received ones are the operations; expected ones were due to a holder on the ex-dividend date but are not recorded; declared ones come from the dividend provider or the coupon schedule of a bond; the forecast repeats the payments of the last 12 months for what is held now.",
+        "operationId" : "dividends",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "currency",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CalendarResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Dividends and coupons: received, expected, declared and forecast, by day and by month",
+        "tags" : [ "Investments" ]
       }
     },
     "/api/v1/investments/history" : {

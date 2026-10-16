@@ -86,7 +86,7 @@ docker compose --profile app up -d --build
 
 Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`,
 `ENCRYPTION_KEY` (encrypts bank tokens), `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`,
-`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `TWELVE_DATA_API_KEY` (market data, see below), `APP_PUBLIC_URL` (makes the Monobank `WEBHOOK` mode available), `TRUSTED_PROXIES`
+`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `TWELVE_DATA_API_KEY` and `ALPHA_VANTAGE_API_KEY` (market data and dividends, see below), `APP_PUBLIC_URL` (makes the Monobank `WEBHOOK` mode available), `TRUSTED_PROXIES`
 (a regular expression of reverse proxy addresses allowed to set `X-Forwarded-For`, loopback by default),
 `API_DOCS_ENABLED`, `REFRESH_COOKIE_SECURE`
 (see `src/main/resources/application.properties`).
@@ -315,6 +315,22 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   fund bought and sold at the closes of their days (price only, dividends not reinvested). The balance of an
   `INVESTMENT` account is its ledger balance plus the cash of its operations and the value of its positions at today's
   prices and rates; the net worth report still counts only the ledger for past months.
+- Dividend calendar: `GET /api/v1/investments/dividends?accountId&from&to&currency` (by default a year back and a year
+  ahead, at most 5 years) lists the payments by date with a `status`: `RECEIVED` (the `DIVIDEND` and `COUPON`
+  operations), `EXPECTED` (due to the holder on the ex-dividend date but not recorded), `DECLARED` (from the dividend
+  provider, or the coupon schedule of a bond: nominal × rate / frequency × quantity) and `FORECAST` (the payments of
+  the last 12 months repeated a year later for what is held now, after the last declared one). A recorded dividend
+  dated from 5 days before the ex-dividend date to 31 days after the payment date stands for the declared one. The tax
+  of the coming ones is estimated from the last dividend of the instrument (`taxEstimated`). It also returns the gross
+  and net payments of the next 12 months, the monthly average, the yield (on the value and on the cost of the
+  positions), the payments per month by status and what each instrument paid over the last 12 months; the totals cover
+  the 12 months around today whatever the range. Dividends come from Alpha Vantage (free key in
+  `ALPHA_VANTAGE_API_KEY`, about 25 requests a day): the US-dollar stocks, ETFs and funds someone holds are checked
+  once a week, one an hour.
+- Market data providers: the services use `MarketDataProvider` (instruments and daily closes) and `DividendProvider`
+  (dividends); the implementation is chosen with `app.market-data.prices-provider` (`twelve-data`) and
+  `app.market-data.dividends-provider` (`alpha-vantage`). Another service is another implementation of the interface;
+  instruments are identified by the ticker and the ISO 10383 market identifier code of the exchange.
 
 ### OpenAPI spec
 

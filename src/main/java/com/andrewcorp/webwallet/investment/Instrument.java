@@ -72,6 +72,8 @@ public class Instrument {
 
     private Instant pricesCheckedAt;
 
+    private Instant dividendsCheckedAt;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -238,5 +240,13 @@ public class Instrument {
 
     public void setPricesCheckedAt(Instant pricesCheckedAt) {
         this.pricesCheckedAt = pricesCheckedAt;
+    }
+
+    public Instant getDividendsCheckedAt() {
+        return dividendsCheckedAt;
+    }
+
+    public void setDividendsCheckedAt(Instant dividendsCheckedAt) {
+        this.dividendsCheckedAt = dividendsCheckedAt;
     }
 }

@@ -37,4 +37,19 @@ public interface InstrumentRepository extends JpaRepository<Instrument, Long> {
               and (i.pricesCheckedAt is null or i.pricesCheckedAt < :checkedBefore)
             order by i.pricesCheckedAt nulls first, i.id""")
     List<Instrument> findDueForPrices(Instant checkedBefore, Pageable pageable);
+
+    /**
+     * Market instruments in US dollars someone has operations of, whose dividends were not checked since the moment:
+     * the dividend data provider knows the US listings.
+     */
+    @Query("""
+            select i from Instrument i
+            where i.valuation = com.andrewcorp.webwallet.investment.Valuation.MARKET and i.currency = 'USD'
+              and i.type in (com.andrewcorp.webwallet.investment.InstrumentType.STOCK,
+                             com.andrewcorp.webwallet.investment.InstrumentType.ETF,
+                             com.andrewcorp.webwallet.investment.InstrumentType.FUND)
+              and exists (select o from InvestmentOperation o where o.instrument = i)
+              and (i.dividendsCheckedAt is null or i.dividendsCheckedAt < :checkedBefore)
+            order by i.dividendsCheckedAt nulls first, i.id""")
+    List<Instrument> findDueForDividends(Instant checkedBefore, Pageable pageable);
 }

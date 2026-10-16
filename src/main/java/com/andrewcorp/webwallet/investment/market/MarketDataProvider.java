@@ -4,7 +4,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Source of instruments and their daily closing prices. */
+/**
+ * Source of instruments and their daily closing prices. The implementation is chosen with
+ * {@code app.market-data.prices-provider} ({@code twelve-data} by default); another service is added as another
+ * implementation. Instruments are identified by the ticker and the ISO 10383 market identifier code of the exchange,
+ * which other services understand as well.
+ */
 public interface MarketDataProvider {
 
     /** Whether the provider is configured; without it instruments are entered and valued by hand. */

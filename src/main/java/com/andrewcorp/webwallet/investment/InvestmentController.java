@@ -51,6 +51,7 @@ public class InvestmentController {
     private final InstrumentService instrumentService;
     private final OperationService operationService;
     private final HistoryService historyService;
+    private final DividendCalendarService dividendCalendarService;
     private final Clock clock;
 
     public InvestmentController(
@@ -58,11 +59,13 @@ public class InvestmentController {
             InstrumentService instrumentService,
             OperationService operationService,
             HistoryService historyService,
+            DividendCalendarService dividendCalendarService,
             Clock clock) {
         this.portfolioService = portfolioService;
         this.instrumentService = instrumentService;
         this.operationService = operationService;
         this.historyService = historyService;
+        this.dividendCalendarService = dividendCalendarService;
         this.clock = clock;
     }
 
@@ -89,6 +92,22 @@ public class InvestmentController {
             @RequestParam(required = false) @CurrencyCode String currency,
             @RequestParam(required = false) Benchmark benchmark) {
         return historyService.history(userId, accountId, from, to, currency, benchmark);
+    }
+
+    @Operation(
+            summary = "Dividends and coupons: received, expected, declared and forecast, by day and by month",
+            description = "By default from a year ago to a year ahead, at most 5 years. Received ones are the"
+                    + " operations; expected ones were due to a holder on the ex-dividend date but are not recorded;"
+                    + " declared ones come from the dividend provider or the coupon schedule of a bond; the forecast"
+                    + " repeats the payments of the last 12 months for what is held now.")
+    @GetMapping("/dividends")
+    public DividendCalendarService.CalendarResponse dividends(
+            @CurrentUserId Long userId,
+            @RequestParam(required = false) Long accountId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) @CurrencyCode String currency) {
+        return dividendCalendarService.calendar(userId, accountId, from, to, currency);
     }
 
     @Operation(summary = "One instrument on one account: the position, its lots (FIFO), sales and operations")

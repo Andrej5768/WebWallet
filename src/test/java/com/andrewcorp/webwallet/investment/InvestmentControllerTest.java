@@ -12,6 +12,8 @@ import com.andrewcorp.webwallet.TestClock;
 import com.andrewcorp.webwallet.common.util.Zones;
 import com.andrewcorp.webwallet.currency.ExchangeRate;
 import com.andrewcorp.webwallet.currency.ExchangeRateRepository;
+import com.andrewcorp.webwallet.investment.market.DividendProvider;
+import com.andrewcorp.webwallet.investment.market.DividendProvider.Dividend;
 import com.andrewcorp.webwallet.investment.market.MarketDataProvider;
 import com.andrewcorp.webwallet.investment.market.MarketDataProvider.DailyClose;
 import com.andrewcorp.webwallet.investment.market.MarketDataProvider.Listing;
@@ -35,6 +37,12 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
 
     @MockitoBean
     private MarketDataProvider provider;
+
+    @MockitoBean
+    private DividendProvider dividendProvider;
+
+    @Autowired
+    private DividendService dividendService;
 
     @Autowired
     private ExchangeRateRepository rates;
@@ -428,5 +436,137 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
                 .containsExactly(100.0, 100.0, 100.0, 100.0, 110.0, 110.0);
 
         json(get("/api/v1/investments/history").param("from", "2031-01-01").header("Authorization", auth), 400);
+    }
+
+    private static LocalDate date(String value) {
+        return LocalDate.parse(value);
+    }
+
+    @Test
+    void buildsTheDividendCalendar() throws Exception {
+        Long aapl = apple();
+        operation(trade("BUY", "2029-01-10", aapl, 10, 100, 0));
+        operation(Map.of(
+                "type",
+                "DIVIDEND",
+                "accountId",
+                broker,
+                "instrumentId",
+                aapl,
+                "date",
+                "2029-05-16",
+                "amount",
+                2.4,
+                "tax",
+                0.36));
+        when(dividendProvider.enabled()).thenReturn(true);
+        when(dividendProvider.dividends("AAPL"))
+                .thenReturn(List.of(
+                        new Dividend(date("2029-05-10"), date("2029-05-16"), null, null, new BigDecimal("0.24")),
+                        new Dividend(date("2029-08-10"), date("2029-08-15"), null, null, new BigDecimal("0.25")),
+                        new Dividend(
+                                date("2030-04-10"),
+                                date("2030-04-15"),
+                                date("2030-03-01"),
+                                null,
+                                new BigDecimal("0.26"))));
+        assertThat(dividendService.due(5)).containsExactly(aapl);
+        dividendService.update(aapl);
+        assertThat(dividendService.due(5)).isEmpty();
+
+        Map<String, Object> calendar = json(
+                get("/api/v1/investments/dividends").param("currency", "USD").header("Authorization", auth), 200);
+
+        List<Map<String, Object>> events = (List<Map<String, Object>>) calendar.get("events");
+        assertThat(events)
+                .extracting(event -> event.get("date") + " " + event.get("status"))
+                .containsExactly(
+                        "2029-05-16 RECEIVED",
+                        "2029-08-15 EXPECTED",
+                        "2030-04-15 DECLARED",
+                        "2030-05-16 FORECAST",
+                        "2030-08-15 FORECAST");
+        // 15 % withheld last time: the estimate of the next ones
+        assertThat(events.get(2))
+                .containsEntry("gross", 2.6)
+                .containsEntry("tax", 0.39)
+                .containsEntry("taxEstimated", true)
+                .containsEntry("perShare", 0.26);
+        assertThat(events.get(0)).containsEntry("net", 2.04).containsEntry("taxEstimated", false);
+        assertThat(number(calendar.get("next12Months"))).isEqualTo(7.5);
+        assertThat(number(calendar.get("next12MonthsNet"))).isEqualTo(6.38);
+        assertThat(number(calendar.get("received12Months"))).isEqualTo(2.04);
+        assertThat(number(calendar.get("yieldOnCost"))).isEqualTo(0.0075);
+        List<Map<String, Object>> months = (List<Map<String, Object>>) calendar.get("months");
+        assertThat(months.get(0)).containsEntry("month", "2029-03");
+        assertThat(months)
+                .filteredOn(month -> month.get("month").equals("2030-04"))
+                .first()
+                .satisfies(month -> assertThat(month).containsEntry("declared", 2.6));
+
+        // A short range still has the 12-month totals
+        Map<String, Object> april = json(
+                get("/api/v1/investments/dividends")
+                        .param("currency", "USD")
+                        .param("from", "2030-04-01")
+                        .param("to", "2030-04-30")
+                        .header("Authorization", auth),
+                200);
+        assertThat((List<?>) april.get("events")).hasSize(1);
+        assertThat(number(april.get("next12Months"))).isEqualTo(7.5);
+        json(
+                get("/api/v1/investments/dividends")
+                        .param("from", "2020-01-01")
+                        .param("to", "2030-01-01")
+                        .header("Authorization", auth),
+                400);
+    }
+
+    @Test
+    void schedulesBondCoupons() throws Exception {
+        Long uah = account("ICU", "INVESTMENT", "UAH", 0);
+        Long id = id(json(
+                postJson(
+                        "/api/v1/investments/instruments",
+                        Map.of(
+                                "symbol", "UA4000227045",
+                                "name", "OVDP",
+                                "type", "GOVERNMENT_BOND",
+                                "currency", "UAH",
+                                "valuation", "NOMINAL",
+                                "nominal", 1000,
+                                "couponRate", 15.2,
+                                "couponFrequency", 2,
+                                "maturityDate", "2031-01-22"),
+                        auth),
+                201));
+        operation(Map.of(
+                "type",
+                "BUY",
+                "accountId",
+                uah,
+                "instrumentId",
+                id,
+                "date",
+                "2029-10-01",
+                "quantity",
+                100,
+                "price",
+                1000));
+        operation(Map.of("type", "COUPON", "accountId", uah, "instrumentId", id, "date", "2030-01-23", "amount", 7600));
+
+        Map<String, Object> calendar = json(
+                get("/api/v1/investments/dividends")
+                        .param("accountId", uah.toString())
+                        .header("Authorization", auth),
+                200);
+
+        List<Map<String, Object>> events = (List<Map<String, Object>>) calendar.get("events");
+        // The January coupon is recorded; July and the next January are known from the schedule
+        assertThat(events)
+                .extracting(event -> event.get("date") + " " + event.get("status"))
+                .containsExactly("2030-01-23 RECEIVED", "2030-07-22 DECLARED", "2031-01-22 DECLARED");
+        assertThat(events.get(1)).containsEntry("gross", 7600.0).containsEntry("tax", 0.0);
+        assertThat(number(calendar.get("next12Months"))).isEqualTo(15200);
     }
 }
