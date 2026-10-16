@@ -236,6 +236,23 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   and the default categories are created again; with `true` they stay, and so do the payees the rules refer to. The
   profile, the password and the sessions stay. It is a `POST` to an action rather than a `DELETE`, because it takes
   a body and leaves the user with fresh default data.
+- Analytics (`/api/v1/analytics`, base currency, refunds reduce the spending, transfers left out, with
+  `unconvertedCurrencies` like the reports): `GET /plan/{month}` compares the envelopes (`planned` = assigned,
+  `actual` = spending, `difference`, `completion`) per top-level expense category with nested subcategories and
+  forecasts the end of the month: for the current month the spending continued at its pace so far
+  (`daysElapsed` of `daysInMonth`) plus `plannedRemaining`, for a past month the actual and for a future one the plan.
+  `GET /compare?fromA&toA&fromB&toB` (each at most 366 days) returns the cumulative spending by day of both periods
+  (`null` after the end of the shorter one) and per top-level category `a`, `b`, `change = a - b` and
+  `changeShare = change / b`, largest change first. `GET /trends?from&to` (`yyyy-MM`, by default the last 12
+  complete months, at most 36) returns the spending of every month per top-level category with the average and the
+  anomalies: months above 1.7 times the average of the other months and at least 2% of the average monthly total.
+  `GET /savings?from&to&target` (months, by default the last 12 including the current one; `target` 0..1, 0.2 by
+  default) returns income, expense, net, savings rate and cumulative net per month, the money moved from budget
+  accounts to accounts outside the budget (minus money moved back) per account, the savings rate of the complete
+  months together and the best month. `GET /needs-wants?from&to` (by default the current month) splits the spending
+  by the `necessity` of the categories (a subcategory without one takes its parent's; no category or no flag is
+  `unclassified`) and returns needs, wants and savings (income minus all spending) with their share of the income
+  and the targets 0.5 / 0.3 / 0.2.
 
 ### OpenAPI spec
 
@@ -311,13 +328,13 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [ ] Balance forecast
 - [ ] Savings goals: target amount and date, linked account or Monobank jar, monthly amount needed,
       on-track / behind status
-- [ ] 50/30/20 analytics based on the needs / wants flag of categories
-- [ ] Analytics endpoints for the reports:
-  - [ ] plan vs actual per envelope with an end-of-month forecast from the current pace
-  - [ ] period comparison: cumulative spending by day for two periods (month to month, year to year,
+- [x] 50/30/20 analytics based on the needs / wants flag of categories
+- [x] Analytics endpoints for the reports:
+  - [x] plan vs actual per envelope with an end-of-month forecast from the current pace
+  - [x] period comparison: cumulative spending by day for two periods (month to month, year to year,
         custom), optionally up to the same day, and the change per category
-  - [ ] spending trends: monthly amounts per category over a range, averages and anomalies
-  - [ ] savings: net saved and cumulative savings per month, savings rate against a target
+  - [x] spending trends: monthly amounts per category over a range, averages and anomalies
+  - [x] savings: net saved and cumulative savings per month, savings rate against a target
 
 ### Phase 4 — Investments
 - [ ] Instruments, positions, trades, dividends and coupons, corporate actions (splits)

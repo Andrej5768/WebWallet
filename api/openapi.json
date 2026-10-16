@@ -115,6 +115,24 @@
         "required" : [ "available", "availableWithCredit", "currency", "netWorth", "readyToAssign", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "Anomaly" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "average" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "ratio" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "amount", "average", "month", "ratio" ],
+        "type" : "object"
+      },
       "ApplyResponse" : {
         "properties" : {
           "categorized" : {
@@ -132,6 +150,31 @@
           }
         },
         "required" : [ "assigned" ],
+        "type" : "object"
+      },
+      "CategoryChange" : {
+        "properties" : {
+          "a" : {
+            "type" : "number"
+          },
+          "b" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "change" : {
+            "type" : "number"
+          },
+          "changeShare" : {
+            "type" : [ "number", "null" ]
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "a", "b", "categoryId", "change", "changeShare", "name" ],
         "type" : "object"
       },
       "CategoryOrderRequest" : {
@@ -304,6 +347,37 @@
         "required" : [ "amount", "categoryId", "children", "name", "share" ],
         "type" : "object"
       },
+      "CategoryTrend" : {
+        "properties" : {
+          "amounts" : {
+            "items" : {
+              "type" : "number"
+            },
+            "type" : "array"
+          },
+          "anomalies" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Anomaly"
+            },
+            "type" : "array"
+          },
+          "average" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "total" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "amounts", "anomalies", "average", "categoryId", "name", "total" ],
+        "type" : "object"
+      },
       "ChangePasswordRequest" : {
         "properties" : {
           "currentPassword" : {
@@ -317,6 +391,77 @@
           }
         },
         "required" : [ "currentPassword", "newPassword" ],
+        "type" : "object"
+      },
+      "CompareDay" : {
+        "properties" : {
+          "a" : {
+            "type" : [ "number", "null" ]
+          },
+          "b" : {
+            "type" : [ "number", "null" ]
+          },
+          "day" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "a", "b", "day" ],
+        "type" : "object"
+      },
+      "CompareResponse" : {
+        "properties" : {
+          "categories" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CategoryChange"
+            },
+            "type" : "array"
+          },
+          "change" : {
+            "type" : "number"
+          },
+          "changeShare" : {
+            "type" : [ "number", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "days" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CompareDay"
+            },
+            "type" : "array"
+          },
+          "fromA" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "fromB" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "toA" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "toB" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "totalA" : {
+            "type" : "number"
+          },
+          "totalB" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "categories", "change", "changeShare", "currency", "days", "fromA", "fromB", "toA", "toB", "totalA", "totalB", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "ConfirmRequest" : {
@@ -417,6 +562,22 @@
           }
         },
         "required" : [ "accounts", "clientName", "connectedAt", "dailyAt", "lastError", "lastRequestAt", "nextSyncAt", "syncMode", "webhook", "windowEnd", "windowStart" ],
+        "type" : "object"
+      },
+      "Destination" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "amount", "name" ],
         "type" : "object"
       },
       "EmailRequest" : {
@@ -754,6 +915,51 @@
         "required" : [ "activity", "assigned", "available", "categories", "currency", "month", "readyToAssign", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "MonthSavings" : {
+        "properties" : {
+          "complete" : {
+            "type" : "boolean"
+          },
+          "cumulative" : {
+            "type" : "number"
+          },
+          "destinations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Destination"
+            },
+            "type" : "array"
+          },
+          "expense" : {
+            "type" : "number"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "net" : {
+            "type" : "number"
+          },
+          "savingsRate" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "complete", "cumulative", "destinations", "expense", "income", "month", "net", "savingsRate" ],
+        "type" : "object"
+      },
+      "MonthTotal" : {
+        "properties" : {
+          "month" : {
+            "type" : "string"
+          },
+          "total" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "month", "total" ],
+        "type" : "object"
+      },
       "MoveRequest" : {
         "properties" : {
           "amount" : {
@@ -783,6 +989,44 @@
           }
         },
         "required" : [ "id", "name" ],
+        "type" : "object"
+      },
+      "NeedsWantsResponse" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "needs" : {
+            "$ref" : "#/components/schemas/Part"
+          },
+          "savings" : {
+            "$ref" : "#/components/schemas/Part"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "unclassified" : {
+            "$ref" : "#/components/schemas/Part"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "wants" : {
+            "$ref" : "#/components/schemas/Part"
+          }
+        },
+        "required" : [ "currency", "from", "income", "needs", "savings", "to", "unclassified", "unconvertedCurrencies", "wants" ],
         "type" : "object"
       },
       "NetWorthResponse" : {
@@ -906,6 +1150,21 @@
         "required" : [ "items", "page", "size", "totalItems", "totalPages" ],
         "type" : "object"
       },
+      "Part" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "share" : {
+            "type" : [ "number", "null" ]
+          },
+          "target" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "amount", "share", "target" ],
+        "type" : "object"
+      },
       "PayeeRequest" : {
         "properties" : {
           "name" : {
@@ -964,6 +1223,87 @@
           }
         },
         "required" : [ "currency", "from", "payees", "to", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "PlanResponse" : {
+        "properties" : {
+          "actual" : {
+            "type" : "number"
+          },
+          "categories" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PlanRow"
+            },
+            "type" : "array"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "daysElapsed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "daysInMonth" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "difference" : {
+            "type" : "number"
+          },
+          "forecast" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "planned" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "actual", "categories", "currency", "daysElapsed", "daysInMonth", "difference", "forecast", "month", "planned", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "PlanRow" : {
+        "properties" : {
+          "actual" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "children" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PlanRow"
+            },
+            "type" : "array"
+          },
+          "completion" : {
+            "type" : [ "number", "null" ]
+          },
+          "difference" : {
+            "type" : "number"
+          },
+          "forecast" : {
+            "type" : "number"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "planned" : {
+            "type" : "number"
+          },
+          "plannedRemaining" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "actual", "categoryId", "children", "completion", "difference", "forecast", "name", "planned", "plannedRemaining" ],
         "type" : "object"
       },
       "RegisterRequest" : {
@@ -1080,6 +1420,45 @@
           }
         },
         "required" : [ "bankCategory", "categoryId", "id", "learned", "mcc", "payee", "payeePattern" ],
+        "type" : "object"
+      },
+      "SavingsResponse" : {
+        "properties" : {
+          "averageRate" : {
+            "type" : [ "number", "null" ]
+          },
+          "bestMonth" : {
+            "type" : [ "string", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "months" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MonthSavings"
+            },
+            "type" : "array"
+          },
+          "target" : {
+            "type" : "number"
+          },
+          "to" : {
+            "type" : "string"
+          },
+          "totalSaved" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "averageRate", "bestMonth", "currency", "from", "months", "target", "to", "totalSaved", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "ScheduleRequest" : {
@@ -1387,6 +1766,42 @@
         "required" : [ "accountId", "amount", "comment", "createdAt", "currency", "date", "id", "originalAmount", "originalCurrency", "payee", "source", "splits", "tagIds", "toAccountId", "toAmount", "toCurrency", "type" ],
         "type" : "object"
       },
+      "TrendsResponse" : {
+        "properties" : {
+          "average" : {
+            "type" : "number"
+          },
+          "categories" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CategoryTrend"
+            },
+            "type" : "array"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "months" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MonthTotal"
+            },
+            "type" : "array"
+          },
+          "to" : {
+            "type" : "string"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "average", "categories", "currency", "from", "months", "to", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
       "UpdateProfileRequest" : {
         "properties" : {
           "baseCurrency" : {
@@ -1642,6 +2057,225 @@
         } ],
         "summary" : "Update an account; the currency cannot be changed",
         "tags" : [ "Accounts" ]
+      }
+    },
+    "/api/v1/analytics/compare" : {
+      "get" : {
+        "description" : "Cumulative spending by day from the start of each period and the change per top-level category. Each period is at most 366 days.",
+        "operationId" : "compare",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "fromA",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "toA",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "fromB",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "toB",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CompareResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Compare the spending of two periods",
+        "tags" : [ "Analytics" ]
+      }
+    },
+    "/api/v1/analytics/needs-wants" : {
+      "get" : {
+        "description" : "By the needs / wants flag of the expense categories. Without a period, the current month.",
+        "operationId" : "needsWants",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NeedsWantsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "50/30/20: needs, wants and savings as parts of the income",
+        "tags" : [ "Analytics" ]
+      }
+    },
+    "/api/v1/analytics/plan/{month}" : {
+      "get" : {
+        "description" : "The plan is the money assigned to the envelopes, the actual value the spending in them. For the current month the forecast continues the spending at its pace so far to the end of the month and adds the planned payments still due.",
+        "operationId" : "plan",
+        "parameters" : [ {
+          "example" : "2026-10",
+          "in" : "path",
+          "name" : "month",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Plan vs actual per envelope with a forecast for the end of the month",
+        "tags" : [ "Analytics" ]
+      }
+    },
+    "/api/v1/analytics/savings" : {
+      "get" : {
+        "description" : "Without a range, the last 12 months including the current one.",
+        "operationId" : "savings",
+        "parameters" : [ {
+          "example" : "2025-11",
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "example" : "2026-10",
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Wanted savings rate, 0..1",
+          "in" : "query",
+          "name" : "target",
+          "required" : false,
+          "schema" : {
+            "default" : 0.2,
+            "maximum" : 1.0,
+            "minimum" : 0.0,
+            "type" : "number"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SavingsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Money saved per month, the savings rate and where the saved money was moved",
+        "tags" : [ "Analytics" ]
+      }
+    },
+    "/api/v1/analytics/trends" : {
+      "get" : {
+        "description" : "Without a range, the last 12 complete months. At most 36 months.",
+        "operationId" : "trends",
+        "parameters" : [ {
+          "example" : "2025-10",
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "example" : "2026-09",
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TrendsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Monthly spending per top-level category, averages and anomalies",
+        "tags" : [ "Analytics" ]
       }
     },
     "/api/v1/auth/forgot-password" : {
