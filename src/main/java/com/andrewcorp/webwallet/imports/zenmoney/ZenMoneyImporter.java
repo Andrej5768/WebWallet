@@ -456,7 +456,7 @@ public class ZenMoneyImporter {
          */
         private void alignBalances() {
             entityManager.flush();
-            Map<Long, BigDecimal> balances = accountService.balances(userId);
+            Map<Long, BigDecimal> balances = accountService.ledgerBalances(userId);
             for (ZenMoneyDump.Account source : Lists.orEmpty(dump.account())) {
                 Account account = accountsById.get(source.id());
                 if (account == null

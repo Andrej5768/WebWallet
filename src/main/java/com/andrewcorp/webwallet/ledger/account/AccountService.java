@@ -6,6 +6,8 @@ import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
 import com.andrewcorp.webwallet.currency.ExchangeRateService;
+import com.andrewcorp.webwallet.investment.InvestmentOperationRepository;
+import com.andrewcorp.webwallet.investment.InvestmentValuation;
 import com.andrewcorp.webwallet.ledger.account.dto.AccountRequest;
 import com.andrewcorp.webwallet.ledger.account.dto.AccountResponse;
 import com.andrewcorp.webwallet.ledger.account.dto.AccountSummaryResponse;
@@ -32,6 +34,8 @@ public class AccountService {
     private final UserService users;
     private final ExchangeRateService exchangeRates;
     private final BudgetService budgetService;
+    private final InvestmentValuation investments;
+    private final InvestmentOperationRepository investmentOperations;
     private final Clock clock;
 
     public AccountService(
@@ -40,12 +44,16 @@ public class AccountService {
             UserService users,
             ExchangeRateService exchangeRates,
             BudgetService budgetService,
+            InvestmentValuation investments,
+            InvestmentOperationRepository investmentOperations,
             Clock clock) {
         this.accounts = accounts;
         this.transactions = transactions;
         this.users = users;
         this.exchangeRates = exchangeRates;
         this.budgetService = budgetService;
+        this.investments = investments;
+        this.investmentOperations = investmentOperations;
         this.clock = clock;
     }
 
@@ -126,7 +134,8 @@ public class AccountService {
     @Transactional
     public void delete(Long userId, Long id) {
         Account account = find(userId, id);
-        if (transactions.existsByAccountIdOrToAccountId(account.getId(), account.getId())) {
+        if (transactions.existsByAccountIdOrToAccountId(account.getId(), account.getId())
+                || investmentOperations.existsByAccountId(account.getId())) {
             throw new ApiException(ErrorCode.RESOURCE_IN_USE);
         }
         accounts.delete(account);
@@ -138,9 +147,33 @@ public class AccountService {
         return accounts.findByIdAndUserId(id, userId).orElseThrow(ApiException::notFound);
     }
 
-    /** Current balance of every account of the user, in the account currency. */
+    /**
+     * Current balance of every account of the user, in the account currency. A brokerage account also holds the
+     * cash of its investment operations and the value of its positions, at today's rates.
+     */
     @Transactional(readOnly = true)
     public Map<Long, BigDecimal> balances(Long userId) {
+        Map<Long, BigDecimal> balances = ledgerBalances(userId);
+        Map<Long, String> brokerage = new HashMap<>();
+        for (Account account : accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)) {
+            if (account.getType() == AccountType.INVESTMENT) {
+                brokerage.put(account.getId(), account.getCurrency());
+            }
+        }
+        if (!brokerage.isEmpty()) {
+            investments
+                    .balances(userId, brokerage, LocalDate.now(clock))
+                    .forEach((accountId, amount) -> balances.merge(accountId, amount, BigDecimal::add));
+        }
+        return balances;
+    }
+
+    /**
+     * Balance of every account from the transactions alone, in the account currency: what a bank reports for its
+     * accounts, without the investments of a brokerage account.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, BigDecimal> ledgerBalances(Long userId) {
         Map<Long, BigDecimal> balances = new HashMap<>();
         accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)
                 .forEach(account -> balances.put(account.getId(), account.getOpeningBalance()));
@@ -160,7 +193,8 @@ public class AccountService {
     @Transactional
     public void alignBalance(Account account, BigDecimal balance) {
         transactions.flush();
-        BigDecimal computed = balances(account.getUserId()).getOrDefault(account.getId(), account.getOpeningBalance());
+        BigDecimal computed =
+                ledgerBalances(account.getUserId()).getOrDefault(account.getId(), account.getOpeningBalance());
         account.setOpeningBalance(account.getOpeningBalance().add(balance.subtract(computed)));
     }
 

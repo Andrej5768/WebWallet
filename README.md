@@ -86,7 +86,7 @@ docker compose --profile app up -d --build
 
 Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`,
 `ENCRYPTION_KEY` (encrypts bank tokens), `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`,
-`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `APP_PUBLIC_URL` (makes the Monobank `WEBHOOK` mode available), `TRUSTED_PROXIES`
+`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `TWELVE_DATA_API_KEY` (market data, see below), `APP_PUBLIC_URL` (makes the Monobank `WEBHOOK` mode available), `TRUSTED_PROXIES`
 (a regular expression of reverse proxy addresses allowed to set `X-Forwarded-For`, loopback by default),
 `API_DOCS_ENABLED`, `REFRESH_COOKIE_SECURE`
 (see `src/main/resources/application.properties`).
@@ -290,6 +290,31 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   `startAmount`; again when it moves to another account) to the target on the deadline: `expected` by today,
   `monthsLeft` (a started month counts), `monthlyNeeded` and `status`: `ACHIEVED` (marked with `achieved: true`, or
   the target is reached), `NO_DATE`, `ON_TRACK`, `BEHIND` (more than 3% of the target below the pace) or `OVERDUE`.
+- Investments (`/api/v1/investments`): operations of `INVESTMENT` accounts (`GET/POST /operations`,
+  `GET/PUT/DELETE /operations/{id}`): `BUY` and `SELL` (`quantity`, `price`, `amount` = quantity × price by default,
+  `fee`), `DIVIDEND` and `COUPON` (gross `amount`, withheld `tax`), `FEE` (no instrument needed) and `SPLIT`
+  (`splitFrom` into `splitTo`), in the currency of the instrument by default. Every purchase is a lot; a sale takes
+  the oldest lots first (FIFO) and may not sell more than is held on its date, also after an edit or a deletion of an
+  earlier operation (400). The fee of a purchase is part of the cost of its lot. Market instruments (stocks, ETFs,
+  funds) are found with `GET /instruments/search?q=` (own and known ones first, then the market data provider) and
+  added with `POST /instruments/market` `{symbol, micCode}`; they are shared and their data come from the provider.
+  Instruments entered by hand (`POST/PUT/DELETE /instruments`, e.g. Ukrainian government bonds) are valued `NOMINAL`
+  (nominal plus the coupon accrued since the last payment; coupons are counted back from `maturityDate`,
+  `couponFrequency` times a year) or `MANUAL` (`manualPrice`). Daily closes come from Twelve Data (free plan, key in
+  `TWELVE_DATA_API_KEY`; without it prices are entered by hand): a task checks a few instruments a minute, each every
+  6 hours, loading the history back to the first operation (at least a year), unadjusted, as the operations record
+  splits and dividends. `GET /portfolio?accountId=` returns the value, cost (`invested`), unrealized profit, realized
+  profit of the year (FIFO, at the rates of the sale dates), dividends of the last 12 months after tax, the change of
+  the day, the positions (average price, price, value, share), the cash per account and currency (the transfers of the
+  ledger plus the cash of the operations) and the allocation by type and currency, in the base currency at today's
+  rates; a position without a price yet is valued at cost. `GET /positions?accountId&instrumentId` returns the lots
+  (with the unrealized profit of the open ones), the sales with the lots they took and the operations.
+  `GET /history?accountId&from&to&currency&benchmark` returns the value day by day (weekly over 400 days) at the
+  closes and NBU rates of the day, the net deposits (transfers from and to other accounts, opening balances) and, with
+  `benchmark` `SP500` (SPY), `MSCI_WORLD` (URTH) or `NASDAQ100` (QQQ), what the same deposits would be worth in the
+  fund bought and sold at the closes of their days (price only, dividends not reinvested). The balance of an
+  `INVESTMENT` account is its ledger balance plus the cash of its operations and the value of its positions at today's
+  prices and rates; the net worth report still counts only the ledger for past months.
 
 ### OpenAPI spec
 
@@ -375,8 +400,9 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
   - [x] savings: net saved and cumulative savings per month, savings rate against a target
 
 ### Phase 4 — Investments
-- [ ] Instruments, positions, trades, dividends and coupons, corporate actions (splits)
-- [ ] Market data provider abstraction with free providers
+- [x] Instruments, positions, trades, dividends and coupons, corporate actions (splits); lots with FIFO and the
+      average price; value history with a benchmark
+- [x] Market data provider abstraction with free providers (Twelve Data daily closes)
 - [ ] Imports: Interactive Brokers, Freedom Finance, Ukrainian brokers, Binance, WhiteBIT, BTC / ETH addresses
 - [ ] Analytics: dividend calendar and forecast, XIRR / TWR, benchmark, allocation, rebalancing
 - [ ] Financial independence: FIRE number (lean / regular / fat / coast) and years to reach it,

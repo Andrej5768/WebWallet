@@ -115,6 +115,21 @@
         "required" : [ "available", "availableWithCredit", "currency", "netWorth", "readyToAssign", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "AllocationPart" : {
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "share" : {
+            "type" : "number"
+          },
+          "value" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "key", "share", "value" ],
+        "type" : "object"
+      },
       "Anomaly" : {
         "properties" : {
           "amount" : {
@@ -150,6 +165,45 @@
           }
         },
         "required" : [ "assigned" ],
+        "type" : "object"
+      },
+      "BenchmarkInfo" : {
+        "properties" : {
+          "key" : {
+            "enum" : [ "SP500", "MSCI_WORLD", "NASDAQ100" ],
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "pricesFrom" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "key", "name", "pricesFrom", "symbol" ],
+        "type" : "object"
+      },
+      "CashResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "amountInBase" : {
+            "type" : [ "number", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "amount", "amountInBase", "currency" ],
         "type" : "object"
       },
       "CategoryChange" : {
@@ -835,6 +889,61 @@
         "required" : [ "currency", "goals", "monthlyNeeded", "saved", "target", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "HistoryPoint" : {
+        "properties" : {
+          "benchmark" : {
+            "type" : [ "number", "null" ]
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "deposited" : {
+            "type" : "number"
+          },
+          "value" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "benchmark", "date", "deposited", "value" ],
+        "type" : "object"
+      },
+      "HistoryResponse" : {
+        "properties" : {
+          "benchmark" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/BenchmarkInfo"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "points" : {
+            "items" : {
+              "$ref" : "#/components/schemas/HistoryPoint"
+            },
+            "type" : "array"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "benchmark", "currency", "from", "points", "to", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
       "ImportAccount" : {
         "properties" : {
           "created" : {
@@ -1022,6 +1131,66 @@
         "required" : [ "currency", "expense", "from", "income", "months", "net", "savingsRate", "to", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "InstrumentResponse" : {
+        "properties" : {
+          "couponFrequency" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "couponRate" : {
+            "type" : [ "number", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "exchange" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "isin" : {
+            "type" : [ "string", "null" ]
+          },
+          "maturityDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "micCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "nominal" : {
+            "type" : [ "number", "null" ]
+          },
+          "own" : {
+            "type" : "boolean"
+          },
+          "price" : {
+            "type" : [ "number", "null" ]
+          },
+          "priceDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "STOCK", "ETF", "FUND", "BOND", "GOVERNMENT_BOND", "CRYPTO", "OTHER" ],
+            "type" : "string"
+          },
+          "valuation" : {
+            "enum" : [ "MARKET", "NOMINAL", "MANUAL" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "couponFrequency", "couponRate", "currency", "exchange", "id", "isin", "maturityDate", "micCode", "name", "nominal", "own", "price", "priceDate", "symbol", "type", "valuation" ],
+        "type" : "object"
+      },
       "LinkRequest" : {
         "properties" : {
           "accountId" : {
@@ -1081,6 +1250,48 @@
           }
         },
         "required" : [ "email", "password" ],
+        "type" : "object"
+      },
+      "LotResponse" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "operationId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "remaining" : {
+            "type" : "number"
+          },
+          "unitCost" : {
+            "type" : "number"
+          },
+          "unrealized" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "date", "operationId", "quantity", "remaining", "unitCost", "unrealized" ],
+        "type" : "object"
+      },
+      "MarketInstrumentRequest" : {
+        "properties" : {
+          "micCode" : {
+            "maxLength" : 10,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "symbol" : {
+            "maxLength" : 30,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "symbol" ],
         "type" : "object"
       },
       "MonthIncomeExpense" : {
@@ -1430,11 +1641,217 @@
         "required" : [ "key" ],
         "type" : "object"
       },
+      "OperationRequest" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "comment" : {
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "fee" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "price" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "quantity" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "splitFrom" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "splitTo" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "tax" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "type" : {
+            "enum" : [ "BUY", "SELL", "DIVIDEND", "COUPON", "FEE", "SPLIT" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "date", "type" ],
+        "type" : "object"
+      },
+      "OperationResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "cash" : {
+            "type" : "number"
+          },
+          "comment" : {
+            "type" : [ "string", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "fee" : {
+            "type" : "number"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "price" : {
+            "type" : [ "number", "null" ]
+          },
+          "quantity" : {
+            "type" : [ "number", "null" ]
+          },
+          "splitFrom" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "splitTo" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "symbol" : {
+            "type" : [ "string", "null" ]
+          },
+          "tax" : {
+            "type" : "number"
+          },
+          "type" : {
+            "enum" : [ "BUY", "SELL", "DIVIDEND", "COUPON", "FEE", "SPLIT" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "amount", "cash", "comment", "currency", "date", "fee", "id", "instrumentId", "price", "quantity", "splitFrom", "splitTo", "symbol", "tax", "type" ],
+        "type" : "object"
+      },
+      "OwnInstrumentRequest" : {
+        "properties" : {
+          "couponFrequency" : {
+            "format" : "int32",
+            "maximum" : 12,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "couponRate" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "isin" : {
+            "pattern" : "[A-Z]{2}[A-Z0-9]{9}[0-9]",
+            "type" : "string"
+          },
+          "manualPrice" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "manualPriceDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "maturityDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "name" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "nominal" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "symbol" : {
+            "maxLength" : 30,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "STOCK", "ETF", "FUND", "BOND", "GOVERNMENT_BOND", "CRYPTO", "OTHER" ],
+            "type" : "string"
+          },
+          "valuation" : {
+            "enum" : [ "MARKET", "NOMINAL", "MANUAL" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "currency", "name", "symbol", "type", "valuation" ],
+        "type" : "object"
+      },
       "PageResponseImportOperation" : {
         "properties" : {
           "items" : {
             "items" : {
               "$ref" : "#/components/schemas/ImportOperation"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalItems" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalPages" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "items", "page", "size", "totalItems", "totalPages" ],
+        "type" : "object"
+      },
+      "PageResponseOperationResponse" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OperationResponse"
             },
             "type" : "array"
           },
@@ -1640,6 +2057,185 @@
           }
         },
         "required" : [ "actual", "categoryId", "children", "completion", "difference", "forecast", "name", "planned", "plannedRemaining" ],
+        "type" : "object"
+      },
+      "PortfolioResponse" : {
+        "properties" : {
+          "byCurrency" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AllocationPart"
+            },
+            "type" : "array"
+          },
+          "byType" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AllocationPart"
+            },
+            "type" : "array"
+          },
+          "cash" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CashResponse"
+            },
+            "type" : "array"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "dayChange" : {
+            "type" : "number"
+          },
+          "dividendsLast12Months" : {
+            "type" : "number"
+          },
+          "invested" : {
+            "type" : "number"
+          },
+          "positions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PositionResponse"
+            },
+            "type" : "array"
+          },
+          "pricesAsOf" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "realizedThisYear" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "unrealized" : {
+            "type" : "number"
+          },
+          "unrealizedShare" : {
+            "type" : [ "number", "null" ]
+          },
+          "value" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "byCurrency", "byType", "cash", "currency", "dayChange", "dividendsLast12Months", "invested", "positions", "pricesAsOf", "realizedThisYear", "unconvertedCurrencies", "unrealized", "unrealizedShare", "value" ],
+        "type" : "object"
+      },
+      "PositionDetailResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "averagePrice" : {
+            "type" : [ "number", "null" ]
+          },
+          "cost" : {
+            "type" : "number"
+          },
+          "dividends" : {
+            "type" : "number"
+          },
+          "instrument" : {
+            "$ref" : "#/components/schemas/InstrumentResponse"
+          },
+          "lots" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LotResponse"
+            },
+            "type" : "array"
+          },
+          "operations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OperationResponse"
+            },
+            "type" : "array"
+          },
+          "price" : {
+            "type" : [ "number", "null" ]
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "realized" : {
+            "type" : "number"
+          },
+          "sales" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SaleResponse"
+            },
+            "type" : "array"
+          },
+          "unrealized" : {
+            "type" : "number"
+          },
+          "value" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "accountId", "averagePrice", "cost", "dividends", "instrument", "lots", "operations", "price", "quantity", "realized", "sales", "unrealized", "value" ],
+        "type" : "object"
+      },
+      "PositionResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "averagePrice" : {
+            "type" : "number"
+          },
+          "cost" : {
+            "type" : "number"
+          },
+          "dayChange" : {
+            "type" : [ "number", "null" ]
+          },
+          "instrument" : {
+            "$ref" : "#/components/schemas/InstrumentResponse"
+          },
+          "price" : {
+            "type" : [ "number", "null" ]
+          },
+          "priceDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "share" : {
+            "type" : [ "number", "null" ]
+          },
+          "unrealized" : {
+            "type" : "number"
+          },
+          "unrealizedShare" : {
+            "type" : [ "number", "null" ]
+          },
+          "value" : {
+            "type" : "number"
+          },
+          "valueInBase" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "accountId", "averagePrice", "cost", "dayChange", "instrument", "price", "priceDate", "quantity", "share", "unrealized", "unrealizedShare", "value", "valueInBase" ],
+        "type" : "object"
+      },
+      "PricePoint" : {
+        "properties" : {
+          "close" : {
+            "type" : "number"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "required" : [ "close", "date" ],
         "type" : "object"
       },
       "RecurringRef" : {
@@ -1935,6 +2531,58 @@
         "required" : [ "bankCategory", "categoryId", "id", "learned", "mcc", "payee", "payeePattern" ],
         "type" : "object"
       },
+      "SalePart" : {
+        "properties" : {
+          "lotDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "lotOperationId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "unitCost" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "lotDate", "lotOperationId", "quantity", "unitCost" ],
+        "type" : "object"
+      },
+      "SaleResponse" : {
+        "properties" : {
+          "cost" : {
+            "type" : "number"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "operationId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "parts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SalePart"
+            },
+            "type" : "array"
+          },
+          "proceeds" : {
+            "type" : "number"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "realized" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "cost", "date", "operationId", "parts", "proceeds", "quantity", "realized" ],
+        "type" : "object"
+      },
       "SavingsResponse" : {
         "properties" : {
           "averageRate" : {
@@ -1997,6 +2645,53 @@
           }
         },
         "required" : [ "syncMode" ],
+        "type" : "object"
+      },
+      "SearchResponse" : {
+        "properties" : {
+          "providerEnabled" : {
+            "type" : "boolean"
+          },
+          "results" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SearchResult"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "providerEnabled", "results" ],
+        "type" : "object"
+      },
+      "SearchResult" : {
+        "properties" : {
+          "country" : {
+            "type" : [ "string", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "exchange" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "micCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "STOCK", "ETF", "FUND", "BOND", "GOVERNMENT_BOND", "CRYPTO", "OTHER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "country", "currency", "exchange", "id", "micCode", "name", "symbol", "type" ],
         "type" : "object"
       },
       "SpendingResponse" : {
@@ -2435,7 +3130,7 @@
         "tags" : [ "Accounts" ]
       },
       "post" : {
-        "operationId" : "create_7",
+        "operationId" : "create_8",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -2489,7 +3184,7 @@
     },
     "/api/v1/accounts/{id}" : {
       "delete" : {
-        "operationId" : "delete_7",
+        "operationId" : "delete_8",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -2540,7 +3235,7 @@
       },
       "put" : {
         "description" : "Omitted optional fields keep their values; a credit limit or interest rate of 0 removes it",
-        "operationId" : "update_5",
+        "operationId" : "update_6",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3305,7 +4000,7 @@
         "tags" : [ "Categories" ]
       },
       "post" : {
-        "operationId" : "create_6",
+        "operationId" : "create_7",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -3375,7 +4070,7 @@
     },
     "/api/v1/categories/{id}" : {
       "delete" : {
-        "operationId" : "delete_6",
+        "operationId" : "delete_7",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3398,7 +4093,7 @@
       },
       "put" : {
         "description" : "The parent is always applied (null makes a top-level category); other omitted optional fields keep their values. icon, color and necessity sent as null are removed. A necessity is allowed only on expense categories; it is removed when the category becomes income.",
-        "operationId" : "update_4",
+        "operationId" : "update_5",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3462,7 +4157,7 @@
         "tags" : [ "Categorization rules" ]
       },
       "post" : {
-        "operationId" : "create_5",
+        "operationId" : "create_6",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -3515,7 +4210,7 @@
     },
     "/api/v1/categorization-rules/{id}" : {
       "delete" : {
-        "operationId" : "delete_5",
+        "operationId" : "delete_6",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3536,7 +4231,7 @@
         "tags" : [ "Categorization rules" ]
       },
       "put" : {
-        "operationId" : "update_3",
+        "operationId" : "update_4",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3628,7 +4323,7 @@
         "tags" : [ "Goals" ]
       },
       "post" : {
-        "operationId" : "create_4",
+        "operationId" : "create_5",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -3659,7 +4354,7 @@
     },
     "/api/v1/goals/{id}" : {
       "delete" : {
-        "operationId" : "delete_4",
+        "operationId" : "delete_5",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3709,7 +4404,7 @@
       },
       "put" : {
         "description" : "Omitted achieved and sortOrder keep their values. Moved to another account, the pace starts again from its balance.",
-        "operationId" : "update_2",
+        "operationId" : "update_3",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -4140,6 +4835,583 @@
         } ],
         "summary" : "Preview everything from Zen Money with an API token without saving anything",
         "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/investments/history" : {
+      "get" : {
+        "description" : "Cash and positions at the closes of each day in the currency (by default the base one) at the NBU rates of the day. The benchmark is what the same deposits would be worth in the index fund, bought and sold at the closes of their days; its prices load within minutes after it is first asked for. Periods over 400 days are sampled weekly.",
+        "operationId" : "history",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "currency",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "benchmark",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "SP500", "MSCI_WORLD", "NASDAQ100" ],
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HistoryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The value of the brokerage accounts day by day, the net deposits and a benchmark",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/instruments" : {
+      "get" : {
+        "operationId" : "instruments",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/InstrumentResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Instruments of the user's operations and those entered by hand, with the latest prices",
+        "tags" : [ "Investments" ]
+      },
+      "post" : {
+        "operationId" : "createOwn",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnInstrumentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstrumentResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Enter an instrument by hand, e.g. a Ukrainian government bond",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/instruments/market" : {
+      "post" : {
+        "description" : "Its data come from the market data provider; prices load within minutes.",
+        "operationId" : "addMarket",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MarketInstrumentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstrumentResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Add a market instrument found by a search, or get the one already known",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/instruments/search" : {
+      "get" : {
+        "description" : "Own and known instruments first, then those of the market data provider; a result without an id is added with POST /instruments/market.",
+        "operationId" : "search",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "q",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 50,
+            "minLength" : 1,
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Find instruments by ticker, name or ISIN",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/instruments/{id}" : {
+      "delete" : {
+        "operationId" : "deleteOwn",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Delete an instrument entered by hand that has no operations",
+        "tags" : [ "Investments" ]
+      },
+      "get" : {
+        "operationId" : "instrument",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstrumentResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Investments" ]
+      },
+      "put" : {
+        "operationId" : "updateOwn",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnInstrumentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstrumentResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Replace an instrument entered by hand, e.g. with a new manual price",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/instruments/{id}/prices" : {
+      "get" : {
+        "operationId" : "prices",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/PricePoint"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Daily closes of a market instrument, by default of the last year",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/operations" : {
+      "get" : {
+        "operationId" : "operations",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "instrumentId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "maximum" : 200,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseOperationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Operations of the brokerage accounts, newest first",
+        "tags" : [ "Investments" ]
+      },
+      "post" : {
+        "description" : "A sale of more than is held on its date is rejected.",
+        "operationId" : "create_4",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OperationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OperationResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Record a trade, a dividend or coupon, a fee or a split",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/operations/{id}" : {
+      "delete" : {
+        "operationId" : "delete_4",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Delete an operation; deleting a purchase whose units were sold later is rejected",
+        "tags" : [ "Investments" ]
+      },
+      "get" : {
+        "operationId" : "operation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OperationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Investments" ]
+      },
+      "put" : {
+        "operationId" : "update_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OperationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OperationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/portfolio" : {
+      "get" : {
+        "description" : "All brokerage accounts that are not archived, or the given one.",
+        "operationId" : "portfolio",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PortfolioResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The portfolio of the brokerage accounts in the base currency",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/positions" : {
+      "get" : {
+        "operationId" : "position",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "instrumentId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PositionDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "One instrument on one account: the position, its lots (FIFO), sales and operations",
+        "tags" : [ "Investments" ]
       }
     },
     "/api/v1/me" : {

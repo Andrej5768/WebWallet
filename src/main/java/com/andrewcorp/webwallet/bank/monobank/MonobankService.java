@@ -526,7 +526,7 @@ public class MonobankService {
     }
 
     private ConnectionResponse status(BankConnection connection) {
-        Map<Long, BigDecimal> balances = accountService.balances(connection.getUserId());
+        Map<Long, BigDecimal> balances = accountService.ledgerBalances(connection.getUserId());
         List<LinkResponse> linkResponses = links.findByConnectionOrderByIdAsc(connection).stream()
                 .map(link -> {
                     BigDecimal balance = link.getAccount() == null
