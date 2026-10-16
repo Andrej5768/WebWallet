@@ -1,31 +1,29 @@
 package com.andrewcorp.webwallet.investment;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
-import com.andrewcorp.webwallet.common.web.ExternalCalls;
+import com.andrewcorp.webwallet.common.util.Money;
+import com.andrewcorp.webwallet.common.web.Periods;
+import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.currency.ExchangeRateService;
+import com.andrewcorp.webwallet.investment.Deposits.Deposit;
 import com.andrewcorp.webwallet.investment.HistoryRepository.Movement;
-import com.andrewcorp.webwallet.investment.market.MarketDataProvider;
-import com.andrewcorp.webwallet.investment.market.MarketDataProvider.Listing;
 import com.andrewcorp.webwallet.ledger.account.Account;
-import com.andrewcorp.webwallet.ledger.account.AccountRepository;
-import com.andrewcorp.webwallet.ledger.account.AccountType;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
-import com.andrewcorp.webwallet.user.UserService;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.math.MathContext;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.Objects;
 import java.util.TreeMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,45 +36,44 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class HistoryService {
 
+    private static final Logger log = LoggerFactory.getLogger(HistoryService.class);
+
     /** Longer periods are sampled weekly. */
     static final int MAX_DAILY_POINTS = 400;
 
+    /** The longest period that can be asked for. */
+    static final int MAX_YEARS = 20;
+
     private static final MathContext PRECISION = MathContext.DECIMAL64;
 
-    private final AccountRepository accounts;
+    private final Converters converters;
+    private final InvestmentAccounts investmentAccounts;
     private final InvestmentOperationRepository operations;
-    private final HistoryRepository history;
-    private final InstrumentRepository instruments;
+    private final Deposits deposits;
+    private final InstrumentService instrumentService;
     private final InstrumentPriceRepository prices;
-    private final MarketDataProvider provider;
-    private final UserService users;
-    private final ExchangeRateService exchangeRates;
     private final Clock clock;
 
     public HistoryService(
-            AccountRepository accounts,
+            Converters converters,
+            InvestmentAccounts investmentAccounts,
             InvestmentOperationRepository operations,
-            HistoryRepository history,
-            InstrumentRepository instruments,
+            Deposits deposits,
+            InstrumentService instrumentService,
             InstrumentPriceRepository prices,
-            MarketDataProvider provider,
-            UserService users,
-            ExchangeRateService exchangeRates,
             Clock clock) {
-        this.accounts = accounts;
+        this.converters = converters;
+        this.investmentAccounts = investmentAccounts;
         this.operations = operations;
-        this.history = history;
-        this.instruments = instruments;
+        this.deposits = deposits;
+        this.instrumentService = instrumentService;
         this.prices = prices;
-        this.provider = provider;
-        this.users = users;
-        this.exchangeRates = exchangeRates;
         this.clock = clock;
     }
 
     /**
      * @param accountId one brokerage account, or all that are not archived
-     * @param from      by default the first day with money on the accounts
+     * @param from      by default the first day with money on the accounts; an earlier day starts there too
      * @param currency  by default the base currency
      * @param benchmark none means no comparison
      */
@@ -84,75 +81,79 @@ public class HistoryService {
     public HistoryResponse history(
             Long userId, Long accountId, LocalDate from, LocalDate to, String currency, Benchmark benchmark) {
         LocalDate today = LocalDate.now(clock);
+        if (to != null) {
+            Periods.checkDate(to, "to");
+        }
         LocalDate end = to != null && to.isBefore(today) ? to : today;
-        Map<Long, Account> scope = new HashMap<>();
-        for (Account account : accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)) {
-            boolean wanted = accountId != null ? account.getId().equals(accountId) : !account.isArchived();
-            if (account.getType() == AccountType.INVESTMENT && wanted) {
-                scope.put(account.getId(), account);
-            }
+        if (from != null) {
+            Periods.checkYears(from, end, MAX_YEARS, "from");
         }
-        if (accountId != null && scope.isEmpty()) {
-            throw ApiException.notFound();
-        }
-        CurrencyConverter converter = exchangeRates.converterTo(
-                currency != null ? currency : users.get(userId).getBaseCurrency());
+        Map<Long, Account> scope = investmentAccounts.scope(userId, accountId);
+        CurrencyConverter converter = converters.to(userId, currency);
 
         // Everything that changes the money of the accounts, by day
-        TreeMap<LocalDate, List<Runnable>> events = new TreeMap<>();
         State state = new State();
-        List<Movement> movements = scope.isEmpty() ? List.of() : history.findMovements(scope.keySet());
+        TreeMap<LocalDate, List<Runnable>> events = new TreeMap<>();
+        List<Movement> movements = deposits.movements(scope);
         for (Movement movement : movements) {
             events.computeIfAbsent(movement.getDate(), day -> new ArrayList<>()).add(() -> state.move(movement, scope));
         }
         List<InvestmentOperation> all = operations.findAllOfUser(userId).stream()
                 .filter(operation -> scope.containsKey(operation.getAccount().getId()))
                 .toList();
+        Map<Instrument, List<InvestmentOperation>> byInstrument = new LinkedHashMap<>();
         for (InvestmentOperation operation : all) {
             events.computeIfAbsent(operation.getDate(), day -> new ArrayList<>())
                     .add(() -> state.apply(operation));
+            if (operation.getInstrument() != null) {
+                byInstrument
+                        .computeIfAbsent(operation.getInstrument(), instrument -> new ArrayList<>())
+                        .add(operation);
+            }
         }
+        Map<Instrument, PositionTimeline> held = new LinkedHashMap<>();
+        byInstrument.forEach((instrument, list) -> held.put(instrument, new PositionTimeline(list)));
+        // Nothing happened before the first event: the history starts there at the earliest
         LocalDate first = events.isEmpty() ? end : events.firstKey();
-        LocalDate start = from != null ? from : first;
+        LocalDate start = from != null && from.isAfter(first) ? from : first;
         if (start.isAfter(end)) {
-            throw ApiException.invalid("from", "error.report.period");
+            throw ApiException.invalid("from", "error.period.order");
         }
-        // Opening balances are money the accounts started with
         for (Account account : scope.values()) {
             state.cash.merge(account.getCurrency(), account.getOpeningBalance(), BigDecimal::add);
-            state.deposits.add(new Deposit(first, account.getCurrency(), account.getOpeningBalance()));
         }
+        List<Deposit> deposited = Deposits.of(scope, movements, first);
 
         Map<Long, NavigableMap<LocalDate, BigDecimal>> closes = operationCloses(all, first, end);
-        Instrument fund = benchmark != null ? benchmarkInstrument(benchmark) : null;
+        Instrument fund = benchmark != null ? benchmarkFund(benchmark) : null;
         NavigableMap<LocalDate, BigDecimal> fundCloses = fund != null
                 ? closes(List.of(fund.getId()), first, end).getOrDefault(fund.getId(), new TreeMap<>())
                 : null;
 
-        CurrencyConverter toFund = fund != null ? exchangeRates.converterTo(fund.getCurrency()) : null;
+        CurrencyConverter toFund = fund != null ? converters.of(fund.getCurrency()) : null;
         List<HistoryPoint> points = new ArrayList<>();
         long days = ChronoUnit.DAYS.between(start, end);
         int step = days > MAX_DAILY_POINTS ? 7 : 1;
         BigDecimal fundUnits = BigDecimal.ZERO;
-        int deposited = 0;
+        // Deposits made before the first close of the fund wait for it
+        BigDecimal fundPending = BigDecimal.ZERO;
+        int next = 0;
         BigDecimal depositedTotal = BigDecimal.ZERO;
-        for (LocalDate day = first.isBefore(start) ? first : start; !day.isAfter(end); day = day.plusDays(1)) {
+        for (LocalDate day = first; !day.isAfter(end); day = day.plusDays(1)) {
             for (Runnable event : events.getOrDefault(day, List.of())) {
                 event.run();
             }
-            // Deposits of the day: counted, and bought in the fund at its close
-            for (;
-                    deposited < state.deposits.size()
-                            && !state.deposits.get(deposited).date().isAfter(day);
-                    deposited++) {
-                Deposit deposit = state.deposits.get(deposited);
-                depositedTotal =
-                        depositedTotal.add(known(converter.convertIfKnown(deposit.amount(), deposit.currency(), day)));
-                if (fund != null && fundCloses.floorEntry(day) != null) {
-                    BigDecimal inFund = known(toFund.convertIfKnown(deposit.amount(), deposit.currency(), day));
-                    fundUnits = fundUnits.add(
-                            inFund.divide(fundCloses.floorEntry(day).getValue(), PRECISION));
+            for (; next < deposited.size() && !deposited.get(next).date().isAfter(day); next++) {
+                Deposit deposit = deposited.get(next);
+                depositedTotal = depositedTotal.add(converter.convert(deposit.amount(), deposit.currency(), day));
+                if (fund != null) {
+                    fundPending = fundPending.add(toFund.convert(deposit.amount(), deposit.currency(), day));
                 }
+            }
+            Map.Entry<LocalDate, BigDecimal> fundClose = fund != null ? fundCloses.floorEntry(day) : null;
+            if (fundClose != null && fundPending.signum() != 0) {
+                fundUnits = fundUnits.add(fundPending.divide(fundClose.getValue(), PRECISION));
+                fundPending = BigDecimal.ZERO;
             }
             boolean sampled = !day.isBefore(start) && (ChronoUnit.DAYS.between(day, end) % step == 0);
             if (!sampled) {
@@ -160,25 +161,27 @@ public class HistoryService {
             }
             BigDecimal value = BigDecimal.ZERO;
             for (Map.Entry<String, BigDecimal> cash : state.cash.entrySet()) {
-                value = value.add(known(converter.convertIfKnown(cash.getValue(), cash.getKey(), day)));
+                value = value.add(converter.convert(cash.getValue(), cash.getKey(), day));
             }
-            for (Map.Entry<Instrument, BigDecimal> held : state.quantities.entrySet()) {
-                if (held.getValue().signum() == 0) {
+            for (Map.Entry<Instrument, PositionTimeline> position : held.entrySet()) {
+                BigDecimal quantity = position.getValue().heldAfter(day);
+                if (quantity.signum() == 0) {
                     continue;
                 }
-                BigDecimal price = price(held.getKey(), closes, state.lastPrices, day);
+                Instrument instrument = position.getKey();
+                BigDecimal price = price(instrument, closes, state.lastPrices, day);
                 if (price != null) {
-                    value = value.add(known(converter.convertIfKnown(
-                            held.getValue().multiply(price), held.getKey().getCurrency(), day)));
+                    value = value.add(converter.convert(quantity.multiply(price), instrument.getCurrency(), day));
                 }
             }
-            BigDecimal fundValue = null;
-            if (fund != null && fundCloses.floorEntry(day) != null) {
-                fundValue = known(converter.convertIfKnown(
-                        fundUnits.multiply(fundCloses.floorEntry(day).getValue()), fund.getCurrency(), day));
-            }
+            BigDecimal fundValue = fundClose != null
+                    ? converter.convert(fundUnits.multiply(fundClose.getValue()), fund.getCurrency(), day)
+                    : null;
             points.add(new HistoryPoint(
-                    day, money(value), money(depositedTotal), fundValue != null ? money(fundValue) : null));
+                    day,
+                    Money.round2(value),
+                    Money.round2(depositedTotal),
+                    fundValue != null ? Money.round2(fundValue) : null));
         }
         return new HistoryResponse(
                 converter.target(),
@@ -195,30 +198,14 @@ public class HistoryService {
                 converter.unconverted());
     }
 
-    /** The fund of the benchmark, added (and priced by the task) when first asked for. */
-    private Instrument benchmarkInstrument(Benchmark benchmark) {
-        Instrument fund = instruments.findMarketBySymbol(benchmark.symbol()).stream()
-                .findFirst()
-                .orElse(null);
-        if (fund == null) {
-            if (!provider.enabled()) {
-                return null;
-            }
-            Listing listing = ExternalCalls.call(() -> provider.search(benchmark.symbol())).stream()
-                    .filter(item -> item.symbol().equals(benchmark.symbol()) && Objects.equals(item.currency(), "USD"))
-                    .findFirst()
-                    .orElse(null);
-            if (listing == null) {
-                return null;
-            }
-            fund = new Instrument(null, listing.symbol(), InstrumentType.ETF, listing.currency(), Valuation.MARKET);
-            fund.setName(listing.name() != null ? listing.name() : listing.symbol());
-            fund.setExchange(listing.exchange());
-            fund.setMicCode(listing.micCode());
-            fund = instruments.save(fund);
+    /** The fund of the benchmark, added (and priced by the task) when first asked for; null when unavailable. */
+    private Instrument benchmarkFund(Benchmark benchmark) {
+        try {
+            return instrumentService.benchmark(benchmark);
+        } catch (ApiException e) {
+            log.warn("Benchmark {} unavailable: {}", benchmark, e.code());
+            return null;
         }
-        fund.setBenchmark(true);
-        return fund;
     }
 
     private Map<Long, NavigableMap<LocalDate, BigDecimal>> operationCloses(
@@ -276,21 +263,11 @@ public class HistoryService {
         return lastPrices.get(instrument);
     }
 
-    private static BigDecimal known(BigDecimal amount) {
-        return amount != null ? amount : BigDecimal.ZERO;
-    }
-
-    private static BigDecimal money(BigDecimal amount) {
-        return amount.setScale(2, RoundingMode.HALF_UP);
-    }
-
-    /** The money of the accounts while the days are replayed. */
+    /** The cash of the accounts and the last trade prices while the days are replayed. */
     private static final class State {
 
         private final Map<String, BigDecimal> cash = new TreeMap<>();
-        private final Map<Instrument, BigDecimal> quantities = new HashMap<>();
         private final Map<Instrument, BigDecimal> lastPrices = new HashMap<>();
-        private final List<Deposit> deposits = new ArrayList<>();
 
         void move(Movement movement, Map<Long, Account> scope) {
             Account source = scope.get(movement.getAccountId());
@@ -300,16 +277,9 @@ public class HistoryService {
                         ? movement.getAmount()
                         : movement.getAmount().negate();
                 cash.merge(source.getCurrency(), change, BigDecimal::add);
-                // Money taken to an account outside: a withdrawal
-                if (movement.getType() == TransactionType.TRANSFER && target == null) {
-                    deposits.add(new Deposit(movement.getDate(), source.getCurrency(), change));
-                }
             }
             if (target != null) {
                 cash.merge(target.getCurrency(), movement.getToAmount(), BigDecimal::add);
-                if (source == null) {
-                    deposits.add(new Deposit(movement.getDate(), target.getCurrency(), movement.getToAmount()));
-                }
             }
         }
 
@@ -317,27 +287,15 @@ public class HistoryService {
             cash.merge(operation.getCurrency(), operation.cash(), BigDecimal::add);
             Instrument instrument = operation.getInstrument();
             switch (operation.getType()) {
-                case BUY -> {
-                    quantities.merge(instrument, operation.getQuantity(), BigDecimal::add);
-                    lastPrices.put(instrument, operation.getPrice());
-                }
-                case SELL -> {
-                    quantities.merge(instrument, operation.getQuantity().negate(), BigDecimal::add);
-                    lastPrices.put(instrument, operation.getPrice());
-                }
+                case BUY, SELL -> lastPrices.put(instrument, operation.getPrice());
                 case SPLIT -> {
-                    BigDecimal factor = BigDecimal.valueOf(operation.getSplitTo())
-                            .divide(BigDecimal.valueOf(operation.getSplitFrom()), PRECISION);
-                    quantities.computeIfPresent(instrument, (key, quantity) -> quantity.multiply(factor));
+                    BigDecimal factor = PositionTimeline.splitFactor(operation);
                     lastPrices.computeIfPresent(instrument, (key, price) -> price.divide(factor, PRECISION));
                 }
                 default -> {}
             }
         }
     }
-
-    /** Money brought to the accounts (negative: taken away). */
-    private record Deposit(LocalDate date, String currency, BigDecimal amount) {}
 
     /**
      * @param benchmark  what the same deposits would be worth in the fund; null before its first known close

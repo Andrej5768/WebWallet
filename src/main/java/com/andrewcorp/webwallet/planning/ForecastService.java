@@ -1,7 +1,7 @@
 package com.andrewcorp.webwallet.planning;
 
+import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountService;
@@ -13,7 +13,6 @@ import com.andrewcorp.webwallet.planning.ForecastDtos.ForecastResponse;
 import com.andrewcorp.webwallet.planning.PlanningRepository.DayChange;
 import com.andrewcorp.webwallet.planning.PlanningRepository.Expense;
 import com.andrewcorp.webwallet.planning.RecurringDtos.OccurrenceResponse;
-import com.andrewcorp.webwallet.user.UserService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -40,31 +39,28 @@ public class ForecastService {
     /** The everyday spending is the average of this many last days. */
     static final int SPENDING_DAYS = 90;
 
+    private final Converters converters;
     private final AccountRepository accounts;
     private final AccountService accountService;
     private final PlanningRepository planning;
     private final RecurringService recurringService;
     private final RecurringOccurrenceRepository occurrences;
-    private final UserService users;
-    private final ExchangeRateService exchangeRates;
     private final Clock clock;
 
     public ForecastService(
+            Converters converters,
             AccountRepository accounts,
             AccountService accountService,
             PlanningRepository planning,
             RecurringService recurringService,
             RecurringOccurrenceRepository occurrences,
-            UserService users,
-            ExchangeRateService exchangeRates,
             Clock clock) {
+        this.converters = converters;
         this.accounts = accounts;
         this.accountService = accountService;
         this.planning = planning;
         this.recurringService = recurringService;
         this.occurrences = occurrences;
-        this.users = users;
-        this.exchangeRates = exchangeRates;
         this.clock = clock;
     }
 
@@ -76,8 +72,7 @@ public class ForecastService {
     public ForecastResponse forecast(Long userId, LocalDate to) {
         LocalDate today = LocalDate.now(clock);
         LocalDate first = today.withDayOfMonth(1);
-        CurrencyConverter converter =
-                exchangeRates.converterTo(users.get(userId).getBaseCurrency());
+        CurrencyConverter converter = converters.base(userId);
         Map<Long, Account> scope = new HashMap<>();
         for (Account account : accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)) {
             if (!account.isArchived()

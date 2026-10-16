@@ -1,8 +1,11 @@
 package com.andrewcorp.webwallet.investment;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.util.Money;
+import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.currency.ExchangeRateService;
+import com.andrewcorp.webwallet.investment.Deposits.Deposit;
+import com.andrewcorp.webwallet.investment.HistoryRepository.Movement;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.AllocationPart;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.CashResponse;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.LotResponse;
@@ -18,8 +21,6 @@ import com.andrewcorp.webwallet.investment.InvestmentValuation.Snapshot;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountService;
-import com.andrewcorp.webwallet.ledger.account.AccountType;
-import com.andrewcorp.webwallet.user.UserService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -38,28 +39,34 @@ public class PortfolioService {
 
     static final String CASH = "CASH";
 
+    private final Converters converters;
     private final InvestmentValuation valuation;
     private final InstrumentService instrumentService;
     private final AccountRepository accounts;
     private final AccountService accountService;
-    private final UserService users;
-    private final ExchangeRateService exchangeRates;
+    private final InvestmentAccounts investmentAccounts;
+    private final Deposits deposits;
+    private final InvestmentOperationRepository operations;
     private final Clock clock;
 
     public PortfolioService(
+            Converters converters,
             InvestmentValuation valuation,
             InstrumentService instrumentService,
             AccountRepository accounts,
             AccountService accountService,
-            UserService users,
-            ExchangeRateService exchangeRates,
+            InvestmentAccounts investmentAccounts,
+            Deposits deposits,
+            InvestmentOperationRepository operations,
             Clock clock) {
+        this.converters = converters;
         this.valuation = valuation;
         this.instrumentService = instrumentService;
         this.accounts = accounts;
         this.accountService = accountService;
-        this.users = users;
-        this.exchangeRates = exchangeRates;
+        this.investmentAccounts = investmentAccounts;
+        this.deposits = deposits;
+        this.operations = operations;
         this.clock = clock;
     }
 
@@ -67,19 +74,10 @@ public class PortfolioService {
     @Transactional(readOnly = true)
     public PortfolioResponse portfolio(Long userId, Long accountId) {
         LocalDate today = LocalDate.now(clock);
-        CurrencyConverter converter =
-                exchangeRates.converterTo(users.get(userId).getBaseCurrency());
-        Map<Long, Account> brokerage = new TreeMap<>();
-        for (Account account : accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)) {
-            boolean wanted = accountId != null ? account.getId().equals(accountId) : !account.isArchived();
-            if (account.getType() == AccountType.INVESTMENT && wanted) {
-                brokerage.put(account.getId(), account);
-            }
-        }
-        if (accountId != null && brokerage.isEmpty()) {
-            throw ApiException.notFound();
-        }
+        CurrencyConverter converter = converters.base(userId);
+        Map<Long, Account> brokerage = investmentAccounts.scope(userId, accountId);
         Snapshot snapshot = valuation.snapshot(userId, today);
+        BigDecimal deposited = deposited(userId, brokerage, converter, today);
         Map<Long, BigDecimal> ledger = accountService.ledgerBalances(userId);
 
         List<PositionDraft> positions = new ArrayList<>();
@@ -171,9 +169,10 @@ public class PortfolioService {
         return new PortfolioResponse(
                 converter.target(),
                 value,
+                deposited,
                 invested,
                 unrealized,
-                share(unrealized, invested),
+                Money.share(unrealized, invested),
                 realized,
                 dividends,
                 dayChange,
@@ -183,6 +182,26 @@ public class PortfolioService {
                 allocation(byType, value),
                 allocation(byCurrency, value),
                 converter.unconverted());
+    }
+
+    /**
+     * The money brought to the accounts minus the money taken away, at the rates of their dates; the opening balances
+     * count on the first day with money on the accounts.
+     */
+    private BigDecimal deposited(Long userId, Map<Long, Account> scope, CurrencyConverter converter, LocalDate today) {
+        List<Movement> movements = deposits.movements(scope);
+        LocalDate first = movements.isEmpty() ? today : movements.get(0).getDate();
+        for (InvestmentOperation operation : operations.findAllOfUser(userId)) {
+            if (scope.containsKey(operation.getAccount().getId())
+                    && operation.getDate().isBefore(first)) {
+                first = operation.getDate();
+            }
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        for (Deposit deposit : Deposits.of(scope, movements, first)) {
+            total = total.add(converter.convert(deposit.amount(), deposit.currency(), deposit.date()));
+        }
+        return Money.round2(total);
     }
 
     /** One instrument on one account: lots, sales and operations. */
@@ -272,21 +291,18 @@ public class PortfolioService {
                 holding.value(),
                 lots.cost(),
                 unrealized,
-                share(unrealized, lots.cost()),
+                Money.share(unrealized, lots.cost()),
                 draft.valueInBase(),
-                draft.valueInBase() != null ? share(draft.valueInBase(), total) : null);
+                draft.valueInBase() != null ? Money.share(draft.valueInBase(), total) : null);
     }
 
     private static List<AllocationPart> allocation(Map<String, BigDecimal> parts, BigDecimal total) {
         return parts.entrySet().stream()
                 .filter(entry -> entry.getValue().signum() != 0)
-                .map(entry -> new AllocationPart(entry.getKey(), entry.getValue(), share(entry.getValue(), total)))
+                .map(entry ->
+                        new AllocationPart(entry.getKey(), entry.getValue(), Money.share(entry.getValue(), total)))
                 .sorted(Comparator.comparing(AllocationPart::value).reversed())
                 .toList();
-    }
-
-    private static BigDecimal share(BigDecimal part, BigDecimal total) {
-        return total == null || total.signum() == 0 ? null : part.divide(total, 4, RoundingMode.HALF_UP);
     }
 
     private record PositionDraft(Long accountId, Holding holding, BigDecimal valueInBase) {}

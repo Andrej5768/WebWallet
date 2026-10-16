@@ -1,9 +1,9 @@
 package com.andrewcorp.webwallet.investment;
 
-import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.validation.CurrencyCode;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.common.web.PageResponse;
+import com.andrewcorp.webwallet.common.web.Periods;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.InstrumentResponse;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.MarketInstrumentRequest;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.OperationRequest;
@@ -141,8 +141,9 @@ public class InvestmentController {
             summary = "Add a market instrument found by a search, or get the one already known",
             description = "Its data come from the market data provider; prices load within minutes.")
     @PostMapping("/instruments/market")
-    public InstrumentResponse addMarket(@Valid @RequestBody MarketInstrumentRequest request) {
-        return instrumentService.addMarket(request);
+    public InstrumentResponse addMarket(
+            @CurrentUserId Long userId, @Valid @RequestBody MarketInstrumentRequest request) {
+        return instrumentService.addMarket(userId, request);
     }
 
     @Operation(summary = "Enter an instrument by hand, e.g. a Ukrainian government bond")
@@ -175,12 +176,7 @@ public class InvestmentController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         LocalDate end = to != null ? to : LocalDate.now(clock);
         LocalDate start = from != null ? from : end.minusYears(1);
-        if (start.isAfter(end)) {
-            throw ApiException.invalid("from", "error.report.period");
-        }
-        if (start.isBefore(end.minusYears(MAX_PRICE_YEARS))) {
-            throw ApiException.invalid("from", "error.report.periodTooLong");
-        }
+        Periods.checkYears(start, end, MAX_PRICE_YEARS, "from");
         return instrumentService.prices(userId, id, start, end);
     }
 

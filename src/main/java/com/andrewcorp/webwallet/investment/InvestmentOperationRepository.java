@@ -40,4 +40,6 @@ public interface InvestmentOperationRepository extends JpaRepository<InvestmentO
     LocalDate findFirstDate();
 
     boolean existsByInstrumentId(Long instrumentId);
+
+    boolean existsByInstrumentIdAndUserId(Long instrumentId, Long userId);
 }

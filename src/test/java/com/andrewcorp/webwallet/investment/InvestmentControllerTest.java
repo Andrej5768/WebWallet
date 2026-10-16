@@ -3,6 +3,9 @@ package com.andrewcorp.webwallet.investment;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -165,6 +168,8 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
 
         // Cash: 5 000 - 1 001 - 2 000 + 1 250 + 8.50 - 2.50 = 3 255 USD; 15 shares at 220 = 3 300 USD
         assertThat(portfolio).containsEntry("currency", "UAH").containsEntry("pricesAsOf", "2030-03-14");
+        // The 5 000 USD brought from the card, at the rate of their day
+        assertThat(number(portfolio.get("deposited"))).isEqualTo(5000 * 40.0);
         assertThat(number(portfolio.get("value"))).isEqualTo((3255 + 3300) * 40.0);
         // 5 of the first lot at 100.10 and 10 at 200
         assertThat(number(portfolio.get("invested"))).isEqualTo(2500.5 * 40);
@@ -568,5 +573,169 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
                 .containsExactly("2030-01-23 RECEIVED", "2030-07-22 DECLARED", "2031-01-22 DECLARED");
         assertThat(events.get(1)).containsEntry("gross", 7600.0).containsEntry("tax", 0.0);
         assertThat(number(calendar.get("next12Months"))).isEqualTo(15200);
+    }
+
+    @Test
+    void rejectsUnboundedPeriodsAndImplausibleInstruments() throws Exception {
+        json(get("/api/v1/investments/history").param("from", "1980-01-01").header("Authorization", auth), 400);
+        Map<String, Object> tooLong = json(
+                get("/api/v1/investments/history").param("from", "2000-01-01").header("Authorization", auth), 400);
+        assertThat(tooLong.get("errors").toString()).contains("not be longer than 20 years");
+        json(
+                get("/api/v1/investments/dividends")
+                        .param("from", "1900-01-01")
+                        .param("to", "1901-01-01")
+                        .header("Authorization", auth),
+                400);
+        Map<String, Object> bond = new HashMap<>(Map.of(
+                "symbol", "UA1",
+                "name", "Bond",
+                "type", "GOVERNMENT_BOND",
+                "currency", "UAH",
+                "valuation", "NOMINAL",
+                "nominal", 1000,
+                "couponRate", 10,
+                "couponFrequency", 2,
+                "maturityDate", "2200-01-01"));
+        json(postJson("/api/v1/investments/instruments", bond, auth), 400);
+        bond.put("maturityDate", "2031-01-01");
+        bond.put("couponFrequency", 5);
+        json(postJson("/api/v1/investments/instruments", bond, auth), 400);
+        bond.put("couponFrequency", 4);
+        bond.put("manualPriceDate", "1900-01-01");
+        json(postJson("/api/v1/investments/instruments", bond, auth), 400);
+
+        Long aapl = apple();
+        json(
+                postJson(
+                        "/api/v1/investments/operations",
+                        Map.of(
+                                "type",
+                                "SPLIT",
+                                "accountId",
+                                broker,
+                                "instrumentId",
+                                aapl,
+                                "date",
+                                "2030-01-10",
+                                "splitFrom",
+                                1,
+                                "splitTo",
+                                2000),
+                        auth),
+                400);
+        // A trade is in the currency of its instrument; income and fees are more than nothing
+        Map<String, Object> inHryvnias = trade("BUY", "2030-01-10", aapl, 1, 100, 0);
+        inHryvnias.put("currency", "UAH");
+        json(postJson("/api/v1/investments/operations", inHryvnias, auth), 400);
+        json(
+                postJson(
+                        "/api/v1/investments/operations",
+                        Map.of(
+                                "type",
+                                "DIVIDEND",
+                                "accountId",
+                                broker,
+                                "instrumentId",
+                                aapl,
+                                "date",
+                                "2030-03-05",
+                                "amount",
+                                0),
+                        auth),
+                400);
+        json(
+                postJson(
+                        "/api/v1/investments/operations",
+                        Map.of("type", "FEE", "accountId", broker, "date", "2030-03-05", "amount", 0),
+                        auth),
+                400);
+    }
+
+    @Test
+    void limitsAndCachesTheSearchesOfTheProvider() throws Exception {
+        // One letter finds only own instruments
+        json(get("/api/v1/investments/instruments/search").param("q", "a").header("Authorization", auth), 200);
+        verify(provider, never()).search("a");
+
+        json(get("/api/v1/investments/instruments/search").param("q", "apple").header("Authorization", auth), 200);
+        json(get("/api/v1/investments/instruments/search").param("q", "Apple ").header("Authorization", auth), 200);
+        verify(provider, times(1)).search(any());
+
+        for (int i = 1; i < 30; i++) {
+            json(
+                    get("/api/v1/investments/instruments/search")
+                            .param("q", "query" + i)
+                            .header("Authorization", auth),
+                    200);
+        }
+        json(
+                get("/api/v1/investments/instruments/search")
+                        .param("q", "one more")
+                        .header("Authorization", auth),
+                429);
+        // Another user has a limit of their own
+        json(
+                get("/api/v1/investments/instruments/search")
+                        .param("q", "one more")
+                        .header("Authorization", other),
+                200);
+    }
+
+    @Test
+    void showsMarketInstrumentsOnlyToThoseWhoUseOrFoundThem() throws Exception {
+        Long aapl = apple();
+        json(get("/api/v1/investments/instruments/" + aapl).header("Authorization", auth), 200);
+        json(get("/api/v1/investments/instruments/" + aapl).header("Authorization", other), 404);
+        json(get("/api/v1/investments/instruments/" + aapl + "/prices").header("Authorization", other), 404);
+
+        json(get("/api/v1/investments/instruments/search").param("q", "aapl").header("Authorization", other), 200);
+        json(get("/api/v1/investments/instruments/" + aapl).header("Authorization", other), 200);
+    }
+
+    @Test
+    void reloadsTheLastCloseAndBuysTheBenchmarkFromItsFirstClose() throws Exception {
+        Long aapl = apple();
+        operation(trade("BUY", "2030-03-11", aapl, 1, 90, 0));
+        prices.save(new InstrumentPrice(aapl, LocalDate.of(2029, 1, 1), new BigDecimal("80")));
+        prices.save(new InstrumentPrice(aapl, LocalDate.of(2030, 3, 14), new BigDecimal("100")));
+        priceService.update(aapl);
+        // The close of the 14th may have been taken during the session: loaded again
+        verify(provider).closes("AAPL", "XNGS", LocalDate.of(2030, 3, 14), TODAY);
+
+        json(
+                postJson(
+                        "/api/v1/transactions",
+                        Map.of(
+                                "type",
+                                "TRANSFER",
+                                "date",
+                                "2030-03-10",
+                                "accountId",
+                                card,
+                                "toAccountId",
+                                broker,
+                                "amount",
+                                4000,
+                                "toAmount",
+                                100),
+                        auth),
+                201);
+        when(provider.search("SPY"))
+                .thenReturn(List.of(new Listing("SPY", "SPDR S&P 500", "NYSE", "ARCX", "United States", "USD", "ETF")));
+        json(get("/api/v1/investments/history").param("benchmark", "SP500").header("Authorization", auth), 200);
+        Long spy = instruments.findMarketBySymbol("SPY").get(0).getId();
+        // The first close of the fund comes after the deposit: the deposit waits for it
+        prices.save(new InstrumentPrice(spy, LocalDate.of(2030, 3, 12), new BigDecimal("50")));
+        Map<String, Object> history = json(
+                get("/api/v1/investments/history")
+                        .param("currency", "USD")
+                        .param("benchmark", "SP500")
+                        .header("Authorization", auth),
+                200);
+        List<Map<String, Object>> points = (List<Map<String, Object>>) history.get("points");
+        assertThat(points.get(0)).containsEntry("date", "2030-03-10").containsEntry("benchmark", null);
+        assertThat(points.get(2)).containsEntry("date", "2030-03-12");
+        assertThat(number(points.get(2).get("benchmark"))).isEqualTo(100);
     }
 }

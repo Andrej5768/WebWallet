@@ -270,7 +270,7 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   transaction; with `autoCreate` it is created on the due date (only for dates from the day the payment was created
   on). `POST .../skip` skips one, `DELETE .../occurrences/{date}` makes it pending again (a linked transaction stays)
   and stops matching and creating it automatically; so does deleting the transaction that paid it. Matching runs
-  before the occurrences are read and every hour. `GET /api/v1/recurring/occurrences?from&to` lists the occurrences
+  before the occurrences are read and every hour, also with transactions entered ahead of time (up to a year). `GET /api/v1/recurring/occurrences?from&to` lists the occurrences
   of all payments by date (by default from 31 days ago to 31 days ahead, at most 400 days) with `status` (`PENDING`,
   `PAID`, `SKIPPED`), `overdue` and `transactionId`; pending ones overdue for more than 31 days are dropped. A
   transaction that pays an occurrence has `recurring: {id, name, dueDate}`.
@@ -290,35 +290,50 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   `startAmount`; again when it moves to another account) to the target on the deadline: `expected` by today,
   `monthsLeft` (a started month counts), `monthlyNeeded` and `status`: `ACHIEVED` (marked with `achieved: true`, or
   the target is reached), `NO_DATE`, `ON_TRACK`, `BEHIND` (more than 3% of the target below the pace) or `OVERDUE`.
+  When the progress cannot be converted (an account in a currency without a rate), it counts as zero, the pace is not
+  judged (`ON_TRACK`, no `expected`) and the currency is in `unconvertedCurrencies`. A contribution may not take the
+  saved amount below zero or to 15 digits.
 - Investments (`/api/v1/investments`): operations of `INVESTMENT` accounts (`GET/POST /operations`,
   `GET/PUT/DELETE /operations/{id}`): `BUY` and `SELL` (`quantity`, `price`, `amount` = quantity × price by default,
   `fee`), `DIVIDEND` and `COUPON` (gross `amount`, withheld `tax`), `FEE` (no instrument needed) and `SPLIT`
-  (`splitFrom` into `splitTo`), in the currency of the instrument by default. Every purchase is a lot; a sale takes
-  the oldest lots first (FIFO) and may not sell more than is held on its date, also after an edit or a deletion of an
-  earlier operation (400). The fee of a purchase is part of the cost of its lot. Market instruments (stocks, ETFs,
-  funds) are found with `GET /instruments/search?q=` (own and known ones first, then the market data provider) and
-  added with `POST /instruments/market` `{symbol, micCode}`; they are shared and their data come from the provider.
-  Instruments entered by hand (`POST/PUT/DELETE /instruments`, e.g. Ukrainian government bonds) are valued `NOMINAL`
-  (nominal plus the coupon accrued since the last payment; coupons are counted back from `maturityDate`,
-  `couponFrequency` times a year) or `MANUAL` (`manualPrice`). Daily closes come from Twelve Data (free plan, key in
-  `TWELVE_DATA_API_KEY`; without it prices are entered by hand): a task checks a few instruments a minute, each every
-  6 hours, loading the history back to the first operation (at least a year), unadjusted, as the operations record
-  splits and dividends. `GET /portfolio?accountId=` returns the value, cost (`invested`), unrealized profit, realized
+  (`splitFrom` into `splitTo`, each at most 1000), in the currency of the instrument by default; a trade must be in
+  the currency of its instrument, and a dividend, coupon or fee must be more than zero. Every purchase is a lot; a
+  sale takes the oldest lots first (FIFO) and may not sell more than is held on its date, also after an edit or a
+  deletion of an earlier operation (400); the operations of an account are changed one at a time. The fee of a
+  purchase is part of the cost of its lot. Quantities keep 8 decimals, also after a split. Market instruments
+  (stocks, ETFs, funds) are found with `GET /instruments/search?q=` (own and known ones first, then, for at least 2
+  characters, the market data provider) and added with `POST /instruments/market` `{symbol, micCode}`; they are
+  shared and their data come from the provider. The provider quota is shared by everyone: its results are cached for
+  an hour, and a user may make 30 searches an hour that reach it (429 `TOO_MANY_REQUESTS` beyond). A user may read a
+  market instrument (`GET /instruments/{id}`, `/prices`) only when they have operations of it, it is a benchmark, or
+  they found or added it within the last day, as the instruments show what other users hold. Instruments entered by
+  hand (`POST/PUT/DELETE /instruments`, e.g. Ukrainian government bonds) are valued `NOMINAL` (nominal plus the
+  coupon accrued since the last payment; coupons are counted back from `maturityDate`, `couponFrequency` times a year:
+  1, 2, 3, 4, 6 or 12) or `MANUAL` (`manualPrice`); their dates are between 1990 and 2100. Daily closes come from
+  Twelve Data (free plan, key in `TWELVE_DATA_API_KEY`; without it prices are entered by hand): a task checks a few
+  instruments a minute, each every 6 hours, loading the history back to the first operation (for a benchmark the
+  first deposit to a brokerage account; at least a year), unadjusted, as the operations record splits and dividends;
+  the last known close is loaded again, as it may have been the price during the session. `GET /portfolio?accountId=`
+  returns the value, `deposited` (the money brought to the accounts minus the money taken away, at the rates of their
+  dates), cost (`invested`), unrealized profit, realized
   profit of the year (FIFO, at the rates of the sale dates), dividends of the last 12 months after tax, the change of
   the day, the positions (average price, price, value, share), the cash per account and currency (the transfers of the
   ledger plus the cash of the operations) and the allocation by type and currency, in the base currency at today's
   rates; a position without a price yet is valued at cost. `GET /positions?accountId&instrumentId` returns the lots
   (with the unrealized profit of the open ones), the sales with the lots they took and the operations.
   `GET /history?accountId&from&to&currency&benchmark` returns the value day by day (weekly over 400 days) at the
-  closes and NBU rates of the day, the net deposits (transfers from and to other accounts, opening balances) and, with
-  `benchmark` `SP500` (SPY), `MSCI_WORLD` (URTH) or `NASDAQ100` (QQQ), what the same deposits would be worth in the
-  fund bought and sold at the closes of their days (price only, dividends not reinvested). The balance of an
+  closes and NBU rates of the day, from the first day with money on the accounts (an earlier `from` starts there;
+  dates between 1990 and 2100, at most 20 years), the net deposits (transfers from and to other accounts, opening
+  balances) and, with `benchmark` `SP500` (SPY), `MSCI_WORLD` (URTH) or `NASDAQ100` (QQQ), what the same deposits
+  would be worth in the fund bought and sold at the closes of their days (deposits before its first known close are
+  bought at that close; price only, dividends not reinvested). The balance of an
   `INVESTMENT` account is its ledger balance plus the cash of its operations and the value of its positions at today's
   prices and rates; the net worth report still counts only the ledger for past months.
 - Dividend calendar: `GET /api/v1/investments/dividends?accountId&from&to&currency` (by default a year back and a year
-  ahead, at most 5 years) lists the payments by date with a `status`: `RECEIVED` (the `DIVIDEND` and `COUPON`
+  ahead, dates between 1990 and 2100, at most 5 years) lists the payments by date with a `status`: `RECEIVED` (the `DIVIDEND` and `COUPON`
   operations), `EXPECTED` (due to the holder on the ex-dividend date but not recorded), `DECLARED` (from the dividend
-  provider, or the coupon schedule of a bond: nominal × rate / frequency × quantity) and `FORECAST` (the payments of
+  provider, or the coupon schedule of a bond: nominal × rate / frequency × quantity, computed rather than stepped
+  through, so a far maturity costs nothing) and `FORECAST` (the payments of
   the last 12 months repeated a year later for what is held now, after the last declared one). A recorded dividend
   dated from 5 days before the ex-dividend date to 31 days after the payment date stands for the declared one. The tax
   of the coming ones is estimated from the last dividend of the instrument (`taxEstimated`). It also returns the gross

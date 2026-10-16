@@ -1,7 +1,8 @@
 package com.andrewcorp.webwallet.investment;
 
+import com.andrewcorp.webwallet.currency.ConverterCache;
+import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -12,7 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,17 +27,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class InvestmentValuation {
 
+    private static final Logger log = LoggerFactory.getLogger(InvestmentValuation.class);
+
     private final InvestmentOperationRepository operations;
     private final InstrumentPriceRepository prices;
-    private final ExchangeRateService exchangeRates;
+    private final Converters converters;
 
     public InvestmentValuation(
-            InvestmentOperationRepository operations,
-            InstrumentPriceRepository prices,
-            ExchangeRateService exchangeRates) {
+            InvestmentOperationRepository operations, InstrumentPriceRepository prices, Converters converters) {
         this.operations = operations;
         this.prices = prices;
-        this.exchangeRates = exchangeRates;
+        this.converters = converters;
     }
 
     @Transactional(readOnly = true)
@@ -65,14 +69,14 @@ public class InvestmentValuation {
                         .collect(Collectors.groupingBy(InstrumentPrice::getInstrumentId));
 
         Map<Long, AccountHoldings> accounts = new TreeMap<>();
-        Set<Long> accountIds = new java.util.TreeSet<>(cash.keySet());
+        Set<Long> accountIds = new TreeSet<>(cash.keySet());
         accountIds.addAll(byInstrument.keySet());
         for (Long accountId : accountIds) {
             List<Holding> holdings = new ArrayList<>();
             byInstrument
                     .getOrDefault(accountId, Map.of())
                     .forEach((instrument, list) -> holdings.add(
-                            new Holding(instrument, LotLedger.of(list), list, price(instrument, latest, date))));
+                            new Holding(instrument, lots(accountId, list), list, price(instrument, latest, date))));
             accounts.put(accountId, new AccountHoldings(accountId, cash.getOrDefault(accountId, Map.of()), holdings));
         }
         return new Snapshot(accounts);
@@ -85,28 +89,37 @@ public class InvestmentValuation {
     @Transactional(readOnly = true)
     public Map<Long, BigDecimal> balances(Long userId, Map<Long, String> accountCurrencies, LocalDate date) {
         Map<Long, BigDecimal> result = new HashMap<>();
-        Map<String, CurrencyConverter> converters = new HashMap<>();
+        ConverterCache cache = converters.cache();
         for (AccountHoldings account : snapshot(userId, date).accounts().values()) {
             String currency = accountCurrencies.get(account.accountId());
             if (currency == null) {
                 continue;
             }
-            CurrencyConverter converter = converters.computeIfAbsent(currency, exchangeRates::converterTo);
+            CurrencyConverter converter = cache.to(currency);
             BigDecimal total = BigDecimal.ZERO;
             for (Map.Entry<String, BigDecimal> cash : account.cash().entrySet()) {
-                total = total.add(known(converter.convertIfKnown(cash.getValue(), cash.getKey(), date)));
+                total = total.add(converter.convert(cash.getValue(), cash.getKey(), date));
             }
             for (Holding holding : account.holdings()) {
-                total = total.add(known(converter.convertIfKnown(
-                        holding.value(), holding.instrument().getCurrency(), date)));
+                total = total.add(
+                        converter.convert(holding.value(), holding.instrument().getCurrency(), date));
             }
             result.put(account.accountId(), total);
         }
         return result;
     }
 
-    private static BigDecimal known(BigDecimal amount) {
-        return amount != null ? amount : BigDecimal.ZERO;
+    /**
+     * The lots of an instrument. Operations stored before the check, or by two sales at once, may sell more than was
+     * held: they are valued as far as they go rather than making the accounts unreadable.
+     */
+    private static LotLedger lots(Long accountId, List<InvestmentOperation> list) {
+        try {
+            return LotLedger.of(list);
+        } catch (LotLedger.Shortfall e) {
+            log.warn("Account {} sold more than it held on {}", accountId, e.date());
+            return LotLedger.lenient(list);
+        }
     }
 
     private Price price(Instrument instrument, Map<Long, List<InstrumentPrice>> latest, LocalDate date) {

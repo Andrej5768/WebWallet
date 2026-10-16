@@ -1,18 +1,14 @@
 package com.andrewcorp.webwallet.investment;
 
-import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.util.Money;
+import com.andrewcorp.webwallet.common.web.Periods;
+import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.investment.InvestmentValuation.AccountHoldings;
 import com.andrewcorp.webwallet.investment.InvestmentValuation.Holding;
-import com.andrewcorp.webwallet.ledger.account.Account;
-import com.andrewcorp.webwallet.ledger.account.AccountRepository;
-import com.andrewcorp.webwallet.ledger.account.AccountType;
-import com.andrewcorp.webwallet.user.UserService;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.math.MathContext;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -46,28 +42,28 @@ public class DividendCalendarService {
 
     private static final int MATCH_AFTER_DAYS = 31;
 
+    /** The longest calendar. */
+    static final int MAX_YEARS = 5;
+
+    private final Converters converters;
     private final InvestmentOperationRepository operations;
     private final InstrumentDividendRepository dividends;
     private final InvestmentValuation valuation;
-    private final AccountRepository accounts;
-    private final UserService users;
-    private final ExchangeRateService exchangeRates;
+    private final InvestmentAccounts investmentAccounts;
     private final Clock clock;
 
     public DividendCalendarService(
+            Converters converters,
             InvestmentOperationRepository operations,
             InstrumentDividendRepository dividends,
             InvestmentValuation valuation,
-            AccountRepository accounts,
-            UserService users,
-            ExchangeRateService exchangeRates,
+            InvestmentAccounts investmentAccounts,
             Clock clock) {
+        this.converters = converters;
         this.operations = operations;
         this.dividends = dividends;
         this.valuation = valuation;
-        this.accounts = accounts;
-        this.users = users;
-        this.exchangeRates = exchangeRates;
+        this.investmentAccounts = investmentAccounts;
         this.clock = clock;
     }
 
@@ -80,24 +76,9 @@ public class DividendCalendarService {
         LocalDate today = LocalDate.now(clock);
         LocalDate start = from != null ? from : today.minusYears(1).plusDays(1);
         LocalDate end = to != null ? to : today.plusYears(1);
-        if (start.isAfter(end)) {
-            throw ApiException.invalid("from", "error.report.period");
-        }
-        if (start.plusYears(5).isBefore(end)) {
-            throw ApiException.invalid("to", "error.investment.calendarTooLong");
-        }
-        Set<Long> scope = new HashSet<>();
-        for (Account account : accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)) {
-            boolean wanted = accountId != null ? account.getId().equals(accountId) : !account.isArchived();
-            if (account.getType() == AccountType.INVESTMENT && wanted) {
-                scope.add(account.getId());
-            }
-        }
-        if (accountId != null && scope.isEmpty()) {
-            throw ApiException.notFound();
-        }
-        CurrencyConverter converter = exchangeRates.converterTo(
-                currency != null ? currency : users.get(userId).getBaseCurrency());
+        Periods.checkYears(start, end, MAX_YEARS, "to");
+        Set<Long> scope = investmentAccounts.scope(userId, accountId).keySet();
+        CurrencyConverter converter = converters.to(userId, currency);
 
         Map<Key, List<InvestmentOperation>> positions = new LinkedHashMap<>();
         for (InvestmentOperation operation : operations.findAllOfUser(userId)) {
@@ -132,7 +113,7 @@ public class DividendCalendarService {
         List<Event> events = new ArrayList<>();
         for (Map.Entry<Key, List<InvestmentOperation>> position : positions.entrySet()) {
             Key key = position.getKey();
-            Timeline timeline = new Timeline(position.getValue());
+            PositionTimeline timeline = new PositionTimeline(position.getValue());
             List<InvestmentOperation> received = position.getValue().stream()
                     .filter(operation -> operation.getType() == OperationType.DIVIDEND
                             || operation.getType() == OperationType.COUPON)
@@ -145,7 +126,7 @@ public class DividendCalendarService {
                         null,
                         key,
                         Status.RECEIVED,
-                        timeline.heldBefore(operation.getDate().plusDays(1)),
+                        timeline.heldAfter(operation.getDate()),
                         null,
                         operation.getAmount(),
                         operation.getTax(),
@@ -153,7 +134,7 @@ public class DividendCalendarService {
                         false));
             }
             Instrument instrument = key.instrument();
-            BigDecimal heldNow = timeline.heldBefore(today.plusDays(1));
+            BigDecimal heldNow = timeline.heldAfter(today);
             if (instrument.getValuation() == Valuation.NOMINAL) {
                 coupons(key, timeline, received, matched, first, last, today, events);
                 continue;
@@ -206,7 +187,7 @@ public class DividendCalendarService {
             }
             if (known.isEmpty()) {
                 for (InvestmentOperation operation : received) {
-                    BigDecimal held = timeline.heldBefore(operation.getDate().plusDays(1));
+                    BigDecimal held = timeline.heldAfter(operation.getDate());
                     if (operation.getDate().isAfter(today.minusYears(1)) && held.signum() > 0) {
                         past.add(new Past(
                                 operation.getDate(), operation.getAmount().divide(held, PRECISION)));
@@ -248,7 +229,7 @@ public class DividendCalendarService {
     /** Coupons of a bond by its schedule: those after today are known, earlier ones not recorded are expected. */
     private static void coupons(
             Key key,
-            Timeline timeline,
+            PositionTimeline timeline,
             List<InvestmentOperation> received,
             Set<InvestmentOperation> matched,
             LocalDate start,
@@ -256,25 +237,9 @@ public class DividendCalendarService {
             LocalDate today,
             List<Event> events) {
         Instrument bond = key.instrument();
-        if (bond.getCouponRate() == null
-                || bond.getCouponFrequency() == null
-                || bond.getMaturityDate() == null
-                || bond.getNominal() == null) {
-            return;
-        }
-        int months = 12 / bond.getCouponFrequency();
-        BigDecimal perBond = bond.getNominal()
-                .multiply(bond.getCouponRate())
-                .divide(BigDecimal.valueOf(100L * bond.getCouponFrequency()), 6, RoundingMode.HALF_UP);
-        BigDecimal heldNow = timeline.heldBefore(today.plusDays(1));
-        for (int step = 0; ; step++) {
-            LocalDate day = bond.getMaturityDate().minusMonths((long) months * step);
-            if (day.isBefore(start)) {
-                break;
-            }
-            if (day.isAfter(end)) {
-                continue;
-            }
+        BigDecimal perBond = BondValuation.hasCoupons(bond) ? BondValuation.coupon(bond) : null;
+        BigDecimal heldNow = timeline.heldAfter(today);
+        for (LocalDate day : BondValuation.couponDates(bond, start, end)) {
             BigDecimal held = day.isAfter(today) ? heldNow : timeline.heldBefore(day);
             if (held.signum() <= 0) {
                 continue;
@@ -335,8 +300,8 @@ public class DividendCalendarService {
         LocalDate yearAgo = today.minusYears(1);
         for (Event event : events) {
             LocalDate rateDate = event.status() == Status.RECEIVED ? event.date() : today;
-            BigDecimal gross = known(converter.convertIfKnown(event.gross(), event.currency(), rateDate));
-            BigDecimal tax = known(converter.convertIfKnown(event.tax(), event.currency(), rateDate));
+            BigDecimal gross = converter.convert(event.gross(), event.currency(), rateDate);
+            BigDecimal tax = converter.convert(event.tax(), event.currency(), rateDate);
             if (event.status() == Status.RECEIVED
                     && event.date().isAfter(yearAgo)
                     && !event.date().isAfter(today)) {
@@ -364,14 +329,14 @@ public class DividendCalendarService {
                     instrument.getSymbol(),
                     instrument.getName(),
                     instrument.getType(),
-                    money(event.quantity()),
+                    Money.round2(event.quantity()),
                     event.perShare(),
-                    money(event.gross()),
-                    money(event.tax()),
-                    money(event.gross().subtract(event.tax())),
+                    Money.round2(event.gross()),
+                    Money.round2(event.tax()),
+                    Money.round2(event.gross().subtract(event.tax())),
                     event.currency(),
-                    money(gross),
-                    money(gross.subtract(tax)),
+                    Money.round2(gross),
+                    Money.round2(gross.subtract(tax)),
                     event.taxEstimated()));
         }
 
@@ -384,31 +349,31 @@ public class DividendCalendarService {
             }
             for (Holding holding : holdings.holdings()) {
                 String currency = holding.instrument().getCurrency();
-                value = value.add(known(converter.convertIfKnown(holding.value(), currency, today)));
-                cost = cost.add(known(converter.convertIfKnown(holding.lots().cost(), currency, today)));
+                value = value.add(converter.convert(holding.value(), currency, today));
+                cost = cost.add(converter.convert(holding.lots().cost(), currency, today));
             }
         }
         return new CalendarResponse(
                 converter.target(),
                 start,
                 end,
-                money(next12),
-                money(next12Net),
-                money(next12.divide(BigDecimal.valueOf(12), PRECISION)),
-                share(next12, value),
-                share(next12, cost),
-                money(received12),
+                Money.round2(next12),
+                Money.round2(next12Net),
+                Money.round2(next12.divide(BigDecimal.valueOf(12), PRECISION)),
+                Money.positiveShare(next12, value),
+                Money.positiveShare(next12, cost),
+                Money.round2(received12),
                 months.entrySet().stream()
                         .map(entry -> new MonthPayments(
                                 entry.getKey(),
-                                money(entry.getValue()[Status.RECEIVED.ordinal()]),
-                                money(entry.getValue()[Status.EXPECTED.ordinal()]),
-                                money(entry.getValue()[Status.DECLARED.ordinal()]),
-                                money(entry.getValue()[Status.FORECAST.ordinal()])))
+                                Money.round2(entry.getValue()[Status.RECEIVED.ordinal()]),
+                                Money.round2(entry.getValue()[Status.EXPECTED.ordinal()]),
+                                Money.round2(entry.getValue()[Status.DECLARED.ordinal()]),
+                                Money.round2(entry.getValue()[Status.FORECAST.ordinal()])))
                         .toList(),
                 receivedBy.entrySet().stream()
                         .map(entry -> new InstrumentIncome(
-                                entry.getKey().getId(), entry.getKey().getSymbol(), money(entry.getValue())))
+                                entry.getKey().getId(), entry.getKey().getSymbol(), Money.round2(entry.getValue())))
                         .sorted(Comparator.comparing(InstrumentIncome::amount).reversed())
                         .toList(),
                 items,
@@ -419,48 +384,6 @@ public class DividendCalendarService {
         BigDecimal[] values = new BigDecimal[Status.values().length];
         Arrays.fill(values, BigDecimal.ZERO);
         return values;
-    }
-
-    private static BigDecimal known(BigDecimal amount) {
-        return amount != null ? amount : BigDecimal.ZERO;
-    }
-
-    private static BigDecimal money(BigDecimal amount) {
-        return amount.setScale(2, RoundingMode.HALF_UP);
-    }
-
-    private static BigDecimal share(BigDecimal part, BigDecimal total) {
-        return total.signum() <= 0 ? null : part.divide(total, 4, RoundingMode.HALF_UP);
-    }
-
-    /** What was held of the instrument on the account before a day: the trades of the earlier days. */
-    private static final class Timeline {
-
-        private final List<InvestmentOperation> operations;
-
-        Timeline(List<InvestmentOperation> operations) {
-            this.operations = operations.stream()
-                    .sorted(Comparator.comparing(InvestmentOperation::getDate))
-                    .toList();
-        }
-
-        BigDecimal heldBefore(LocalDate day) {
-            BigDecimal held = BigDecimal.ZERO;
-            for (InvestmentOperation operation : operations) {
-                if (!operation.getDate().isBefore(day)) {
-                    break;
-                }
-                held = switch (operation.getType()) {
-                    case BUY -> held.add(operation.getQuantity());
-                    case SELL -> held.subtract(operation.getQuantity());
-                    case SPLIT ->
-                        held.multiply(BigDecimal.valueOf(operation.getSplitTo()))
-                                .divide(BigDecimal.valueOf(operation.getSplitFrom()), PRECISION);
-                    default -> held;
-                };
-            }
-            return held;
-        }
     }
 
     private record Key(Long accountId, Instrument instrument) {}

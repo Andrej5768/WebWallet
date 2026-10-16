@@ -1,8 +1,10 @@
 package com.andrewcorp.webwallet.goal;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.util.Money;
+import com.andrewcorp.webwallet.currency.ConverterCache;
+import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.goal.GoalDtos.GoalRequest;
 import com.andrewcorp.webwallet.goal.GoalDtos.GoalResponse;
 import com.andrewcorp.webwallet.goal.GoalDtos.GoalStatus;
@@ -17,7 +19,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,11 +34,14 @@ public class GoalService {
 
     static final int BEHIND_PERCENT = 3;
 
+    /** What the database holds: 15 digits before the decimal point. */
+    private static final BigDecimal MAX_SAVED = BigDecimal.TEN.pow(15);
+
     private final GoalRepository goals;
     private final AccountRepository accounts;
     private final AccountService accountService;
     private final UserService users;
-    private final ExchangeRateService exchangeRates;
+    private final Converters converters;
     private final Clock clock;
 
     public GoalService(
@@ -45,13 +49,13 @@ public class GoalService {
             AccountRepository accounts,
             AccountService accountService,
             UserService users,
-            ExchangeRateService exchangeRates,
+            Converters converters,
             Clock clock) {
         this.goals = goals;
         this.accounts = accounts;
         this.accountService = accountService;
         this.users = users;
-        this.exchangeRates = exchangeRates;
+        this.converters = converters;
         this.clock = clock;
     }
 
@@ -87,7 +91,7 @@ public class GoalService {
         Goal goal = new Goal(userId);
         apply(userId, goal, request);
         goal.setStartDate(LocalDate.now(clock));
-        goal.setStartAmount(new Progress(userId).saved(goal));
+        goal.setStartAmount(Money.orZero(new Progress(userId).saved(goal)));
         return response(goals.save(goal), goal.getStartAmount(), LocalDate.now(clock));
     }
 
@@ -100,7 +104,7 @@ public class GoalService {
         BigDecimal saved = new Progress(userId).saved(goal);
         if (!Objects.equals(accountBefore, request.accountId())) {
             goal.setStartDate(LocalDate.now(clock));
-            goal.setStartAmount(saved);
+            goal.setStartAmount(Money.orZero(saved));
         }
         return response(goal, saved, LocalDate.now(clock));
     }
@@ -115,6 +119,9 @@ public class GoalService {
         BigDecimal saved = goal.getSaved().add(amount);
         if (saved.signum() < 0) {
             throw ApiException.invalid("amount", "error.goal.negative");
+        }
+        if (saved.compareTo(MAX_SAVED) >= 0) {
+            throw ApiException.invalid("amount", "error.goal.tooLarge");
         }
         goal.setSaved(saved);
         return response(goal, saved, LocalDate.now(clock));
@@ -160,7 +167,12 @@ public class GoalService {
         return goal.getAchievedOn() != null ? goal.getAchievedOn() : LocalDate.now(clock);
     }
 
-    private static GoalResponse response(Goal goal, BigDecimal saved, LocalDate today) {
+    /**
+     * @param known the progress, null when it is not known (an account in a currency without a rate): then it counts
+     *              as zero and the pace is not judged
+     */
+    private static GoalResponse response(Goal goal, BigDecimal known, LocalDate today) {
+        BigDecimal saved = Money.orZero(known);
         BigDecimal target = goal.getTargetAmount();
         BigDecimal remaining = target.subtract(saved).max(BigDecimal.ZERO);
         BigDecimal progress = saved.divide(target, 4, RoundingMode.HALF_UP)
@@ -177,6 +189,8 @@ public class GoalService {
             status = GoalStatus.NO_DATE;
         } else if (deadline.isBefore(today)) {
             status = GoalStatus.OVERDUE;
+        } else if (known == null) {
+            status = GoalStatus.ON_TRACK;
         } else {
             expected = expected(goal, today);
             BigDecimal tolerance = target.multiply(BigDecimal.valueOf(BEHIND_PERCENT))
@@ -238,7 +252,7 @@ public class GoalService {
     private final class Progress {
 
         private final Long userId;
-        private final Map<String, CurrencyConverter> converters = new HashMap<>();
+        private final ConverterCache cache = converters.cache();
         private final LocalDate today = LocalDate.now(clock);
         private Map<Long, BigDecimal> balances;
 
@@ -255,22 +269,16 @@ public class GoalService {
                 balances = accountService.balances(userId);
             }
             BigDecimal balance = balances.getOrDefault(account.getId(), account.getOpeningBalance());
-            return converter(goal.getCurrency())
-                    .convert(balance, account.getCurrency(), today)
-                    .setScale(2, RoundingMode.HALF_UP)
-                    .max(BigDecimal.ZERO);
+            BigDecimal converted = converter(goal.getCurrency()).convertIfKnown(balance, account.getCurrency(), today);
+            return converted != null ? Money.round2(converted).max(BigDecimal.ZERO) : null;
         }
 
         CurrencyConverter converter(String currency) {
-            return converters.computeIfAbsent(currency, exchangeRates::converterTo);
+            return cache.to(currency);
         }
 
         List<String> unconverted() {
-            return converters.values().stream()
-                    .flatMap(converter -> converter.unconverted().stream())
-                    .distinct()
-                    .sorted()
-                    .toList();
+            return cache.unconverted();
         }
     }
 }

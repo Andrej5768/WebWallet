@@ -1840,11 +1840,13 @@
           },
           "splitFrom" : {
             "format" : "int32",
+            "maximum" : 1000,
             "minimum" : 1,
             "type" : "integer"
           },
           "splitTo" : {
             "format" : "int32",
+            "maximum" : 1000,
             "minimum" : 1,
             "type" : "integer"
           },
@@ -2244,6 +2246,9 @@
           "dayChange" : {
             "type" : "number"
           },
+          "deposited" : {
+            "type" : "number"
+          },
           "dividendsLast12Months" : {
             "type" : "number"
           },
@@ -2279,7 +2284,7 @@
             "type" : "number"
           }
         },
-        "required" : [ "byCurrency", "byType", "cash", "currency", "dayChange", "dividendsLast12Months", "invested", "positions", "pricesAsOf", "realizedThisYear", "unconvertedCurrencies", "unrealized", "unrealizedShare", "value" ],
+        "required" : [ "byCurrency", "byType", "cash", "currency", "dayChange", "deposited", "dividendsLast12Months", "invested", "positions", "pricesAsOf", "realizedThisYear", "unconvertedCurrencies", "unrealized", "unrealizedShare", "value" ],
         "type" : "object"
       },
       "PositionDetailResponse" : {

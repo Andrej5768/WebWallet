@@ -1,6 +1,7 @@
 package com.andrewcorp.webwallet.planning;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 /** Unit of the schedule of a recurring payment. */
 public enum Frequency {
@@ -26,6 +27,16 @@ public enum Frequency {
             case WEEKLY -> start.plusWeeks(steps);
             case MONTHLY -> start.plusMonths(steps);
             case YEARLY -> start.plusYears(steps);
+        };
+    }
+
+    /** Whole units between the dates, e.g. full months. */
+    public long unitsBetween(LocalDate from, LocalDate to) {
+        return switch (this) {
+            case DAILY -> ChronoUnit.DAYS.between(from, to);
+            case WEEKLY -> ChronoUnit.WEEKS.between(from, to);
+            case MONTHLY -> ChronoUnit.MONTHS.between(from, to);
+            case YEARLY -> ChronoUnit.YEARS.between(from, to);
         };
     }
 

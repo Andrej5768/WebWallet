@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.auth;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.common.util.AttemptCounter;
 import com.andrewcorp.webwallet.config.AppProperties;
 import java.net.InetAddress;
 import java.net.UnknownHostException;

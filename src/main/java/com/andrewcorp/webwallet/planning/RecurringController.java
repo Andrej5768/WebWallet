@@ -1,7 +1,7 @@
 package com.andrewcorp.webwallet.planning;
 
-import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
+import com.andrewcorp.webwallet.common.web.Periods;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionResponse;
 import com.andrewcorp.webwallet.planning.RecurringDtos.OccurrenceConfirmRequest;
 import com.andrewcorp.webwallet.planning.RecurringDtos.OccurrenceLinkRequest;
@@ -88,12 +88,7 @@ public class RecurringController {
         LocalDate today = LocalDate.now(clock);
         LocalDate start = from != null ? from : today.minusDays(RecurringService.LOOKBACK_DAYS);
         LocalDate end = to != null ? to : today.plusDays(31);
-        if (start.isAfter(end)) {
-            throw ApiException.invalid("from", "error.report.period");
-        }
-        if (start.plusDays(MAX_DAYS).isBefore(end)) {
-            throw ApiException.invalid("to", "error.recurring.periodTooLong");
-        }
+        Periods.checkDays(start, end, MAX_DAYS, "to");
         return recurringService.occurrences(userId, start, end);
     }
 

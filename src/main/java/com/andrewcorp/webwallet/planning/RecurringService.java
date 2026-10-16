@@ -2,15 +2,12 @@ package com.andrewcorp.webwallet.planning;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.util.Zones;
+import com.andrewcorp.webwallet.common.web.Periods;
+import com.andrewcorp.webwallet.ledger.LedgerLookups;
 import com.andrewcorp.webwallet.ledger.NamedResponse;
 import com.andrewcorp.webwallet.ledger.account.Account;
-import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
-import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
-import com.andrewcorp.webwallet.ledger.payee.Payee;
-import com.andrewcorp.webwallet.ledger.payee.PayeeRepository;
-import com.andrewcorp.webwallet.ledger.payee.PayeeService;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionService;
@@ -59,16 +56,15 @@ public class RecurringService {
     private static final int DEFAULT_TOLERANCE = 10;
     private static final int VARIABLE_TOLERANCE = 25;
     private static final int MAX_OCCURRENCES = 1000;
+    /** How far ahead transactions entered ahead of time are matched with occurrences. */
+    private static final int MAX_AHEAD_DAYS = 366;
 
     private final RecurringPaymentRepository recurringPayments;
     private final RecurringOccurrenceRepository occurrences;
     private final PlanningRepository planning;
     private final TransactionRepository transactions;
     private final TransactionService transactionService;
-    private final AccountRepository accounts;
-    private final CategoryRepository categories;
-    private final PayeeRepository payees;
-    private final PayeeService payeeService;
+    private final LedgerLookups lookups;
     private final Clock clock;
 
     public RecurringService(
@@ -77,20 +73,14 @@ public class RecurringService {
             PlanningRepository planning,
             TransactionRepository transactions,
             TransactionService transactionService,
-            AccountRepository accounts,
-            CategoryRepository categories,
-            PayeeRepository payees,
-            PayeeService payeeService,
+            LedgerLookups lookups,
             Clock clock) {
         this.recurringPayments = recurringPayments;
         this.occurrences = occurrences;
         this.planning = planning;
         this.transactions = transactions;
         this.transactionService = transactionService;
-        this.accounts = accounts;
-        this.categories = categories;
-        this.payees = payees;
-        this.payeeService = payeeService;
+        this.lookups = lookups;
         this.clock = clock;
     }
 
@@ -257,14 +247,25 @@ public class RecurringService {
      */
     @Transactional
     public void refresh(Long userId) {
+        // The hourly task and a request may refresh the same user at once: the second waits for the first
+        List<RecurringPayment> payments = recurringPayments.lockByUser(userId);
         LocalDate today = today();
         LocalDate from = today.minusDays(LOOKBACK_DAYS);
+        // Transactions entered ahead of time pay the occurrences of their dates too
+        LocalDate lastTransaction = planning.findLastDate(userId);
+        LocalDate horizon = today.plusDays(MAX_MATCH_DAYS);
+        if (lastTransaction != null && lastTransaction.isAfter(today)) {
+            LocalDate ahead = lastTransaction.plusDays(MAX_MATCH_DAYS);
+            LocalDate limit = today.plusDays(MAX_AHEAD_DAYS);
+            horizon = ahead.isBefore(limit) ? ahead : limit;
+        }
         Set<Long> linked = occurrences.findLinkedTransactionIds(userId);
-        Map<Key, RecurringOccurrence> stored = stored(userId, from, today.plusDays(MAX_MATCH_DAYS));
-        for (RecurringPayment recurring : recurringPayments.findByUserIdOrderByNameAscIdAsc(userId)) {
+        Map<Key, RecurringOccurrence> stored = stored(userId, from, horizon);
+        for (RecurringPayment recurring : payments) {
             int window = matchDays(recurring);
             LocalDate created = recurring.getCreatedAt().atZone(Zones.KYIV).toLocalDate();
-            for (LocalDate date : dates(recurring, from, today.plusDays(window))) {
+            LocalDate last = horizon.isAfter(today.plusDays(window)) ? horizon : today.plusDays(window);
+            for (LocalDate date : dates(recurring, from, last)) {
                 if (stored.containsKey(new Key(recurring.getId(), date))) {
                     continue;
                 }
@@ -292,12 +293,9 @@ public class RecurringService {
      */
     private static boolean creatable(RecurringPayment recurring) {
         Category category = recurring.getCategory();
-        if (category == null || recurring.getType() == TransactionType.TRANSFER) {
-            return true;
-        }
-        CategoryKind kind = CategoryKind.of(recurring.getType());
-        return category.getKind() == kind
-                || (kind == CategoryKind.INCOME && category.getKind() == CategoryKind.EXPENSE);
+        return category == null
+                || recurring.getType() == TransactionType.TRANSFER
+                || LedgerLookups.fits(category, CategoryKind.of(recurring.getType()));
     }
 
     /** The transaction that pays the occurrence, or null: within the tolerance and the days, best first. */
@@ -409,9 +407,8 @@ public class RecurringService {
         if (!date.isAfter(recurring.getStartDate())) {
             return 0;
         }
-        long index = ChronoUnit.DAYS.between(recurring.getStartDate(), date)
-                / recurring.getFrequency().approximateDays(recurring.getInterval());
-        // The estimate may overshoot by a little, e.g. 30 days for a month: start a step earlier
+        // Whole units never overshoot; a step earlier covers the last day of a short month
+        long index = recurring.getFrequency().unitsBetween(recurring.getStartDate(), date) / recurring.getInterval();
         return Math.max(0, index - 1);
     }
 
@@ -464,14 +461,14 @@ public class RecurringService {
     }
 
     private void apply(Long userId, RecurringPayment recurring, RecurringRequest request) {
-        if (request.startDate().isBefore(Transaction.MIN_DATE)
-                || request.startDate().isAfter(Transaction.MAX_DATE)) {
-            throw ApiException.invalid("startDate", "error.transaction.date");
+        Periods.checkDate(request.startDate(), "startDate");
+        if (request.endDate() != null) {
+            Periods.checkDate(request.endDate(), "endDate");
         }
         if (request.endDate() != null && request.endDate().isBefore(request.startDate())) {
             throw ApiException.invalid("endDate", "error.recurring.endDate");
         }
-        Account account = account(userId, request.accountId(), "accountId");
+        Account account = lookups.account(userId, request.accountId(), "accountId");
         recurring.setName(request.name().trim());
         recurring.setType(request.type());
         recurring.setAccount(account);
@@ -486,7 +483,7 @@ public class RecurringService {
             if (request.categoryId() != null) {
                 throw ApiException.invalid("categoryId", "error.transaction.transferCategory");
             }
-            Account toAccount = account(userId, request.toAccountId(), "toAccountId");
+            Account toAccount = lookups.account(userId, request.toAccountId(), "toAccountId");
             if (request.toAmount() == null && !toAccount.getCurrency().equals(account.getCurrency())) {
                 throw ApiException.invalid("toAmount", "error.required");
             }
@@ -499,9 +496,10 @@ public class RecurringService {
             }
             recurring.setToAccount(null);
             recurring.setToAmount(null);
-            recurring.setCategory(category(userId, request.categoryId(), CategoryKind.of(request.type())));
+            recurring.setCategory(
+                    lookups.category(userId, request.categoryId(), CategoryKind.of(request.type()), "categoryId"));
         }
-        recurring.setPayee(payee(userId, request));
+        recurring.setPayee(lookups.payee(userId, request.payeeId(), request.payeeName()));
         recurring.setComment(request.comment());
         recurring.setFrequency(request.frequency());
         recurring.setInterval(request.interval() != null ? request.interval() : 1);
@@ -511,36 +509,6 @@ public class RecurringService {
         recurring.setVariableAmount(Boolean.TRUE.equals(request.variableAmount()));
         int defaultTolerance = recurring.isVariableAmount() ? VARIABLE_TOLERANCE : DEFAULT_TOLERANCE;
         recurring.setTolerance(request.tolerance() != null ? request.tolerance() : defaultTolerance);
-    }
-
-    private Account account(Long userId, Long id, String field) {
-        return accounts.findByIdAndUserId(id, userId).orElseThrow(() -> ApiException.invalid(field, "error.notFound"));
-    }
-
-    /** An income may have an expense category, like a refund. */
-    private Category category(Long userId, Long id, CategoryKind kind) {
-        if (id == null) {
-            return null;
-        }
-        Category category = categories
-                .findByIdAndUserId(id, userId)
-                .orElseThrow(() -> ApiException.invalid("categoryId", "error.notFound"));
-        boolean refund = kind == CategoryKind.INCOME && category.getKind() == CategoryKind.EXPENSE;
-        if (category.getKind() != kind && !refund) {
-            throw ApiException.invalid("categoryId", "error.category.kind");
-        }
-        return category;
-    }
-
-    private Payee payee(Long userId, RecurringRequest request) {
-        if (request.payeeId() != null) {
-            return payees.findByIdAndUserId(request.payeeId(), userId)
-                    .orElseThrow(() -> ApiException.invalid("payeeId", "error.notFound"));
-        }
-        if (request.payeeName() != null && !request.payeeName().isBlank()) {
-            return payeeService.findOrCreate(userId, request.payeeName());
-        }
-        return null;
     }
 
     private LocalDate today() {

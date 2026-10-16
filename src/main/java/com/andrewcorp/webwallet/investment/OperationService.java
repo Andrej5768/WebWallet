@@ -1,12 +1,12 @@
 package com.andrewcorp.webwallet.investment;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.web.Periods;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.OperationRequest;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.OperationResponse;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountType;
-import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import org.springframework.data.domain.Page;
@@ -52,6 +52,7 @@ public class OperationService {
     public OperationResponse update(Long userId, Long id, OperationRequest request) {
         InvestmentOperation operation = find(userId, id);
         Account accountBefore = operation.getAccount();
+        accounts.lock(accountBefore.getId());
         Instrument instrumentBefore = operation.getInstrument();
         apply(userId, operation, request);
         operations.flush();
@@ -64,6 +65,7 @@ public class OperationService {
     @Transactional
     public void delete(Long userId, Long id) {
         InvestmentOperation operation = find(userId, id);
+        accounts.lock(operation.getAccount().getId());
         operations.delete(operation);
         operations.flush();
         checkLots(operation.getAccount(), operation.getInstrument());
@@ -86,11 +88,11 @@ public class OperationService {
     }
 
     private void apply(Long userId, InvestmentOperation operation, OperationRequest request) {
-        if (request.date().isBefore(Transaction.MIN_DATE) || request.date().isAfter(Transaction.MAX_DATE)) {
-            throw ApiException.invalid("date", "error.transaction.date");
-        }
+        Periods.checkDate(request.date(), "date");
         Account account = accounts.findByIdAndUserId(request.accountId(), userId)
                 .orElseThrow(() -> ApiException.invalid("accountId", "error.notFound"));
+        // Two operations on the account at once would both pass the check of the lots
+        accounts.lock(account.getId());
         if (account.getType() != AccountType.INVESTMENT) {
             throw ApiException.invalid("accountId", "error.investment.account");
         }
@@ -117,7 +119,12 @@ public class OperationService {
                         ? request.amount()
                         : quantity.multiply(price).setScale(4, RoundingMode.HALF_UP);
             }
-            case DIVIDEND, COUPON, FEE -> amount = required(request.amount(), "amount");
+            case DIVIDEND, COUPON, FEE -> {
+                amount = required(request.amount(), "amount");
+                if (amount.signum() <= 0) {
+                    throw ApiException.invalid("amount", "error.investment.amount");
+                }
+            }
             case SPLIT -> {
                 required(request.splitFrom(), "splitFrom");
                 required(request.splitTo(), "splitTo");
@@ -140,10 +147,14 @@ public class OperationService {
         operation.setAmount(amount);
         operation.setFee(fee != null ? fee : BigDecimal.ZERO);
         operation.setTax(tax != null ? tax : BigDecimal.ZERO);
-        operation.setCurrency(
-                request.currency() != null
-                        ? request.currency()
-                        : instrument != null ? instrument.getCurrency() : account.getCurrency());
+        String currency = request.currency() != null
+                ? request.currency()
+                : instrument != null ? instrument.getCurrency() : account.getCurrency();
+        // The lots are in the currency of the instrument
+        if ((type == OperationType.BUY || type == OperationType.SELL) && !currency.equals(instrument.getCurrency())) {
+            throw ApiException.invalid("currency", "error.investment.currency");
+        }
+        operation.setCurrency(currency);
         operation.setSplitFrom(type == OperationType.SPLIT ? request.splitFrom() : null);
         operation.setSplitTo(type == OperationType.SPLIT ? request.splitTo() : null);
         operation.setComment(request.comment());

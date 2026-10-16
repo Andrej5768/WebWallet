@@ -48,7 +48,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                                     "field", violation.field(),
                                     "message",
                                             messages.getMessage(
-                                                    violation.messageKey(), null, LocaleContextHolder.getLocale())))
+                                                    violation.messageKey(),
+                                                    violation.args(),
+                                                    LocaleContextHolder.getLocale())))
                             .toList());
         }
         return ResponseEntity.status(ex.code().status()).body(problem);

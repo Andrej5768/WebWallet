@@ -12,6 +12,7 @@ import com.andrewcorp.webwallet.auth.AuthRateLimiter;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.currency.NbuClient;
+import com.andrewcorp.webwallet.investment.market.ListingSearch;
 import com.andrewcorp.webwallet.mail.MailConfig;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
@@ -79,6 +80,9 @@ public abstract class AbstractIntegrationTest {
     @Autowired
     private ExchangeRateService exchangeRates;
 
+    @Autowired
+    private ListingSearch listingSearch;
+
     @MockitoBean
     protected JavaMailSender mailSender;
 
@@ -108,6 +112,7 @@ public abstract class AbstractIntegrationTest {
         clearInvocations(mailSender);
         rateLimiter.reset();
         exchangeRates.forgetMissingRates();
+        listingSearch.reset();
     }
 
     protected MockHttpServletRequestBuilder postJson(String url, Object body) {

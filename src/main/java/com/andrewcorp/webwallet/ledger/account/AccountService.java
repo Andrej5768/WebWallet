@@ -4,8 +4,8 @@ import com.andrewcorp.webwallet.budget.BudgetDtos.MonthResponse;
 import com.andrewcorp.webwallet.budget.BudgetService;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.investment.InvestmentOperationRepository;
 import com.andrewcorp.webwallet.investment.InvestmentValuation;
 import com.andrewcorp.webwallet.ledger.account.dto.AccountRequest;
@@ -13,7 +13,6 @@ import com.andrewcorp.webwallet.ledger.account.dto.AccountResponse;
 import com.andrewcorp.webwallet.ledger.account.dto.AccountSummaryResponse;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository.AccountChange;
-import com.andrewcorp.webwallet.user.UserService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -29,28 +28,25 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AccountService {
 
+    private final Converters converters;
     private final AccountRepository accounts;
     private final TransactionRepository transactions;
-    private final UserService users;
-    private final ExchangeRateService exchangeRates;
     private final BudgetService budgetService;
     private final InvestmentValuation investments;
     private final InvestmentOperationRepository investmentOperations;
     private final Clock clock;
 
     public AccountService(
+            Converters converters,
             AccountRepository accounts,
             TransactionRepository transactions,
-            UserService users,
-            ExchangeRateService exchangeRates,
             BudgetService budgetService,
             InvestmentValuation investments,
             InvestmentOperationRepository investmentOperations,
             Clock clock) {
+        this.converters = converters;
         this.accounts = accounts;
         this.transactions = transactions;
-        this.users = users;
-        this.exchangeRates = exchangeRates;
         this.budgetService = budgetService;
         this.investments = investments;
         this.investmentOperations = investmentOperations;
@@ -221,7 +217,7 @@ public class AccountService {
     }
 
     private CurrencyConverter converter(Long userId) {
-        return exchangeRates.converterTo(users.get(userId).getBaseCurrency());
+        return converters.base(userId);
     }
 
     /**

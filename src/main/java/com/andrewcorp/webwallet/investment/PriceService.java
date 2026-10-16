@@ -27,6 +27,7 @@ public class PriceService {
     private final InstrumentRepository instruments;
     private final InstrumentPriceRepository prices;
     private final InvestmentOperationRepository operations;
+    private final HistoryRepository history;
     private final MarketDataProvider provider;
     private final Clock clock;
 
@@ -34,11 +35,13 @@ public class PriceService {
             InstrumentRepository instruments,
             InstrumentPriceRepository prices,
             InvestmentOperationRepository operations,
+            HistoryRepository history,
             MarketDataProvider provider,
             Clock clock) {
         this.instruments = instruments;
         this.prices = prices;
         this.operations = operations;
+        this.history = history;
         this.provider = provider;
         this.clock = clock;
     }
@@ -55,8 +58,9 @@ public class PriceService {
     }
 
     /**
-     * Loads the closes since the last known one, and the older ones back to the first operation with the instrument
-     * (for a benchmark: of anyone), at least a year. The check is recorded even when nothing is new.
+     * Loads the closes from the last known one on (which may have been taken during the session), and the older ones
+     * back to the first operation with the instrument (for a benchmark: the first deposit or operation of anyone), at
+     * least a year. The check is recorded even when nothing is new.
      */
     @Transactional
     public void update(Long instrumentId) {
@@ -69,6 +73,11 @@ public class PriceService {
         if (firstOperation != null && firstOperation.isBefore(needed)) {
             needed = firstOperation;
         }
+        // A benchmark buys the deposits of the brokerage accounts, also those before the first trade
+        LocalDate firstDeposit = instrument.isBenchmark() ? history.findFirstBrokerageDate() : null;
+        if (firstDeposit != null && firstDeposit.isBefore(needed)) {
+            needed = firstDeposit;
+        }
         LocalDate first = prices.findFirstDate(instrumentId).orElse(null);
         if (first == null) {
             load(instrument, needed, today);
@@ -77,10 +86,8 @@ public class PriceService {
         if (needed.isBefore(first)) {
             load(instrument, needed, first.minusDays(1));
         }
-        LocalDate from = prices.findLastDate(instrumentId).orElseThrow().plusDays(1);
-        if (!from.isAfter(today)) {
-            load(instrument, from, today);
-        }
+        // The last close again: loaded during a trading session, it was the price of the moment, not the close
+        load(instrument, prices.findLastDate(instrumentId).orElseThrow(), today);
     }
 
     private void load(Instrument instrument, LocalDate from, LocalDate to) {

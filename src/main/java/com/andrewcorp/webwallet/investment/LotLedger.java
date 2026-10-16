@@ -1,11 +1,11 @@
 package com.andrewcorp.webwallet.investment;
 
+import com.andrewcorp.webwallet.common.util.Money;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -19,8 +19,11 @@ public final class LotLedger {
 
     private final List<Lot> lots = new ArrayList<>();
     private final List<Sale> sales = new ArrayList<>();
+    private final boolean lenient;
 
-    private LotLedger() {}
+    private LotLedger(boolean lenient) {
+        this.lenient = lenient;
+    }
 
     /**
      * Replays the operations by date (and id within a day).
@@ -28,11 +31,20 @@ public final class LotLedger {
      * @throws Shortfall when a sale takes more than is held on its date
      */
     public static LotLedger of(List<InvestmentOperation> operations) {
-        LotLedger ledger = new LotLedger();
-        operations.stream()
-                .sorted(Comparator.comparing(InvestmentOperation::getDate)
-                        .thenComparing(operation -> operation.getId() != null ? operation.getId() : Long.MAX_VALUE))
-                .forEach(ledger::apply);
+        return replay(operations, false);
+    }
+
+    /**
+     * Like {@link #of}, but a sale of more than is held takes what there is. For valuing data stored before the check
+     * (or by two sales at once), which must not make the accounts unreadable.
+     */
+    public static LotLedger lenient(List<InvestmentOperation> operations) {
+        return replay(operations, true);
+    }
+
+    private static LotLedger replay(List<InvestmentOperation> operations, boolean lenient) {
+        LotLedger ledger = new LotLedger(lenient);
+        PositionTimeline.sorted(operations).forEach(ledger::apply);
         return ledger;
     }
 
@@ -46,8 +58,7 @@ public final class LotLedger {
                         operation.getAmount().add(operation.getFee()).divide(operation.getQuantity(), PRECISION)));
             case SELL -> sell(operation);
             case SPLIT -> {
-                BigDecimal factor = BigDecimal.valueOf(operation.getSplitTo())
-                        .divide(BigDecimal.valueOf(operation.getSplitFrom()), PRECISION);
+                BigDecimal factor = PositionTimeline.splitFactor(operation);
                 lots.forEach(lot -> lot.split(factor));
             }
             default -> {}
@@ -56,7 +67,8 @@ public final class LotLedger {
 
     private void sell(InvestmentOperation operation) {
         BigDecimal left = operation.getQuantity();
-        if (left.compareTo(quantity()) > 0) {
+        // A split into fractions may leave a held quantity a hair below a whole one
+        if (!lenient && left.compareTo(quantity().add(PositionTimeline.TOLERANCE)) > 0) {
             throw new Shortfall(operation.getDate(), quantity());
         }
         List<Part> parts = new ArrayList<>();
@@ -71,6 +83,9 @@ public final class LotLedger {
             BigDecimal taken = left.min(lot.remaining);
             lot.remaining = lot.remaining.subtract(taken);
             left = left.subtract(taken);
+            if (left.compareTo(PositionTimeline.TOLERANCE) <= 0) {
+                left = BigDecimal.ZERO;
+            }
             parts.add(new Part(lot.operationId, lot.date, taken, lot.unitCost));
             cost = cost.add(taken.multiply(lot.unitCost, PRECISION));
         }
@@ -80,8 +95,8 @@ public final class LotLedger {
                 operation.getDate(),
                 operation.getQuantity(),
                 proceeds,
-                money(cost),
-                money(proceeds.subtract(cost)),
+                Money.round4(cost),
+                Money.round4(proceeds.subtract(cost)),
                 List.copyOf(parts)));
     }
 
@@ -92,7 +107,7 @@ public final class LotLedger {
 
     /** Cost of the quantity held: the open parts of the lots. */
     public BigDecimal cost() {
-        return money(lots.stream()
+        return Money.round4(lots.stream()
                 .map(lot -> lot.remaining.multiply(lot.unitCost, PRECISION))
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
     }
@@ -121,10 +136,6 @@ public final class LotLedger {
         return List.copyOf(sales);
     }
 
-    private static BigDecimal money(BigDecimal amount) {
-        return amount.setScale(4, RoundingMode.HALF_UP);
-    }
-
     private static final class Lot {
 
         private final Long operationId;
@@ -142,8 +153,8 @@ public final class LotLedger {
         }
 
         void split(BigDecimal factor) {
-            quantity = quantity.multiply(factor, PRECISION);
-            remaining = remaining.multiply(factor, PRECISION);
+            quantity = PositionTimeline.round(quantity.multiply(factor, PRECISION));
+            remaining = PositionTimeline.round(remaining.multiply(factor, PRECISION));
             unitCost = unitCost.divide(factor, PRECISION);
         }
     }

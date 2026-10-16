@@ -122,8 +122,8 @@ public final class InvestmentDtos {
             @PositiveOrZero @Digits(integer = 15, fraction = 4) BigDecimal tax,
 
             @CurrencyCode String currency,
-            @Min(1) Integer splitFrom,
-            @Min(1) Integer splitTo,
+            @Min(1) @Max(1000) Integer splitFrom,
+            @Min(1) @Max(1000) Integer splitTo,
             @Size(max = 1000) String comment) {}
 
     /** @param cash how the operation changed the cash of the account in {@code currency} */
@@ -170,6 +170,8 @@ public final class InvestmentDtos {
     /**
      * The portfolio in the base currency at today's rates.
      *
+     * @param deposited          the money brought to the accounts minus the money taken away (transfers from and to
+     *                           other accounts, opening balances), at the rates of their dates
      * @param invested           the cost of the positions held
      * @param unrealized         value minus cost of the positions held
      * @param realizedThisYear   profit of the sales this calendar year, by FIFO, at the rates of the sale dates
@@ -181,6 +183,7 @@ public final class InvestmentDtos {
     public record PortfolioResponse(
             String currency,
             BigDecimal value,
+            BigDecimal deposited,
             BigDecimal invested,
             BigDecimal unrealized,
             @Schema(nullable = true) BigDecimal unrealizedShare,

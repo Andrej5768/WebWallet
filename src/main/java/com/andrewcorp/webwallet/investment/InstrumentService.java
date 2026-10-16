@@ -2,22 +2,30 @@ package com.andrewcorp.webwallet.investment;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
-import com.andrewcorp.webwallet.common.web.ExternalCalls;
+import com.andrewcorp.webwallet.common.web.Periods;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.InstrumentResponse;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.MarketInstrumentRequest;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.OwnInstrumentRequest;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.PricePoint;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.SearchResponse;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.SearchResult;
-import com.andrewcorp.webwallet.investment.market.MarketDataProvider;
+import com.andrewcorp.webwallet.investment.market.ListingSearch;
 import com.andrewcorp.webwallet.investment.market.MarketDataProvider.Listing;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,22 +36,31 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class InstrumentService {
 
+    /** Shorter queries find only own and known instruments: the provider would return noise for them. */
+    static final int MIN_PROVIDER_QUERY = 2;
+
     private final InstrumentRepository instruments;
     private final InstrumentPriceRepository prices;
     private final InvestmentOperationRepository operations;
-    private final MarketDataProvider provider;
+    private final ListingSearch listings;
     private final Clock clock;
+
+    /** Market instruments each user found by a search or added, which they may read for a day. */
+    private final Cache<Long, Set<Long>> seen = Caffeine.newBuilder()
+            .expireAfterAccess(Duration.ofDays(1))
+            .maximumSize(10_000)
+            .build();
 
     public InstrumentService(
             InstrumentRepository instruments,
             InstrumentPriceRepository prices,
             InvestmentOperationRepository operations,
-            MarketDataProvider provider,
+            ListingSearch listings,
             Clock clock) {
         this.instruments = instruments;
         this.prices = prices;
         this.operations = operations;
-        this.provider = provider;
+        this.listings = listings;
         this.clock = clock;
     }
 
@@ -58,7 +75,10 @@ public class InstrumentService {
         return response(find(userId, id));
     }
 
-    /** Own and known instruments matching the query first, then those of the provider. */
+    /**
+     * Own and known instruments matching the query first, then those of the provider (for at least
+     * {@value #MIN_PROVIDER_QUERY} characters). The market instruments found may then be read by the user.
+     */
     @Transactional(readOnly = true)
     public SearchResponse search(Long userId, String query) {
         String needle = query.trim().toLowerCase(Locale.ROOT);
@@ -68,8 +88,8 @@ public class InstrumentService {
                 results.add(result(instrument));
             }
         }
-        if (provider.enabled() && !needle.isEmpty()) {
-            for (Listing listing : ExternalCalls.call(() -> provider.search(query.trim()))) {
+        if (listings.enabled() && needle.length() >= MIN_PROVIDER_QUERY) {
+            for (Listing listing : listings.search(userId, query)) {
                 boolean known = results.stream()
                         .anyMatch(result -> result.symbol().equals(listing.symbol())
                                 && Objects.equals(result.micCode(), listing.micCode()));
@@ -78,6 +98,9 @@ public class InstrumentService {
                             .findMarket(listing.symbol(), listing.micCode())
                             .map(Instrument::getId)
                             .orElse(null);
+                    if (id != null) {
+                        seen(userId, id);
+                    }
                     results.add(new SearchResult(
                             id,
                             listing.symbol(),
@@ -90,7 +113,7 @@ public class InstrumentService {
                 }
             }
         }
-        return new SearchResponse(provider.enabled(), results);
+        return new SearchResponse(listings.enabled(), results);
     }
 
     /**
@@ -98,27 +121,64 @@ public class InstrumentService {
      * provider, not from the client, as the instrument is shared.
      */
     @Transactional
-    public InstrumentResponse addMarket(MarketInstrumentRequest request) {
+    public InstrumentResponse addMarket(Long userId, MarketInstrumentRequest request) {
         String micCode = request.micCode() == null || request.micCode().isBlank() ? null : request.micCode();
-        return instruments
-                .findMarket(request.symbol(), micCode)
-                .map(this::response)
-                .orElseGet(() -> {
-                    if (!provider.enabled()) {
-                        throw new ApiException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
-                    }
-                    Listing listing = ExternalCalls.call(() -> provider.search(request.symbol())).stream()
-                            .filter(item ->
-                                    item.symbol().equals(request.symbol()) && Objects.equals(item.micCode(), micCode))
-                            .findFirst()
-                            .orElseThrow(() -> ApiException.invalid("symbol", "error.investment.unknownSymbol"));
-                    Instrument instrument = new Instrument(
-                            null, listing.symbol(), type(listing.type()), listing.currency(), Valuation.MARKET);
-                    instrument.setName(listing.name() != null ? listing.name() : listing.symbol());
-                    instrument.setExchange(listing.exchange());
-                    instrument.setMicCode(listing.micCode());
-                    return response(instruments.save(instrument));
-                });
+        Instrument instrument = findOrCreateMarket(
+                userId,
+                request.symbol(),
+                () -> instruments.findMarket(request.symbol(), micCode),
+                listing -> listing.symbol().equals(request.symbol()) && Objects.equals(listing.micCode(), micCode));
+        if (instrument == null) {
+            throw ApiException.invalid("symbol", "error.investment.unknownSymbol");
+        }
+        seen(userId, instrument.getId());
+        return response(instrument);
+    }
+
+    /**
+     * The fund of the benchmark (a US listing in dollars), added when first asked for and then priced like held
+     * instruments; null when the provider does not know it.
+     *
+     * @throws ApiException when the provider is not configured or does not answer
+     */
+    @Transactional
+    public Instrument benchmark(Benchmark benchmark) {
+        Instrument fund = findOrCreateMarket(
+                null,
+                benchmark.symbol(),
+                () -> instruments.findMarketBySymbol(benchmark.symbol()).stream()
+                        .findFirst(),
+                listing -> listing.symbol().equals(benchmark.symbol())
+                        && listing.currency().equals("USD"));
+        if (fund != null) {
+            fund.setBenchmark(true);
+        }
+        return fund;
+    }
+
+    /** The known market instrument, else the first listing of the provider that matches, added; else null. */
+    private Instrument findOrCreateMarket(
+            Long userId, String symbol, Supplier<Optional<Instrument>> known, Predicate<Listing> match) {
+        Optional<Instrument> existing = known.get();
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        if (!listings.enabled()) {
+            throw new ApiException(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+        }
+        Listing listing = listings.search(userId, symbol).stream()
+                .filter(match)
+                .findFirst()
+                .orElse(null);
+        if (listing == null) {
+            return null;
+        }
+        Instrument instrument =
+                new Instrument(null, listing.symbol(), type(listing.type()), listing.currency(), Valuation.MARKET);
+        instrument.setName(listing.name());
+        instrument.setExchange(listing.exchange());
+        instrument.setMicCode(listing.micCode());
+        return instruments.save(instrument);
     }
 
     @Transactional
@@ -158,12 +218,32 @@ public class InstrumentService {
                 .toList();
     }
 
-    /** An instrument the user may use. */
+    /**
+     * An instrument the user may use: one of their own, or a market instrument they hold, compare with, or found in
+     * the last day. Other market instruments are not shown, as they tell what other users hold.
+     */
     public Instrument find(Long userId, Long id) {
         return instruments
                 .findById(id)
-                .filter(instrument -> instrument.visibleTo(userId))
+                .filter(instrument -> instrument.getUserId() != null
+                        ? instrument.getUserId().equals(userId)
+                        : instrument.isBenchmark()
+                                || seenBy(userId, instrument.getId())
+                                || operations.existsByInstrumentIdAndUserId(instrument.getId(), userId))
                 .orElseThrow(ApiException::notFound);
+    }
+
+    private void seen(Long userId, Long instrumentId) {
+        if (userId != null) {
+            seen.asMap()
+                    .computeIfAbsent(userId, user -> ConcurrentHashMap.newKeySet())
+                    .add(instrumentId);
+        }
+    }
+
+    private boolean seenBy(Long userId, Long instrumentId) {
+        Set<Long> ids = seen.getIfPresent(userId);
+        return ids != null && ids.contains(instrumentId);
     }
 
     private Instrument own(Long userId, Long id) {
@@ -183,6 +263,15 @@ public class InstrumentService {
         }
         if (request.valuation() == Valuation.NOMINAL && request.nominal() == null) {
             throw ApiException.invalid("nominal", "error.required");
+        }
+        if (request.couponFrequency() != null && !BondValuation.FREQUENCIES.contains(request.couponFrequency())) {
+            throw ApiException.invalid("couponFrequency", "error.investment.couponFrequency");
+        }
+        if (request.maturityDate() != null) {
+            Periods.checkDate(request.maturityDate(), "maturityDate");
+        }
+        if (request.manualPriceDate() != null) {
+            Periods.checkDate(request.manualPriceDate(), "manualPriceDate");
         }
         instrument.setName(request.name().trim());
         instrument.setIsin(request.isin());

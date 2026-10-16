@@ -5,8 +5,8 @@ import com.andrewcorp.webwallet.analytics.AnalyticsDtos.NeedsWantsResponse;
 import com.andrewcorp.webwallet.analytics.AnalyticsDtos.PlanResponse;
 import com.andrewcorp.webwallet.analytics.AnalyticsDtos.SavingsResponse;
 import com.andrewcorp.webwallet.analytics.AnalyticsDtos.TrendsResponse;
-import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
+import com.andrewcorp.webwallet.common.web.Periods;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -17,7 +17,6 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.temporal.ChronoUnit;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -66,8 +65,8 @@ public class AnalyticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toA,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromB,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toB) {
-        checkComparePeriod(fromA, toA, "fromA");
-        checkComparePeriod(fromB, toB, "fromB");
+        Periods.checkDays(fromA, toA, MAX_COMPARE_DAYS, "fromA");
+        Periods.checkDays(fromB, toB, MAX_COMPARE_DAYS, "fromB");
         return analyticsService.compare(userId, fromA, toA, fromB, toB);
     }
 
@@ -83,7 +82,7 @@ public class AnalyticsController {
                     YearMonth to) {
         YearMonth end = to != null ? to : YearMonth.now(clock).minusMonths(1);
         YearMonth start = from != null ? from : end.minusMonths(11);
-        checkMonths(start, end, MAX_TREND_MONTHS, "error.analytics.monthsTooLong");
+        Periods.checkMonths(start, end, MAX_TREND_MONTHS, "from");
         return analyticsService.trends(userId, start, end);
     }
 
@@ -102,7 +101,7 @@ public class AnalyticsController {
                     @DecimalMin("0") @DecimalMax("1") BigDecimal target) {
         YearMonth end = to != null ? to : YearMonth.now(clock);
         YearMonth start = from != null ? from : end.minusMonths(11);
-        checkMonths(start, end, MAX_YEARS * 12, "error.report.periodTooLong");
+        Periods.checkMonths(start, end, MAX_YEARS * 12, "from");
         return analyticsService.savings(userId, start, end, target);
     }
 
@@ -117,30 +116,7 @@ public class AnalyticsController {
         YearMonth current = YearMonth.now(clock);
         LocalDate end = to != null ? to : current.atEndOfMonth();
         LocalDate start = from != null ? from : current.atDay(1);
-        if (start.isAfter(end)) {
-            throw ApiException.invalid("from", "error.report.period");
-        }
-        if (start.isBefore(end.minusYears(MAX_YEARS))) {
-            throw ApiException.invalid("from", "error.report.periodTooLong");
-        }
+        Periods.checkYears(start, end, MAX_YEARS, "from");
         return analyticsService.needsWants(userId, start, end);
-    }
-
-    private static void checkComparePeriod(LocalDate from, LocalDate to, String field) {
-        if (from.isAfter(to)) {
-            throw ApiException.invalid(field, "error.report.period");
-        }
-        if (ChronoUnit.DAYS.between(from, to) + 1 > MAX_COMPARE_DAYS) {
-            throw ApiException.invalid(field, "error.analytics.compareTooLong");
-        }
-    }
-
-    private static void checkMonths(YearMonth from, YearMonth to, int max, String tooLong) {
-        if (from.isAfter(to)) {
-            throw ApiException.invalid("from", "error.report.period");
-        }
-        if (ChronoUnit.MONTHS.between(from, to) + 1 > max) {
-            throw ApiException.invalid("from", tooLong);
-        }
     }
 }

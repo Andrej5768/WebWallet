@@ -101,11 +101,6 @@ public class Instrument {
         updatedAt = Instant.now();
     }
 
-    /** Whether the user may use the instrument: a market one, or one of their own. */
-    public boolean visibleTo(Long user) {
-        return userId == null || userId.equals(user);
-    }
-
     public Long getId() {
         return id;
     }

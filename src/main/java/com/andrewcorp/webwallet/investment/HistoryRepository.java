@@ -21,6 +21,13 @@ public interface HistoryRepository extends Repository<Transaction, Long> {
             order by t.date, t.id""")
     List<Movement> findMovements(Collection<Long> accountIds);
 
+    /** The date of the first transaction from or to a brokerage account of anyone. */
+    @Query("""
+            select min(t.date) from Transaction t left join t.toAccount ta
+            where t.account.type = com.andrewcorp.webwallet.ledger.account.AccountType.INVESTMENT
+               or ta.type = com.andrewcorp.webwallet.ledger.account.AccountType.INVESTMENT""")
+    LocalDate findFirstBrokerageDate();
+
     interface Movement {
         LocalDate getDate();
 
