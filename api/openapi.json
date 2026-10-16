@@ -115,6 +115,24 @@
         "required" : [ "available", "availableWithCredit", "currency", "netWorth", "readyToAssign", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "Anomaly" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "average" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "ratio" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "amount", "average", "month", "ratio" ],
+        "type" : "object"
+      },
       "ApplyResponse" : {
         "properties" : {
           "categorized" : {
@@ -132,6 +150,31 @@
           }
         },
         "required" : [ "assigned" ],
+        "type" : "object"
+      },
+      "CategoryChange" : {
+        "properties" : {
+          "a" : {
+            "type" : "number"
+          },
+          "b" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "change" : {
+            "type" : "number"
+          },
+          "changeShare" : {
+            "type" : [ "number", "null" ]
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "a", "b", "categoryId", "change", "changeShare", "name" ],
         "type" : "object"
       },
       "CategoryOrderRequest" : {
@@ -304,6 +347,37 @@
         "required" : [ "amount", "categoryId", "children", "name", "share" ],
         "type" : "object"
       },
+      "CategoryTrend" : {
+        "properties" : {
+          "amounts" : {
+            "items" : {
+              "type" : "number"
+            },
+            "type" : "array"
+          },
+          "anomalies" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Anomaly"
+            },
+            "type" : "array"
+          },
+          "average" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "total" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "amounts", "anomalies", "average", "categoryId", "name", "total" ],
+        "type" : "object"
+      },
       "ChangePasswordRequest" : {
         "properties" : {
           "currentPassword" : {
@@ -317,6 +391,77 @@
           }
         },
         "required" : [ "currentPassword", "newPassword" ],
+        "type" : "object"
+      },
+      "CompareDay" : {
+        "properties" : {
+          "a" : {
+            "type" : [ "number", "null" ]
+          },
+          "b" : {
+            "type" : [ "number", "null" ]
+          },
+          "day" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "a", "b", "day" ],
+        "type" : "object"
+      },
+      "CompareResponse" : {
+        "properties" : {
+          "categories" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CategoryChange"
+            },
+            "type" : "array"
+          },
+          "change" : {
+            "type" : "number"
+          },
+          "changeShare" : {
+            "type" : [ "number", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "days" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CompareDay"
+            },
+            "type" : "array"
+          },
+          "fromA" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "fromB" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "toA" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "toB" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "totalA" : {
+            "type" : "number"
+          },
+          "totalB" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "categories", "change", "changeShare", "currency", "days", "fromA", "fromB", "toA", "toB", "totalA", "totalB", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "ConfirmRequest" : {
@@ -419,6 +564,31 @@
         "required" : [ "accounts", "clientName", "connectedAt", "dailyAt", "lastError", "lastRequestAt", "nextSyncAt", "syncMode", "webhook", "windowEnd", "windowStart" ],
         "type" : "object"
       },
+      "ContributionRequest" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "amount" ],
+        "type" : "object"
+      },
+      "Destination" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "amount", "name" ],
+        "type" : "object"
+      },
       "EmailRequest" : {
         "properties" : {
           "email" : {
@@ -429,6 +599,240 @@
           }
         },
         "required" : [ "email" ],
+        "type" : "object"
+      },
+      "ForecastDay" : {
+        "properties" : {
+          "actual" : {
+            "type" : "boolean"
+          },
+          "balance" : {
+            "type" : "number"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "required" : [ "actual", "balance", "date" ],
+        "type" : "object"
+      },
+      "ForecastEvent" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "overdue" : {
+            "type" : "boolean"
+          },
+          "recurringId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "amount", "categoryId", "date", "name", "overdue", "recurringId" ],
+        "type" : "object"
+      },
+      "ForecastResponse" : {
+        "properties" : {
+          "balance" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "dailySpending" : {
+            "type" : "number"
+          },
+          "days" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ForecastDay"
+            },
+            "type" : "array"
+          },
+          "events" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ForecastEvent"
+            },
+            "type" : "array"
+          },
+          "lowest" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/ForecastDay"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "today" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "balance", "currency", "dailySpending", "days", "events", "lowest", "today", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "GoalRequest" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "achieved" : {
+            "type" : "boolean"
+          },
+          "color" : {
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime" ],
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "icon" : {
+            "pattern" : "[a-z0-9-]{1,50}",
+            "type" : "string"
+          },
+          "name" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "saved" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "sortOrder" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "targetAmount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "targetDate" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "required" : [ "name", "targetAmount" ],
+        "type" : "object"
+      },
+      "GoalResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "achievedOn" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "color" : {
+            "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime", null ],
+            "type" : [ "string", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "expected" : {
+            "type" : [ "number", "null" ]
+          },
+          "icon" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "monthlyNeeded" : {
+            "type" : [ "number", "null" ]
+          },
+          "monthsLeft" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "progress" : {
+            "type" : "number"
+          },
+          "remaining" : {
+            "type" : "number"
+          },
+          "saved" : {
+            "type" : "number"
+          },
+          "sortOrder" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "startAmount" : {
+            "type" : "number"
+          },
+          "startDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "ACHIEVED", "NO_DATE", "ON_TRACK", "BEHIND", "OVERDUE" ],
+            "type" : "string"
+          },
+          "targetAmount" : {
+            "type" : "number"
+          },
+          "targetDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "accountId", "achievedOn", "color", "currency", "expected", "icon", "id", "monthlyNeeded", "monthsLeft", "name", "progress", "remaining", "saved", "sortOrder", "startAmount", "startDate", "status", "targetAmount", "targetDate" ],
+        "type" : "object"
+      },
+      "GoalsResponse" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "goals" : {
+            "items" : {
+              "$ref" : "#/components/schemas/GoalResponse"
+            },
+            "type" : "array"
+          },
+          "monthlyNeeded" : {
+            "type" : "number"
+          },
+          "saved" : {
+            "type" : "number"
+          },
+          "target" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "currency", "goals", "monthlyNeeded", "saved", "target", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "ImportAccount" : {
@@ -754,6 +1158,51 @@
         "required" : [ "activity", "assigned", "available", "categories", "currency", "month", "readyToAssign", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "MonthSavings" : {
+        "properties" : {
+          "complete" : {
+            "type" : "boolean"
+          },
+          "cumulative" : {
+            "type" : "number"
+          },
+          "destinations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Destination"
+            },
+            "type" : "array"
+          },
+          "expense" : {
+            "type" : "number"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "net" : {
+            "type" : "number"
+          },
+          "savingsRate" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "complete", "cumulative", "destinations", "expense", "income", "month", "net", "savingsRate" ],
+        "type" : "object"
+      },
+      "MonthTotal" : {
+        "properties" : {
+          "month" : {
+            "type" : "string"
+          },
+          "total" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "month", "total" ],
+        "type" : "object"
+      },
       "MoveRequest" : {
         "properties" : {
           "amount" : {
@@ -785,6 +1234,44 @@
         "required" : [ "id", "name" ],
         "type" : "object"
       },
+      "NeedsWantsResponse" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "needs" : {
+            "$ref" : "#/components/schemas/Part"
+          },
+          "savings" : {
+            "$ref" : "#/components/schemas/Part"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "unclassified" : {
+            "$ref" : "#/components/schemas/Part"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "wants" : {
+            "$ref" : "#/components/schemas/Part"
+          }
+        },
+        "required" : [ "currency", "from", "income", "needs", "savings", "to", "unclassified", "unconvertedCurrencies", "wants" ],
+        "type" : "object"
+      },
       "NetWorthResponse" : {
         "properties" : {
           "currency" : {
@@ -804,6 +1291,99 @@
           }
         },
         "required" : [ "currency", "months", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "OccurrenceConfirmRequest" : {
+        "properties" : {
+          "amount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "toAmount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "OccurrenceLinkRequest" : {
+        "properties" : {
+          "transactionId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "transactionId" ],
+        "type" : "object"
+      },
+      "OccurrenceResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "autoCreate" : {
+            "type" : "boolean"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "overdue" : {
+            "type" : "boolean"
+          },
+          "payee" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/NamedResponse"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "recurringId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "status" : {
+            "enum" : [ "PENDING", "PAID", "SKIPPED" ],
+            "type" : "string"
+          },
+          "toAccountId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "toAmount" : {
+            "type" : [ "number", "null" ]
+          },
+          "transactionId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "type" : {
+            "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          },
+          "variableAmount" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "accountId", "amount", "autoCreate", "categoryId", "currency", "date", "name", "overdue", "payee", "recurringId", "status", "toAccountId", "toAmount", "transactionId", "type", "variableAmount" ],
         "type" : "object"
       },
       "OperationEdit" : {
@@ -906,6 +1486,21 @@
         "required" : [ "items", "page", "size", "totalItems", "totalPages" ],
         "type" : "object"
       },
+      "Part" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "share" : {
+            "type" : [ "number", "null" ]
+          },
+          "target" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "amount", "share", "target" ],
+        "type" : "object"
+      },
       "PayeeRequest" : {
         "properties" : {
           "name" : {
@@ -964,6 +1559,264 @@
           }
         },
         "required" : [ "currency", "from", "payees", "to", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "PlanResponse" : {
+        "properties" : {
+          "actual" : {
+            "type" : "number"
+          },
+          "categories" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PlanRow"
+            },
+            "type" : "array"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "daysElapsed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "daysInMonth" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "difference" : {
+            "type" : "number"
+          },
+          "forecast" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "planned" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "actual", "categories", "currency", "daysElapsed", "daysInMonth", "difference", "forecast", "month", "planned", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "PlanRow" : {
+        "properties" : {
+          "actual" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "children" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PlanRow"
+            },
+            "type" : "array"
+          },
+          "completion" : {
+            "type" : [ "number", "null" ]
+          },
+          "difference" : {
+            "type" : "number"
+          },
+          "forecast" : {
+            "type" : "number"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "planned" : {
+            "type" : "number"
+          },
+          "plannedRemaining" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "actual", "categoryId", "children", "completion", "difference", "forecast", "name", "planned", "plannedRemaining" ],
+        "type" : "object"
+      },
+      "RecurringRef" : {
+        "properties" : {
+          "dueDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "dueDate", "id", "name" ],
+        "type" : "object"
+      },
+      "RecurringRequest" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "autoCreate" : {
+            "type" : "boolean"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "comment" : {
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "endDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "frequency" : {
+            "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
+            "type" : "string"
+          },
+          "interval" : {
+            "format" : "int32",
+            "maximum" : 365,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "name" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "payeeId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "payeeName" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "startDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "toAccountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "toAmount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "tolerance" : {
+            "format" : "int32",
+            "maximum" : 50,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "type" : {
+            "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          },
+          "variableAmount" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "accountId", "amount", "frequency", "name", "startDate", "type" ],
+        "type" : "object"
+      },
+      "RecurringResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "autoCreate" : {
+            "type" : "boolean"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "comment" : {
+            "type" : [ "string", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "endDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "frequency" : {
+            "enum" : [ "DAILY", "WEEKLY", "MONTHLY", "YEARLY" ],
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "interval" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "nextDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "payee" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/NamedResponse"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "startDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "toAccountId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "toAmount" : {
+            "type" : [ "number", "null" ]
+          },
+          "toCurrency" : {
+            "type" : [ "string", "null" ]
+          },
+          "tolerance" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "type" : {
+            "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
+            "type" : "string"
+          },
+          "variableAmount" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "accountId", "amount", "autoCreate", "categoryId", "comment", "currency", "endDate", "frequency", "id", "interval", "name", "nextDate", "payee", "startDate", "toAccountId", "toAmount", "toCurrency", "tolerance", "type", "variableAmount" ],
         "type" : "object"
       },
       "RegisterRequest" : {
@@ -1080,6 +1933,45 @@
           }
         },
         "required" : [ "bankCategory", "categoryId", "id", "learned", "mcc", "payee", "payeePattern" ],
+        "type" : "object"
+      },
+      "SavingsResponse" : {
+        "properties" : {
+          "averageRate" : {
+            "type" : [ "number", "null" ]
+          },
+          "bestMonth" : {
+            "type" : [ "string", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "months" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MonthSavings"
+            },
+            "type" : "array"
+          },
+          "target" : {
+            "type" : "number"
+          },
+          "to" : {
+            "type" : "string"
+          },
+          "totalSaved" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "averageRate", "bestMonth", "currency", "from", "months", "target", "to", "totalSaved", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "ScheduleRequest" : {
@@ -1352,6 +2244,13 @@
               "type" : "null"
             } ]
           },
+          "recurring" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/RecurringRef"
+            }, {
+              "type" : "null"
+            } ]
+          },
           "source" : {
             "enum" : [ "MANUAL", "ZENMONEY", "MONOBANK", "PRIVATBANK" ],
             "type" : "string"
@@ -1384,7 +2283,43 @@
             "type" : "string"
           }
         },
-        "required" : [ "accountId", "amount", "comment", "createdAt", "currency", "date", "id", "originalAmount", "originalCurrency", "payee", "source", "splits", "tagIds", "toAccountId", "toAmount", "toCurrency", "type" ],
+        "required" : [ "accountId", "amount", "comment", "createdAt", "currency", "date", "id", "originalAmount", "originalCurrency", "payee", "recurring", "source", "splits", "tagIds", "toAccountId", "toAmount", "toCurrency", "type" ],
+        "type" : "object"
+      },
+      "TrendsResponse" : {
+        "properties" : {
+          "average" : {
+            "type" : "number"
+          },
+          "categories" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CategoryTrend"
+            },
+            "type" : "array"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "months" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MonthTotal"
+            },
+            "type" : "array"
+          },
+          "to" : {
+            "type" : "string"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "average", "categories", "currency", "from", "months", "to", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "UpdateProfileRequest" : {
@@ -1477,7 +2412,7 @@
     "/api/v1/accounts" : {
       "get" : {
         "description" : "balanceInBase is the balance in the base currency at today's NBU rate, null when there is no rate; availableCredit is the credit limit plus the balance of a credit card",
-        "operationId" : "list_4",
+        "operationId" : "list_6",
         "responses" : {
           "200" : {
             "content" : {
@@ -1500,7 +2435,7 @@
         "tags" : [ "Accounts" ]
       },
       "post" : {
-        "operationId" : "create_5",
+        "operationId" : "create_7",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -1554,7 +2489,7 @@
     },
     "/api/v1/accounts/{id}" : {
       "delete" : {
-        "operationId" : "delete_5",
+        "operationId" : "delete_7",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -1576,7 +2511,7 @@
         "tags" : [ "Accounts" ]
       },
       "get" : {
-        "operationId" : "get_1",
+        "operationId" : "get_3",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -1605,7 +2540,7 @@
       },
       "put" : {
         "description" : "Omitted optional fields keep their values; a credit limit or interest rate of 0 removes it",
-        "operationId" : "update_3",
+        "operationId" : "update_5",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -1642,6 +2577,225 @@
         } ],
         "summary" : "Update an account; the currency cannot be changed",
         "tags" : [ "Accounts" ]
+      }
+    },
+    "/api/v1/analytics/compare" : {
+      "get" : {
+        "description" : "Cumulative spending by day from the start of each period and the change per top-level category. Each period is at most 366 days.",
+        "operationId" : "compare",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "fromA",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "toA",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "fromB",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "toB",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CompareResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Compare the spending of two periods",
+        "tags" : [ "Analytics" ]
+      }
+    },
+    "/api/v1/analytics/needs-wants" : {
+      "get" : {
+        "description" : "By the needs / wants flag of the expense categories. Without a period, the current month.",
+        "operationId" : "needsWants",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NeedsWantsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "50/30/20: needs, wants and savings as parts of the income",
+        "tags" : [ "Analytics" ]
+      }
+    },
+    "/api/v1/analytics/plan/{month}" : {
+      "get" : {
+        "description" : "The plan is the money assigned to the envelopes, the actual value the spending in them. For the current month the forecast continues the spending at its pace so far to the end of the month and adds the planned payments still due.",
+        "operationId" : "plan",
+        "parameters" : [ {
+          "example" : "2026-10",
+          "in" : "path",
+          "name" : "month",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Plan vs actual per envelope with a forecast for the end of the month",
+        "tags" : [ "Analytics" ]
+      }
+    },
+    "/api/v1/analytics/savings" : {
+      "get" : {
+        "description" : "Without a range, the last 12 months including the current one.",
+        "operationId" : "savings",
+        "parameters" : [ {
+          "example" : "2025-11",
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "example" : "2026-10",
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Wanted savings rate, 0..1",
+          "in" : "query",
+          "name" : "target",
+          "required" : false,
+          "schema" : {
+            "default" : 0.2,
+            "maximum" : 1.0,
+            "minimum" : 0.0,
+            "type" : "number"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SavingsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Money saved per month, the savings rate and where the saved money was moved",
+        "tags" : [ "Analytics" ]
+      }
+    },
+    "/api/v1/analytics/trends" : {
+      "get" : {
+        "description" : "Without a range, the last 12 complete months. At most 36 months.",
+        "operationId" : "trends",
+        "parameters" : [ {
+          "example" : "2025-10",
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "example" : "2026-09",
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TrendsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Monthly spending per top-level category, averages and anomalies",
+        "tags" : [ "Analytics" ]
       }
     },
     "/api/v1/auth/forgot-password" : {
@@ -2151,7 +3305,7 @@
         "tags" : [ "Categories" ]
       },
       "post" : {
-        "operationId" : "create_4",
+        "operationId" : "create_6",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -2221,7 +3375,7 @@
     },
     "/api/v1/categories/{id}" : {
       "delete" : {
-        "operationId" : "delete_4",
+        "operationId" : "delete_6",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -2244,7 +3398,7 @@
       },
       "put" : {
         "description" : "The parent is always applied (null makes a top-level category); other omitted optional fields keep their values. icon, color and necessity sent as null are removed. A necessity is allowed only on expense categories; it is removed when the category becomes income.",
-        "operationId" : "update_2",
+        "operationId" : "update_4",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -2285,7 +3439,7 @@
     },
     "/api/v1/categorization-rules" : {
       "get" : {
-        "operationId" : "list_3",
+        "operationId" : "list_5",
         "responses" : {
           "200" : {
             "content" : {
@@ -2308,7 +3462,7 @@
         "tags" : [ "Categorization rules" ]
       },
       "post" : {
-        "operationId" : "create_3",
+        "operationId" : "create_5",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -2361,7 +3515,7 @@
     },
     "/api/v1/categorization-rules/{id}" : {
       "delete" : {
-        "operationId" : "delete_3",
+        "operationId" : "delete_5",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -2382,7 +3536,7 @@
         "tags" : [ "Categorization rules" ]
       },
       "put" : {
-        "operationId" : "update_1",
+        "operationId" : "update_3",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -2420,6 +3574,221 @@
         "tags" : [ "Categorization rules" ]
       }
     },
+    "/api/v1/forecast" : {
+      "get" : {
+        "description" : "The forecast takes away the everyday spending (the average of the last 90 days without recurring payments) and adds the pending occurrences of recurring payments. By default to the end of the current month, at most 366 days ahead.",
+        "operationId" : "forecast",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ForecastResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Balance of cash and cards from the first of the month to the date: actual, then forecast",
+        "tags" : [ "Forecast" ]
+      }
+    },
+    "/api/v1/goals" : {
+      "get" : {
+        "operationId" : "list_4",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GoalsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Savings goals with their progress and the totals in the base currency",
+        "tags" : [ "Goals" ]
+      },
+      "post" : {
+        "operationId" : "create_4",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GoalRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GoalResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Goals" ]
+      }
+    },
+    "/api/v1/goals/{id}" : {
+      "delete" : {
+        "operationId" : "delete_4",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Goals" ]
+      },
+      "get" : {
+        "operationId" : "get_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GoalResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Goals" ]
+      },
+      "put" : {
+        "description" : "Omitted achieved and sortOrder keep their values. Moved to another account, the pace starts again from its balance.",
+        "operationId" : "update_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GoalRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GoalResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Replace a goal",
+        "tags" : [ "Goals" ]
+      }
+    },
+    "/api/v1/goals/{id}/contributions" : {
+      "post" : {
+        "operationId" : "contribute",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContributionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GoalResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Add to (or take from) the progress of a goal without an account",
+        "tags" : [ "Goals" ]
+      }
+    },
     "/api/v1/imports/previews/{id}" : {
       "delete" : {
         "operationId" : "discard",
@@ -2444,7 +3813,7 @@
         "tags" : [ "Imports" ]
       },
       "get" : {
-        "operationId" : "get_2",
+        "operationId" : "get_4",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -2497,7 +3866,7 @@
     "/api/v1/imports/previews/{id}/confirm" : {
       "post" : {
         "description" : "Operations not listed are imported as previewed. The preview is removed afterwards; 404 when it is unknown or expired.",
-        "operationId" : "confirm",
+        "operationId" : "confirm_1",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -2886,7 +4255,7 @@
     },
     "/api/v1/payees" : {
       "get" : {
-        "operationId" : "list_2",
+        "operationId" : "list_3",
         "responses" : {
           "200" : {
             "content" : {
@@ -2908,7 +4277,7 @@
         "tags" : [ "Payees" ]
       },
       "post" : {
-        "operationId" : "create_2",
+        "operationId" : "create_3",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -2939,7 +4308,7 @@
     },
     "/api/v1/payees/{id}" : {
       "delete" : {
-        "operationId" : "delete_2",
+        "operationId" : "delete_3",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -2997,6 +4366,416 @@
           "bearer" : [ ]
         } ],
         "tags" : [ "Payees" ]
+      }
+    },
+    "/api/v1/recurring" : {
+      "get" : {
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/RecurringResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "List recurring payments by name, with the next date of each",
+        "tags" : [ "Recurring payments" ]
+      },
+      "post" : {
+        "operationId" : "create_2",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RecurringRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RecurringResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Recurring payments" ]
+      }
+    },
+    "/api/v1/recurring/occurrences" : {
+      "get" : {
+        "description" : "By default from 31 days ago to 31 days ahead, at most 400 days. Pending occurrences overdue for more than 31 days are left out. Due occurrences are matched with transactions first.",
+        "operationId" : "occurrences",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/OccurrenceResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Occurrences of all recurring payments in the period, by date",
+        "tags" : [ "Recurring payments" ]
+      }
+    },
+    "/api/v1/recurring/{id}" : {
+      "delete" : {
+        "operationId" : "delete_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Delete a recurring payment; the transactions that paid it stay",
+        "tags" : [ "Recurring payments" ]
+      },
+      "get" : {
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RecurringResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Recurring payments" ]
+      },
+      "put" : {
+        "description" : "Occurrences already paid or skipped stay.",
+        "operationId" : "update_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RecurringRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RecurringResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Replace a recurring payment",
+        "tags" : [ "Recurring payments" ]
+      }
+    },
+    "/api/v1/recurring/{id}/occurrences/{date}" : {
+      "delete" : {
+        "description" : "Unlinks the transaction (which stays) or undoes the skip. The occurrence is then no longer matched or created automatically.",
+        "operationId" : "reset_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OccurrenceResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Make an occurrence pending again",
+        "tags" : [ "Recurring payments" ]
+      }
+    },
+    "/api/v1/recurring/{id}/occurrences/{date}/candidates" : {
+      "get" : {
+        "description" : "Of the same type, within 10 days of the date and with up to half the amount off, not paying another occurrence; those on the account of the recurring payment first.",
+        "operationId" : "candidates",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/TransactionResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Transactions that could pay an occurrence, best first",
+        "tags" : [ "Recurring payments" ]
+      }
+    },
+    "/api/v1/recurring/{id}/occurrences/{date}/confirm" : {
+      "post" : {
+        "description" : "The body is optional; an occurrence already paid is rejected.",
+        "operationId" : "confirm",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OccurrenceConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OccurrenceResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Create the transaction of an occurrence and mark it as paid",
+        "tags" : [ "Recurring payments" ]
+      }
+    },
+    "/api/v1/recurring/{id}/occurrences/{date}/link" : {
+      "post" : {
+        "description" : "The transaction must not pay another occurrence.",
+        "operationId" : "link_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OccurrenceLinkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OccurrenceResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Mark an occurrence as paid by an existing transaction",
+        "tags" : [ "Recurring payments" ]
+      }
+    },
+    "/api/v1/recurring/{id}/occurrences/{date}/skip" : {
+      "post" : {
+        "operationId" : "skip",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OccurrenceResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Skip an occurrence",
+        "tags" : [ "Recurring payments" ]
       }
     },
     "/api/v1/reports/income-expense" : {

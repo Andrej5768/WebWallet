@@ -208,7 +208,7 @@ public class ReportService {
      * Whether a part counts as spending or income: by its category, so that a refund (an income in an expense
      * category) reduces the spending; without a category, by the transaction type.
      */
-    private static CategoryKind kind(SplitRow row) {
+    public static CategoryKind kind(SplitRow row) {
         if (row.getKind() != null) {
             return row.getKind();
         }
@@ -216,7 +216,7 @@ public class ReportService {
     }
 
     /** Positive when the type agrees with the kind, negative for a refund or a returned income. */
-    private static BigDecimal signed(SplitRow row, BigDecimal amount) {
+    public static BigDecimal signed(SplitRow row, BigDecimal amount) {
         boolean income = row.getType() == TransactionType.INCOME;
         return income == (kind(row) == CategoryKind.INCOME) ? amount : amount.negate();
     }

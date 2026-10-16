@@ -61,6 +61,20 @@ public interface ReportRepository extends Repository<Transaction, Long> {
             group by t.toAccount.id, extract(year from t.date), extract(month from t.date)""")
     List<MonthChange> findTargetChanges(Long userId, LocalDate to);
 
+    /**
+     * Transfers between a budget account and an account outside the budget in the period, summed per day and pair of
+     * accounts, in the currency of the source account.
+     */
+    @Query("""
+            select t.date as date, a.currency as currency, a.inBudget as fromBudget, a.id as accountId,
+                   a.name as accountName, ta.id as toAccountId, ta.name as toAccountName, sum(t.amount) as amount
+            from Transaction t join t.account a join t.toAccount ta
+            where t.userId = :userId and t.type = :transfer and a.inBudget <> ta.inBudget
+              and t.date between :from and :to
+            group by t.date, a.currency, a.inBudget, a.id, a.name, ta.id, ta.name""")
+    List<BoundaryTransferRow> findBudgetBoundaryTransfers(
+            Long userId, LocalDate from, LocalDate to, TransactionType transfer);
+
     interface SplitRow {
         LocalDate getDate();
 
@@ -97,5 +111,23 @@ public interface ReportRepository extends Repository<Transaction, Long> {
         int getMonth();
 
         BigDecimal getChange();
+    }
+
+    interface BoundaryTransferRow {
+        LocalDate getDate();
+
+        String getCurrency();
+
+        boolean getFromBudget();
+
+        Long getAccountId();
+
+        String getAccountName();
+
+        Long getToAccountId();
+
+        String getToAccountName();
+
+        BigDecimal getAmount();
     }
 }
