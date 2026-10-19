@@ -377,6 +377,16 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   by FIFO at the rates of their purchases, so a change of the exchange rate is profit too), the loss carried over
   from earlier years, the taxable profit, the taxes and the deadlines (declaration by 1 May, payment by 31 July of the
   next year). Government bonds are exempt.
+- Declarations (`/api/v1/taxes`): `GET/PUT /profile` keeps the taxpayer details the declarations need (tax number,
+  name, address, the tax office with its region and district codes, the main activity of a sole proprietor),
+  encrypted. `GET /declarations/fop/{year}/{quarter}` writes the declaration of a sole proprietor of group 3 (form
+  F0103309, amounts from the start of the year; the fourth quarter adds F0133109 with the social contribution of the
+  year, both in a ZIP), `GET /declarations/property/{year}` the yearly declaration of property and income (F0100215:
+  foreign dividends on line 10.10 with the tax paid abroad on line 18, the investment profit on line 10.8, with
+  F0121215 — Ф1 — for the sales, in a ZIP). The files follow the formats of the State Tax Service (windows-1251, its
+  file names, linked appendices) and are validated against its schemas in the tests; they are opened, checked and
+  signed in the tax service cabinet. The tick boxes of the yearly declaration are those of a resident filling it in
+  personally, of the general category.
 - Dividend calendar: `GET /api/v1/investments/dividends?accountId&from&to&currency` (by default a year back and a year
   ahead, dates between 1990 and 2100, at most 5 years) lists the payments by date with a `status`: `RECEIVED` (the `DIVIDEND` and `COUPON`
   operations), `EXPECTED` (due to the holder on the ex-dividend date but not recorded), `DECLARED` (from the dividend
@@ -505,7 +515,8 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [x] Dividend tax with foreign withholding credit (when the document exists)
 - [x] Investment profit tax using NBU rates on trade dates, with the loss carried over
 - [x] Annual declaration summary
-- [ ] Declaration files (XML for the tax service cabinet)
+- [x] Declaration files (XML for the tax service cabinet): the sole proprietor of group 3 with the social
+      contribution, the yearly declaration with Ф1
 
 ### Phase 6 — Notifications and mobile
 - [ ] Telegram bot (notifications and quick expense entry)

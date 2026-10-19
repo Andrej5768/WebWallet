@@ -3,3 +3,5 @@ Dockerfile text eol=lf
 *.sh text eol=lf
 # Compared by OpenApiSpecTest regardless of the platform
 api/openapi.json text eol=lf
+# The schemas of the tax service, kept byte for byte (windows-1251)
+src/test/resources/tax/xsd/*.xsd -text
