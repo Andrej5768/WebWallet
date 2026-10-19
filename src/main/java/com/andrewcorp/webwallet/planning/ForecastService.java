@@ -76,7 +76,9 @@ public class ForecastService {
         Map<Long, Account> scope = new HashMap<>();
         for (Account account : accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)) {
             if (!account.isArchived()
-                    && (account.getType() == AccountType.CASH || account.getType() == AccountType.CARD)) {
+                    && (account.getType() == AccountType.CASH
+                            || account.getType() == AccountType.CARD
+                            || account.getType() == AccountType.FOP)) {
                 scope.put(account.getId(), account);
             }
         }

@@ -33,7 +33,7 @@
             "type" : "integer"
           },
           "type" : {
-            "enum" : [ "CASH", "CARD", "CREDIT_CARD", "LOAN", "DEPOSIT", "SAVINGS", "DEBT", "INVESTMENT" ],
+            "enum" : [ "CASH", "CARD", "CREDIT_CARD", "LOAN", "DEPOSIT", "SAVINGS", "DEBT", "INVESTMENT", "FOP" ],
             "type" : "string"
           }
         },
@@ -81,7 +81,7 @@
             "type" : "integer"
           },
           "type" : {
-            "enum" : [ "CASH", "CARD", "CREDIT_CARD", "LOAN", "DEPOSIT", "SAVINGS", "DEBT", "INVESTMENT" ],
+            "enum" : [ "CASH", "CARD", "CREDIT_CARD", "LOAN", "DEPOSIT", "SAVINGS", "DEBT", "INVESTMENT", "FOP" ],
             "type" : "string"
           }
         },
@@ -879,6 +879,71 @@
         "required" : [ "accountId", "amount", "name" ],
         "type" : "object"
       },
+      "DividendDocumentRequest" : {
+        "properties" : {
+          "document" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "DividendTax" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "amountUah" : {
+            "type" : "number"
+          },
+          "credit" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "document" : {
+            "type" : "boolean"
+          },
+          "documentSet" : {
+            "type" : "boolean"
+          },
+          "military" : {
+            "type" : "number"
+          },
+          "operationId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "pdfo" : {
+            "type" : "number"
+          },
+          "rate" : {
+            "type" : [ "number", "null" ]
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "withheld" : {
+            "type" : "number"
+          },
+          "withheldUah" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "accountId", "amount", "amountUah", "credit", "currency", "date", "document", "documentSet", "military", "operationId", "pdfo", "rate", "symbol", "type", "withheld", "withheldUah" ],
+        "type" : "object"
+      },
       "EmailRequest" : {
         "properties" : {
           "email" : {
@@ -889,6 +954,161 @@
           }
         },
         "required" : [ "email" ],
+        "type" : "object"
+      },
+      "FopIncome" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "accountName" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "amountUah" : {
+            "type" : [ "number", "null" ]
+          },
+          "comment" : {
+            "type" : [ "string", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "included" : {
+            "type" : "boolean"
+          },
+          "payee" : {
+            "type" : [ "string", "null" ]
+          },
+          "quarter" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "rate" : {
+            "type" : [ "number", "null" ]
+          },
+          "reason" : {
+            "enum" : [ "ACCOUNT", "CATEGORY", "MANUAL" ],
+            "type" : "string"
+          },
+          "transactionId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "accountId", "accountName", "amount", "amountUah", "comment", "currency", "date", "included", "payee", "quarter", "rate", "reason", "transactionId" ],
+        "type" : "object"
+      },
+      "FopQuarter" : {
+        "properties" : {
+          "declarationDue" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "esv" : {
+            "type" : "number"
+          },
+          "esvDue" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "military" : {
+            "type" : "number"
+          },
+          "paid" : {
+            "type" : "boolean"
+          },
+          "quarter" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "singleTax" : {
+            "type" : "number"
+          },
+          "taxDue" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "total" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "declarationDue", "esv", "esvDue", "income", "military", "paid", "quarter", "singleTax", "taxDue", "total" ],
+        "type" : "object"
+      },
+      "FopReport" : {
+        "properties" : {
+          "fopAccountIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "incomeLimit" : {
+            "type" : "number"
+          },
+          "incomes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FopIncome"
+            },
+            "type" : "array"
+          },
+          "quarters" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FopQuarter"
+            },
+            "type" : "array"
+          },
+          "rates" : {
+            "$ref" : "#/components/schemas/TaxRates"
+          },
+          "totals" : {
+            "$ref" : "#/components/schemas/FopTotals"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "year" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "fopAccountIds", "incomeLimit", "incomes", "quarters", "rates", "totals", "unconvertedCurrencies", "year" ],
+        "type" : "object"
+      },
+      "FopTotals" : {
+        "properties" : {
+          "esv" : {
+            "type" : "number"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "military" : {
+            "type" : "number"
+          },
+          "singleTax" : {
+            "type" : "number"
+          },
+          "total" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "esv", "income", "military", "singleTax", "total" ],
         "type" : "object"
       },
       "ForecastDay" : {
@@ -1329,6 +1549,21 @@
         "required" : [ "accountsCreated", "accountsUpdated", "budgetsImported", "categoriesCreated", "payeesCreated", "transactionsImported", "transactionsMatched", "transactionsSkipped", "warnings" ],
         "type" : "object"
       },
+      "IncomeCategoriesRequest" : {
+        "properties" : {
+          "categoryIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "maxItems" : 500,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        },
+        "required" : [ "categoryIds" ],
+        "type" : "object"
+      },
       "IncomeExpenseResponse" : {
         "properties" : {
           "currency" : {
@@ -1476,6 +1711,72 @@
           }
         },
         "required" : [ "couponFrequency", "couponRate", "currency", "exchange", "id", "isin", "maturityDate", "micCode", "name", "nominal", "own", "price", "priceDate", "symbol", "type", "valuation" ],
+        "type" : "object"
+      },
+      "InvestmentTaxReport" : {
+        "properties" : {
+          "carriedIn" : {
+            "type" : "number"
+          },
+          "carriedOut" : {
+            "type" : "number"
+          },
+          "creditUah" : {
+            "type" : "number"
+          },
+          "declarationDue" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "dividends" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DividendTax"
+            },
+            "type" : "array"
+          },
+          "dividendsUah" : {
+            "type" : "number"
+          },
+          "military" : {
+            "type" : "number"
+          },
+          "paymentDue" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "pdfo" : {
+            "type" : "number"
+          },
+          "profit" : {
+            "type" : "number"
+          },
+          "rates" : {
+            "$ref" : "#/components/schemas/TaxRates"
+          },
+          "sales" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SaleTax"
+            },
+            "type" : "array"
+          },
+          "taxableProfit" : {
+            "type" : "number"
+          },
+          "total" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "year" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "carriedIn", "carriedOut", "creditUah", "declarationDue", "dividends", "dividendsUah", "military", "paymentDue", "pdfo", "profit", "rates", "sales", "taxableProfit", "total", "unconvertedCurrencies", "year" ],
         "type" : "object"
       },
       "LinkRequest" : {
@@ -2644,6 +2945,14 @@
         "required" : [ "close", "date" ],
         "type" : "object"
       },
+      "QuarterPaymentRequest" : {
+        "properties" : {
+          "paid" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "RecurringRef" : {
         "properties" : {
           "dueDate" : {
@@ -3010,6 +3319,51 @@
         "required" : [ "cost", "date", "operationId", "parts", "proceeds", "quantity", "realized" ],
         "type" : "object"
       },
+      "SaleTax" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "cost" : {
+            "type" : "number"
+          },
+          "costUah" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "incomeUah" : {
+            "type" : "number"
+          },
+          "operationId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "proceeds" : {
+            "type" : "number"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "resultInCurrency" : {
+            "type" : "number"
+          },
+          "resultUah" : {
+            "type" : "number"
+          },
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "cost", "costUah", "currency", "date", "incomeUah", "operationId", "proceeds", "quantity", "resultInCurrency", "resultUah", "symbol" ],
+        "type" : "object"
+      },
       "SavingsResponse" : {
         "properties" : {
           "averageRate" : {
@@ -3227,6 +3581,135 @@
         "required" : [ "color", "id", "name" ],
         "type" : "object"
       },
+      "TaxRates" : {
+        "properties" : {
+          "esvEnabled" : {
+            "type" : "boolean"
+          },
+          "esvRate" : {
+            "type" : "number"
+          },
+          "fopGroup" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "fopMilitaryMonthly" : {
+            "type" : "number"
+          },
+          "fopMilitaryRate" : {
+            "type" : "number"
+          },
+          "fopVat" : {
+            "type" : "boolean"
+          },
+          "foreignDocumentDefault" : {
+            "type" : "boolean"
+          },
+          "investmentMilitaryRate" : {
+            "type" : "number"
+          },
+          "minWage" : {
+            "type" : "number"
+          },
+          "pdfoRate" : {
+            "type" : "number"
+          },
+          "singleTaxMonthly" : {
+            "type" : "number"
+          },
+          "singleTaxRate" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "esvEnabled", "esvRate", "fopGroup", "fopMilitaryMonthly", "fopMilitaryRate", "fopVat", "foreignDocumentDefault", "investmentMilitaryRate", "minWage", "pdfoRate", "singleTaxMonthly", "singleTaxRate" ],
+        "type" : "object"
+      },
+      "TaxSettingsRequest" : {
+        "properties" : {
+          "esvEnabled" : {
+            "type" : "boolean"
+          },
+          "esvRate" : {
+            "maximum" : 100,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "fopGroup" : {
+            "format" : "int32",
+            "maximum" : 3,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "fopMilitaryMonthly" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "fopMilitaryRate" : {
+            "maximum" : 100,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "fopVat" : {
+            "type" : "boolean"
+          },
+          "foreignDocumentDefault" : {
+            "type" : "boolean"
+          },
+          "investmentMilitaryRate" : {
+            "maximum" : 100,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "minWage" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "pdfoRate" : {
+            "maximum" : 100,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "singleTaxMonthly" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "singleTaxRate" : {
+            "maximum" : 100,
+            "minimum" : 0,
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "TaxSettingsResponse" : {
+        "properties" : {
+          "defaults" : {
+            "$ref" : "#/components/schemas/TaxRates"
+          },
+          "incomeCategoryIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "sources" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "values" : {
+            "$ref" : "#/components/schemas/TaxRates"
+          },
+          "year" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "defaults", "incomeCategoryIds", "sources", "values", "year" ],
+        "type" : "object"
+      },
       "TickerChoice" : {
         "properties" : {
           "instrumentId" : {
@@ -3301,6 +3784,14 @@
           }
         },
         "required" : [ "accessToken", "expiresIn", "tokenType" ],
+        "type" : "object"
+      },
+      "TransactionMarkRequest" : {
+        "properties" : {
+          "included" : {
+            "type" : "boolean"
+          }
+        },
         "type" : "object"
       },
       "TransactionRequest" : {
@@ -6976,6 +7467,299 @@
         } ],
         "summary" : "Rename a tag or change its color",
         "tags" : [ "Tags" ]
+      }
+    },
+    "/api/v1/taxes/fop/{year}" : {
+      "get" : {
+        "operationId" : "fop",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2000,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FopReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The income, taxes, social contribution and deadlines of the sole proprietor by quarter",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/fop/{year}/quarters/{quarter}" : {
+      "put" : {
+        "operationId" : "markPaid",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2000,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "quarter",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 4,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/QuarterPaymentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Mark the taxes of a quarter as paid or not",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/income-categories" : {
+      "put" : {
+        "description" : "Their subcategories count too; the income of FOP accounts counts whatever its category.",
+        "operationId" : "incomeCategories",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IncomeCategoriesRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "format" : "int64",
+                    "type" : "integer"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Replace the income categories whose income is income of the sole proprietor on any account",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/investments/dividends/{operationId}" : {
+      "put" : {
+        "operationId" : "dividendDocument",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "operationId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DividendDocumentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Mark whether the document of the tax withheld abroad from a dividend exists; null forgets",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/investments/{year}" : {
+      "get" : {
+        "description" : "In hryvnias at the NBU rates of the dates: the profit of a sale counts its lots (FIFO) at the rates of their purchases, so a change of the exchange rate is profit too.",
+        "operationId" : "investments",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2000,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InvestmentTaxReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The taxes of the investment income of a year: dividends, sales, the carried loss",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/settings/{year}" : {
+      "get" : {
+        "description" : "The defaults are those known when the year was added and may be outdated: the user replaces any of them.",
+        "operationId" : "settings",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2000,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TaxSettingsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The tax rates of a year: the user's own values over the defaults, and where to check them",
+        "tags" : [ "Taxes" ]
+      },
+      "put" : {
+        "operationId" : "updateSettings",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2000,
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TaxSettingsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TaxSettingsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Replace the user's own tax values of a year; null takes the default",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/transactions/{transactionId}" : {
+      "put" : {
+        "operationId" : "mark",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "transactionId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TransactionMarkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Add a transaction to the income of the sole proprietor, take it out, or forget the mark (null)",
+        "tags" : [ "Taxes" ]
       }
     },
     "/api/v1/transactions" : {

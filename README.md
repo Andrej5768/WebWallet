@@ -21,7 +21,8 @@ to grow into a public service.
 
 ### Personal finance (first priority)
 - Multi-currency: each account has its own currency; reports in the base currency using NBU exchange rates.
-- Account types: cash and cards, credit cards and loans, deposits and savings, debts with people, investment accounts.
+- Account types: cash and cards, credit cards and loans, deposits and savings, debts with people, investment accounts,
+  accounts of a sole proprietor (ФОП).
 - Two-level categories (category → subcategory), tags and payees.
 - Transactions: expense, income, transfer (including cross-currency with two amounts), split across several categories.
 - Data entry:
@@ -46,7 +47,8 @@ to grow into a public service.
 - Market data behind a provider interface: free sources first (Finnhub / Alpha Vantage, CoinGecko,
   NBU for exchange rates), a paid provider later for the public version.
 - Ukrainian taxes: tax on dividends with credit for foreign withholding tax, tax on investment profit
-  (NBU rates on trade dates), annual declaration summary. Tax rates are configurable per year.
+  (NBU rates on trade dates), annual declaration summary; the single tax, military levy and social contribution of a
+  sole proprietor by quarter. Tax rates are configurable per year.
 
 ### How finances and investments connect
 - A brokerage or crypto account is an `INVESTMENT` account in finances: it appears in the account list
@@ -356,6 +358,24 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   shares in the currency of the history. The balance of an
   `INVESTMENT` account is its ledger balance plus the cash of its operations and the value of its positions at today's
   prices and rates; the net worth report still counts only the ledger for past months.
+- Taxes (`/api/v1/taxes`, in hryvnias at the NBU rates of the dates). `GET/PUT /settings/{year}`: the rates of a
+  year — the group of the sole proprietor (1, 2, 3; `fopVat` for the lower rate of a VAT payer), the single tax and the
+  military levy (shares of the income for group 3, amounts a month for groups 1 and 2), the minimum social contribution
+  (`esvEnabled`, `esvRate` of `minWage`), the personal income tax and military levy of investment income, and whether a
+  dividend has the document of the tax withheld abroad by default. `PUT` replaces the user's own values; `null` takes
+  the default of the year, which the response returns too (`defaults`) with links to the sources (`sources`): the
+  defaults are those known when the year was added and must be checked. `GET /fop/{year}` returns the quarters (income,
+  single tax, military levy, social contribution, the deadlines of the declaration, the taxes and the contribution —
+  a weekend moves them to Monday, public holidays are not known — and whether the user marked them paid with
+  `PUT /fop/{year}/quarters/{quarter}`), the totals, the income limit of the group and every income: of `FOP`
+  accounts, the part of incomes on any account in the categories chosen with `PUT /income-categories` (their
+  subcategories too), and transactions added with `PUT /transactions/{id}` `{included}` (`false` takes one out,
+  `null` forgets the mark); transfers between own accounts are not income. `GET /investments/{year}` returns the
+  dividends and coupons (the tax withheld abroad reduces the personal income tax when the document exists:
+  `PUT /investments/dividends/{operationId}` `{document}`), the sales (proceeds at the rate of the sale, the lots sold
+  by FIFO at the rates of their purchases, so a change of the exchange rate is profit too), the loss carried over
+  from earlier years, the taxable profit, the taxes and the deadlines (declaration by 1 May, payment by 31 July of the
+  next year). Government bonds are exempt.
 - Dividend calendar: `GET /api/v1/investments/dividends?accountId&from&to&currency` (by default a year back and a year
   ahead, dates between 1990 and 2100, at most 5 years) lists the payments by date with a `status`: `RECEIVED` (the `DIVIDEND` and `COUPON`
   operations), `EXPECTED` (due to the holder on the ex-dividend date but not recorded), `DECLARED` (from the dividend
@@ -478,9 +498,13 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
       client from the account balances and the reports
 
 ### Phase 5 — Ukrainian taxes
-- [ ] Dividend tax with foreign withholding credit
-- [ ] Investment profit tax using NBU rates on trade dates
-- [ ] Annual declaration summary
+- [x] Tax rates per year with defaults and links to the sources, all replaceable by the user
+- [x] Sole proprietor (ФОП): account type, income from its accounts, chosen categories and chosen transactions;
+      single tax, military levy and social contribution by quarter with deadlines and the income limit
+- [x] Dividend tax with foreign withholding credit (when the document exists)
+- [x] Investment profit tax using NBU rates on trade dates, with the loss carried over
+- [x] Annual declaration summary
+- [ ] Declaration files (XML for the tax service cabinet)
 
 ### Phase 6 — Notifications and mobile
 - [ ] Telegram bot (notifications and quick expense entry)

@@ -437,7 +437,10 @@ public class MonobankService {
                         Account created = new Account(
                                 userId,
                                 title,
-                                creditLimit.signum() > 0 ? AccountType.CREDIT_CARD : AccountType.CARD,
+                                // Monobank marks the accounts of a sole proprietor as "fop"
+                                "fop".equalsIgnoreCase(bankAccount.type())
+                                        ? AccountType.FOP
+                                        : creditLimit.signum() > 0 ? AccountType.CREDIT_CARD : AccountType.CARD,
                                 currency);
                         created.setExternal(SOURCE, bankAccount.id());
                         created.setCardNumbers(cardNumbers.isEmpty() ? null : cardNumbers);

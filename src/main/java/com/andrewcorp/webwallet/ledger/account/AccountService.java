@@ -80,7 +80,7 @@ public class AccountService {
             BigDecimal converted = converter.convert(balance, account.getCurrency(), today);
             netWorth = netWorth.add(converted);
             switch (account.getType()) {
-                case CASH, CARD -> available = available.add(converted);
+                case CASH, CARD, FOP -> available = available.add(converted);
                 case CREDIT_CARD -> {
                     // Own money on the card counts too; a card over its limit adds nothing
                     BigDecimal limit = account.getCreditLimit() != null ? account.getCreditLimit() : BigDecimal.ZERO;

@@ -10,7 +10,9 @@ public enum AccountType {
     /** Money lent to or borrowed from people. */
     DEBT(false),
     /** Brokerage or crypto account, managed by the investment module. */
-    INVESTMENT(false);
+    INVESTMENT(false),
+    /** An account of a sole proprietor (ФОП): its income is the income of the business for the taxes. */
+    FOP(true);
 
     private final boolean inBudgetByDefault;
 

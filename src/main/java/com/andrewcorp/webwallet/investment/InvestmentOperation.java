@@ -77,6 +77,9 @@ public class InvestmentOperation {
 
     private String externalId;
 
+    /** Of a dividend or coupon: whether the user has the document of the tax withheld abroad; null takes the default. */
+    private Boolean foreignTaxDocument;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -239,6 +242,14 @@ public class InvestmentOperation {
 
     public void setComment(String comment) {
         this.comment = comment;
+    }
+
+    public Boolean getForeignTaxDocument() {
+        return foreignTaxDocument;
+    }
+
+    public void setForeignTaxDocument(Boolean foreignTaxDocument) {
+        this.foreignTaxDocument = foreignTaxDocument;
     }
 
     public String getExternalId() {
