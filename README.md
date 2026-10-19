@@ -230,6 +230,22 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   leaves it out, an expense or income may become a transfer to or from `transferAccountId` (same currency), and `rememberRule`
   creates a categorization rule for the payee before the import. `DELETE /api/v1/imports/previews/{id}` discards a
   preview; an unknown or expired one is 404 `NOT_FOUND`. A user keeps at most 3 previews.
+- Broker reports: `POST /api/v1/imports/freedom/preview` (multipart `files`: the trades report and the cash flows
+  report of Freedom Finance as XLSX, in any order, one of each at most; optional `accountId`, else the brokerage
+  account named Freedom Finance, created when there is none) runs the import in a transaction that is rolled back and
+  returns `{id, source, expiresAt, account, from, to, instruments, operations, cash, merged, providerUnavailable}`:
+  every row of the reports, newest first, as `NEW`, `DUPLICATE` (imported before, by the number of the trade or the
+  operation) or `SKIPPED` (`SERVICE`: blocking and unblocking money for a withdrawal; `UNKNOWN`), the money per
+  currency and the quantity of each ticker after the import, and the instrument suggested for each ticker (one the user
+  already holds, else a listing of the provider on the market of the ticker suffix such as `.US`, else one to create
+  by hand, e.g. a fund of the Moscow exchange). A trade of a currency pair (`EUR/USD`) is an `EXCHANGE`, a card
+  payment or bank transfer a `DEPOSIT` or `WITHDRAWAL`, a dividend takes the tax withheld on the same security, and a
+  trade takes its fee from the cash flows (the trades report does not name its currency; a fee charged in another
+  currency than the trade's is a `FEE` of its own). `POST /api/v1/imports/freedom/previews/{id}/confirm` with
+  `{instruments: [{ticker, instrumentId | symbol + micCode | manual}], excluded: [key]}` imports it and returns
+  `{accountId, accountCreated, instrumentsCreated, operationsImported, duplicates}`; it is rejected (400) when the
+  reports sell more than they buy before. `GET /api/v1/imports/previews/{id}` is 404 for these previews;
+  `DELETE` discards them.
 - Start over: `POST /api/v1/me/reset` with `{keepCategories, confirm: "DELETE"}` (any other `confirm` is 400) deletes
   all accounts, transactions, payees, tags, the budget, bank connections and import previews of the user in one
   transaction and answers 204. With `keepCategories: false` the categories and categorization rules are deleted too
@@ -295,9 +311,12 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   saved amount below zero or to 15 digits.
 - Investments (`/api/v1/investments`): operations of `INVESTMENT` accounts (`GET/POST /operations`,
   `GET/PUT/DELETE /operations/{id}`): `BUY` and `SELL` (`quantity`, `price`, `amount` = quantity × price by default,
-  `fee`), `DIVIDEND` and `COUPON` (gross `amount`, withheld `tax`), `FEE` (no instrument needed) and `SPLIT`
-  (`splitFrom` into `splitTo`, each at most 1000), in the currency of the instrument by default; a trade must be in
-  the currency of its instrument, and a dividend, coupon or fee must be more than zero. Every purchase is a lot; a
+  `fee`), `DIVIDEND` and `COUPON` (gross `amount`, withheld `tax`), `FEE` (no instrument needed), `SPLIT`
+  (`splitFrom` into `splitTo`, each at most 1000), and, without an instrument, `DEPOSIT` and `WITHDRAWAL` (money
+  brought to or taken from the account in any currency, e.g. a card payment at the broker; they count as deposited)
+  and `EXCHANGE` (`amount` plus `fee` of `currency` for `toAmount` of another `toCurrency`), in the currency of the
+  instrument (else of the account) by default; a trade must be in the currency of its instrument, and a dividend,
+  coupon, fee or movement of money must be more than zero. Every purchase is a lot; a
   sale takes the oldest lots first (FIFO) and may not sell more than is held on its date, also after an edit or a
   deletion of an earlier operation (400); the operations of an account are changed one at a time. The fee of a
   purchase is part of the cost of its lot. Quantities keep 8 decimals, also after a split. Market instruments
@@ -314,8 +333,8 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   instruments a minute, each every 6 hours, loading the history back to the first operation (for a benchmark the
   first deposit to a brokerage account; at least a year), unadjusted, as the operations record splits and dividends;
   the last known close is loaded again, as it may have been the price during the session. `GET /portfolio?accountId=`
-  returns the value, `deposited` (the money brought to the accounts minus the money taken away, at the rates of their
-  dates), cost (`invested`), unrealized profit, realized
+  returns the value, `deposited` (the money brought to the accounts minus the money taken away by transfers and
+  deposit and withdrawal operations, at the rates of their dates), cost (`invested`), unrealized profit, realized
   profit of the year (FIFO, at the rates of the sale dates), dividends of the last 12 months after tax, the change of
   the day, the positions (average price, price, value, share), the cash per account and currency (the transfers of the
   ledger plus the cash of the operations) and the allocation by type and currency, in the base currency at today's
@@ -434,7 +453,9 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [x] Instruments, positions, trades, dividends and coupons, corporate actions (splits); lots with FIFO and the
       average price; value history with a benchmark
 - [x] Market data provider abstraction with free providers (Twelve Data daily closes)
-- [ ] Imports: Interactive Brokers, Freedom Finance, Ukrainian brokers, Binance, WhiteBIT, BTC / ETH addresses
+- [x] Freedom Finance import (trades and cash flows XLSX) with a preview; deposits, withdrawals and currency
+      exchanges as operations
+- [ ] Imports: Interactive Brokers, Ukrainian brokers, Binance, WhiteBIT, BTC / ETH addresses
 - [ ] Analytics: dividend calendar and forecast, XIRR / TWR, benchmark, allocation, rebalancing
 - [ ] Financial independence: FIRE number (lean / regular / fat / coast) and years to reach it,
       FYM (months of expenses covered by liquid money), compound interest calculator

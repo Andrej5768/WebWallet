@@ -4,6 +4,7 @@ import com.andrewcorp.webwallet.ledger.account.Account;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -30,6 +31,11 @@ public interface InvestmentOperationRepository extends JpaRepository<InvestmentO
     Page<InvestmentOperation> search(Long userId, Long accountId, Long instrumentId, Pageable pageable);
 
     boolean existsByAccountId(Long accountId);
+
+    /** The ids of the operations of the account in broker reports, to skip what was imported before. */
+    @Query(
+            "select o.externalId from InvestmentOperation o where o.account.id = :accountId and o.externalId is not null")
+    Set<String> findExternalIds(Long accountId);
 
     /** The date of the first operation of the instrument, of anyone. */
     @Query("select min(o.date) from InvestmentOperation o where o.instrument.id = :instrumentId")

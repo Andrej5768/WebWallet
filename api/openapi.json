@@ -187,6 +187,108 @@
         "required" : [ "key", "name", "pricesFrom", "symbol" ],
         "type" : "object"
       },
+      "BrokerConfirmRequest" : {
+        "properties" : {
+          "excluded" : {
+            "items" : {
+              "maxLength" : 200,
+              "minLength" : 0,
+              "type" : "string"
+            },
+            "maxItems" : 100000,
+            "minItems" : 0,
+            "type" : "array"
+          },
+          "instruments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TickerChoice"
+            },
+            "maxItems" : 1000,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "BrokerImportResult" : {
+        "properties" : {
+          "accountCreated" : {
+            "type" : "boolean"
+          },
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "duplicates" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "instrumentsCreated" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "operationsImported" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "accountCreated", "accountId", "duplicates", "instrumentsCreated", "operationsImported" ],
+        "type" : "object"
+      },
+      "BrokerPreviewResponse" : {
+        "properties" : {
+          "account" : {
+            "$ref" : "#/components/schemas/PreviewAccount"
+          },
+          "cash" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CashPreview"
+            },
+            "type" : "array"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "instruments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TickerPreview"
+            },
+            "type" : "array"
+          },
+          "merged" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "operations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OperationPreview"
+            },
+            "type" : "array"
+          },
+          "providerUnavailable" : {
+            "type" : "boolean"
+          },
+          "source" : {
+            "enum" : [ "PRIVATBANK", "ZENMONEY", "FREEDOM" ],
+            "type" : "string"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "account", "cash", "expiresAt", "from", "id", "instruments", "merged", "operations", "providerUnavailable", "source", "to" ],
+        "type" : "object"
+      },
       "CalendarEvent" : {
         "properties" : {
           "accountId" : {
@@ -307,6 +409,18 @@
           }
         },
         "required" : [ "currency", "events", "from", "monthly", "months", "next12Months", "next12MonthsNet", "received12Months", "receivedByInstrument", "to", "unconvertedCurrencies", "yield", "yieldOnCost" ],
+        "type" : "object"
+      },
+      "CashPreview" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "amount", "currency" ],
         "type" : "object"
       },
       "CashResponse" : {
@@ -1158,7 +1272,7 @@
             "$ref" : "#/components/schemas/PageResponseImportOperation"
           },
           "source" : {
-            "enum" : [ "PRIVATBANK", "ZENMONEY" ],
+            "enum" : [ "PRIVATBANK", "ZENMONEY", "FREEDOM" ],
             "type" : "string"
           },
           "summary" : {
@@ -1251,6 +1365,38 @@
           }
         },
         "required" : [ "currency", "expense", "from", "income", "months", "net", "savingsRate", "to", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "InstrumentChoice" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "exchange" : {
+            "type" : [ "string", "null" ]
+          },
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "manual" : {
+            "type" : "boolean"
+          },
+          "micCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "STOCK", "ETF", "FUND", "BOND", "GOVERNMENT_BOND", "CRYPTO", "OTHER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "currency", "exchange", "instrumentId", "manual", "micCode", "name", "symbol", "type" ],
         "type" : "object"
       },
       "InstrumentIncome" : {
@@ -1800,6 +1946,64 @@
         "required" : [ "key" ],
         "type" : "object"
       },
+      "OperationPreview" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "cash" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "fee" : {
+            "type" : "number"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "price" : {
+            "type" : [ "number", "null" ]
+          },
+          "quantity" : {
+            "type" : [ "number", "null" ]
+          },
+          "skip" : {
+            "enum" : [ "SERVICE", "UNKNOWN", null ],
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "enum" : [ "NEW", "DUPLICATE", "SKIPPED" ],
+            "type" : "string"
+          },
+          "tax" : {
+            "type" : "number"
+          },
+          "ticker" : {
+            "type" : [ "string", "null" ]
+          },
+          "toAmount" : {
+            "type" : [ "number", "null" ]
+          },
+          "toCurrency" : {
+            "type" : [ "string", "null" ]
+          },
+          "type" : {
+            "enum" : [ "BUY", "SELL", "DIVIDEND", "COUPON", "FEE", "SPLIT", "DEPOSIT", "WITHDRAWAL", "EXCHANGE", null ],
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "amount", "cash", "currency", "date", "description", "fee", "key", "price", "quantity", "skip", "status", "tax", "ticker", "toAmount", "toCurrency", "type" ],
+        "type" : "object"
+      },
       "OperationRequest" : {
         "properties" : {
           "accountId" : {
@@ -1854,8 +2058,15 @@
             "minimum" : 0,
             "type" : "number"
           },
+          "toAmount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "toCurrency" : {
+            "type" : "string"
+          },
           "type" : {
-            "enum" : [ "BUY", "SELL", "DIVIDEND", "COUPON", "FEE", "SPLIT" ],
+            "enum" : [ "BUY", "SELL", "DIVIDEND", "COUPON", "FEE", "SPLIT", "DEPOSIT", "WITHDRAWAL", "EXCHANGE" ],
             "type" : "string"
           }
         },
@@ -1915,12 +2126,18 @@
           "tax" : {
             "type" : "number"
           },
+          "toAmount" : {
+            "type" : [ "number", "null" ]
+          },
+          "toCurrency" : {
+            "type" : [ "string", "null" ]
+          },
           "type" : {
-            "enum" : [ "BUY", "SELL", "DIVIDEND", "COUPON", "FEE", "SPLIT" ],
+            "enum" : [ "BUY", "SELL", "DIVIDEND", "COUPON", "FEE", "SPLIT", "DEPOSIT", "WITHDRAWAL", "EXCHANGE" ],
             "type" : "string"
           }
         },
-        "required" : [ "accountId", "amount", "cash", "comment", "currency", "date", "fee", "id", "instrumentId", "price", "quantity", "splitFrom", "splitTo", "symbol", "tax", "type" ],
+        "required" : [ "accountId", "amount", "cash", "comment", "currency", "date", "fee", "id", "instrumentId", "price", "quantity", "splitFrom", "splitTo", "symbol", "tax", "toAmount", "toCurrency", "type" ],
         "type" : "object"
       },
       "OwnInstrumentRequest" : {
@@ -2387,6 +2604,22 @@
           }
         },
         "required" : [ "accountId", "averagePrice", "cost", "dayChange", "instrument", "price", "priceDate", "quantity", "share", "unrealized", "unrealizedShare", "value", "valueInBase" ],
+        "type" : "object"
+      },
+      "PreviewAccount" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "currency", "id", "name" ],
         "type" : "object"
       },
       "PricePoint" : {
@@ -2962,6 +3195,55 @@
           }
         },
         "required" : [ "color", "id", "name" ],
+        "type" : "object"
+      },
+      "TickerChoice" : {
+        "properties" : {
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "manual" : {
+            "type" : "boolean"
+          },
+          "micCode" : {
+            "maxLength" : 10,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "symbol" : {
+            "maxLength" : 30,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "ticker" : {
+            "maxLength" : 50,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "ticker" ],
+        "type" : "object"
+      },
+      "TickerPreview" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "quantityAfter" : {
+            "type" : "number"
+          },
+          "shortfall" : {
+            "type" : "boolean"
+          },
+          "suggestion" : {
+            "$ref" : "#/components/schemas/InstrumentChoice"
+          },
+          "ticker" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "currency", "quantityAfter", "shortfall", "suggestion", "ticker" ],
         "type" : "object"
       },
       "TokenRequest" : {
@@ -4646,6 +4928,99 @@
         } ],
         "summary" : "Add to (or take from) the progress of a goal without an account",
         "tags" : [ "Goals" ]
+      }
+    },
+    "/api/v1/imports/freedom/preview" : {
+      "post" : {
+        "description" : "The trades report and the cash flows report, in any order; the cash flows give the currency of the fees, so both are needed for exact money. Without accountId the operations go to the brokerage account named Freedom Finance, created when there is none. Confirm with POST /previews/{id}/confirm within an hour, discard with DELETE /api/v1/imports/previews/{id}. Only the parsed reports are kept, not the files.",
+        "operationId" : "preview_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "files" : {
+                    "items" : {
+                      "format" : "binary",
+                      "type" : "string"
+                    },
+                    "type" : "array"
+                  }
+                },
+                "required" : [ "files" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BrokerPreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Preview Freedom Finance reports (XLSX) without saving anything",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/freedom/previews/{id}/confirm" : {
+      "post" : {
+        "description" : "Tickers not listed get the suggested instruments, operations not excluded are imported; those imported before are skipped. Rejected when the reports sell more than they buy before. The preview is removed afterwards; 404 when it is unknown or expired.",
+        "operationId" : "confirm_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerConfirmRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BrokerImportResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Import the previewed reports",
+        "tags" : [ "Imports" ]
       }
     },
     "/api/v1/imports/previews/{id}" : {

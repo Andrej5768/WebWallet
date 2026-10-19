@@ -6,13 +6,15 @@ import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
- * The money brought to brokerage accounts and taken away: their opening balances and the transfers from and to other
- * accounts. Transfers between two of the accounts are neither. The same definition for the portfolio and the history.
+ * The money brought to brokerage accounts and taken away: their opening balances, the transfers from and to other
+ * accounts and the deposit and withdrawal operations. Transfers between two of the accounts are neither. The same
+ * definition for the portfolio and the history.
  */
 @Component
 public class Deposits {
@@ -31,8 +33,11 @@ public class Deposits {
     /**
      * The deposits (negative: withdrawals) of the accounts, oldest first; the opening balances count on {@code first},
      * the first day with money on the accounts.
+     *
+     * @param operations the investment operations of the accounts
      */
-    public static List<Deposit> of(Map<Long, Account> scope, List<Movement> movements, LocalDate first) {
+    public static List<Deposit> of(
+            Map<Long, Account> scope, List<Movement> movements, List<InvestmentOperation> operations, LocalDate first) {
         List<Deposit> deposits = new ArrayList<>();
         for (Account account : scope.values()) {
             if (account.getOpeningBalance().signum() != 0) {
@@ -45,6 +50,15 @@ public class Deposits {
                 deposits.add(deposit);
             }
         }
+        for (InvestmentOperation operation : operations) {
+            if (scope.containsKey(operation.getAccount().getId())
+                    && (operation.getType() == OperationType.DEPOSIT
+                            || operation.getType() == OperationType.WITHDRAWAL)) {
+                deposits.add(new Deposit(operation.getDate(), operation.getCurrency(), operation.cash()));
+            }
+        }
+        // Stable: the opening balances stay first on their day
+        deposits.sort(Comparator.comparing(Deposit::date));
         return deposits;
     }
 

@@ -17,10 +17,11 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Map;
 
 /**
- * A trade, an income or a fee on a brokerage account. Cash moves in {@link #currency}: see
- * {@link OperationType#cash}.
+ * A trade, an income, a fee or a movement of money on a brokerage account. Cash moves in {@link #currency}: see
+ * {@link OperationType#cash}; an exchange also brings {@link #toAmount} in {@link #toCurrency}.
  */
 @Entity
 @Table(name = "investment_operations")
@@ -64,6 +65,10 @@ public class InvestmentOperation {
     @Column(nullable = false)
     private String currency;
 
+    private BigDecimal toAmount;
+
+    private String toCurrency;
+
     private Integer splitFrom;
 
     private Integer splitTo;
@@ -98,6 +103,14 @@ public class InvestmentOperation {
     /** How the operation changes the cash of the account in {@link #currency}. */
     public BigDecimal cash() {
         return type.cash(amount, fee, tax);
+    }
+
+    /** How the operation changes the cash of the account per currency: an exchange moves two. */
+    public Map<String, BigDecimal> cashMoves() {
+        if (type == OperationType.EXCHANGE) {
+            return Map.of(currency, cash(), toCurrency, toAmount);
+        }
+        return Map.of(currency, cash());
     }
 
     public Long getId() {
@@ -186,6 +199,22 @@ public class InvestmentOperation {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public BigDecimal getToAmount() {
+        return toAmount;
+    }
+
+    public void setToAmount(BigDecimal toAmount) {
+        this.toAmount = toAmount;
+    }
+
+    public String getToCurrency() {
+        return toCurrency;
+    }
+
+    public void setToCurrency(String toCurrency) {
+        this.toCurrency = toCurrency;
     }
 
     public Integer getSplitFrom() {

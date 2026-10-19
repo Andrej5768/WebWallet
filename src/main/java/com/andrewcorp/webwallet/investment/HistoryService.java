@@ -122,7 +122,7 @@ public class HistoryService {
         for (Account account : scope.values()) {
             state.cash.merge(account.getCurrency(), account.getOpeningBalance(), BigDecimal::add);
         }
-        List<Deposit> deposited = Deposits.of(scope, movements, first);
+        List<Deposit> deposited = Deposits.of(scope, movements, all, first);
 
         Map<Long, NavigableMap<LocalDate, BigDecimal>> closes = operationCloses(all, first, end);
         Instrument fund = benchmark != null ? benchmarkFund(benchmark) : null;
@@ -284,7 +284,7 @@ public class HistoryService {
         }
 
         void apply(InvestmentOperation operation) {
-            cash.merge(operation.getCurrency(), operation.cash(), BigDecimal::add);
+            operation.cashMoves().forEach((currency, amount) -> cash.merge(currency, amount, BigDecimal::add));
             Instrument instrument = operation.getInstrument();
             switch (operation.getType()) {
                 case BUY, SELL -> lastPrices.put(instrument, operation.getPrice());

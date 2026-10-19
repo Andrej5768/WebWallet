@@ -269,6 +269,99 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void recordsDepositsWithdrawalsAndExchanges() throws Exception {
+        rates.save(new ExchangeRate("EUR", LocalDate.of(2030, 1, 1), new BigDecimal("44")));
+        operation(
+                Map.of("type", "DEPOSIT", "accountId", broker, "date", "2030-01-10", "amount", 100, "currency", "EUR"));
+        Long exchange = operation(Map.of(
+                "type",
+                "EXCHANGE",
+                "accountId",
+                broker,
+                "date",
+                "2030-01-11",
+                "amount",
+                100,
+                "fee",
+                1,
+                "currency",
+                "EUR",
+                "toAmount",
+                108,
+                "toCurrency",
+                "USD"));
+        operation(Map.of("type", "WITHDRAWAL", "accountId", broker, "date", "2030-02-01", "amount", 8));
+
+        Map<String, Object> saved =
+                json(get("/api/v1/investments/operations/" + exchange).header("Authorization", auth), 200);
+        assertThat(saved).containsEntry("toCurrency", "USD").containsEntry("instrumentId", null);
+        assertThat(number(saved.get("cash"))).isEqualTo(-101);
+        assertThat(number(saved.get("toAmount"))).isEqualTo(108);
+
+        Map<String, Object> portfolio = json(
+                get("/api/v1/investments/portfolio").param("currency", "USD").header("Authorization", auth), 200);
+        // 100 EUR at 44 / 40 brought, 8 USD taken
+        assertThat(number(portfolio.get("deposited"))).isEqualTo(102);
+        Map<String, Double> cash = new HashMap<>();
+        ((List<Map<String, Object>>) portfolio.get("cash"))
+                .forEach(item -> cash.put((String) item.get("currency"), number(item.get("amount"))));
+        assertThat(cash).containsEntry("USD", 100.0).containsEntry("EUR", -1.0);
+        Map<String, Object> account = json(get("/api/v1/accounts/" + broker).header("Authorization", auth), 200);
+        // 100 USD and −1 EUR (−1.1 USD)
+        assertThat(number(account.get("balance"))).isEqualTo(98.9);
+
+        Map<String, Object> history =
+                json(get("/api/v1/investments/history").param("currency", "USD").header("Authorization", auth), 200);
+        List<Map<String, Object>> points = (List<Map<String, Object>>) history.get("points");
+        assertThat(number(points.get(points.size() - 1).get("deposited"))).isEqualTo(102);
+
+        // Money movements have no instrument; an exchange is between two currencies
+        Long aapl = apple();
+        json(
+                postJson(
+                        "/api/v1/investments/operations",
+                        Map.of(
+                                "type",
+                                "DEPOSIT",
+                                "accountId",
+                                broker,
+                                "instrumentId",
+                                aapl,
+                                "date",
+                                "2030-01-10",
+                                "amount",
+                                1),
+                        auth),
+                400);
+        json(
+                postJson(
+                        "/api/v1/investments/operations",
+                        Map.of(
+                                "type",
+                                "EXCHANGE",
+                                "accountId",
+                                broker,
+                                "date",
+                                "2030-01-10",
+                                "amount",
+                                1,
+                                "currency",
+                                "USD",
+                                "toAmount",
+                                1,
+                                "toCurrency",
+                                "USD"),
+                        auth),
+                400);
+        json(
+                postJson(
+                        "/api/v1/investments/operations",
+                        Map.of("type", "EXCHANGE", "accountId", broker, "date", "2030-01-10", "amount", 1),
+                        auth),
+                400);
+    }
+
+    @Test
     void valuesBondsEnteredByHand() throws Exception {
         Long uah = account("ICU", "INVESTMENT", "UAH", 0);
         Map<String, Object> bond = new HashMap<>(Map.of(

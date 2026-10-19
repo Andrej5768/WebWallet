@@ -14,7 +14,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Trades, income and fees of brokerage accounts. A change that would sell more than is held is rejected. */
+/**
+ * Trades, income, fees and movements of money of brokerage accounts. A change that would sell more than is held is
+ * rejected.
+ */
 @Service
 public class OperationService {
 
@@ -99,12 +102,15 @@ public class OperationService {
         OperationType type = request.type();
         Instrument instrument = null;
         if (request.instrumentId() != null) {
+            if (type.cashOnly()) {
+                throw ApiException.invalid("instrumentId", "error.investment.noInstrument");
+            }
             try {
                 instrument = instrumentService.find(userId, request.instrumentId());
             } catch (ApiException e) {
                 throw ApiException.invalid("instrumentId", "error.notFound");
             }
-        } else if (type != OperationType.FEE) {
+        } else if (type != OperationType.FEE && !type.cashOnly()) {
             throw ApiException.invalid("instrumentId", "error.required");
         }
 
@@ -119,7 +125,7 @@ public class OperationService {
                         ? request.amount()
                         : quantity.multiply(price).setScale(4, RoundingMode.HALF_UP);
             }
-            case DIVIDEND, COUPON, FEE -> {
+            case DIVIDEND, COUPON, FEE, DEPOSIT, WITHDRAWAL, EXCHANGE -> {
                 amount = required(request.amount(), "amount");
                 if (amount.signum() <= 0) {
                     throw ApiException.invalid("amount", "error.investment.amount");
@@ -136,7 +142,9 @@ public class OperationService {
         if (tax != null && tax.compareTo(amount) > 0) {
             throw ApiException.invalid("tax", "error.investment.tax");
         }
-        BigDecimal fee = type == OperationType.BUY || type == OperationType.SELL ? orZero(request.fee()) : null;
+        BigDecimal fee = type == OperationType.BUY || type == OperationType.SELL || type == OperationType.EXCHANGE
+                ? orZero(request.fee())
+                : null;
 
         operation.setType(type);
         operation.setAccount(account);
@@ -155,6 +163,17 @@ public class OperationService {
             throw ApiException.invalid("currency", "error.investment.currency");
         }
         operation.setCurrency(currency);
+        BigDecimal toAmount = null;
+        String toCurrency = null;
+        if (type == OperationType.EXCHANGE) {
+            toAmount = required(request.toAmount(), "toAmount");
+            toCurrency = required(request.toCurrency(), "toCurrency");
+            if (toCurrency.equals(currency)) {
+                throw ApiException.invalid("toCurrency", "error.investment.sameCurrency");
+            }
+        }
+        operation.setToAmount(toAmount);
+        operation.setToCurrency(toCurrency);
         operation.setSplitFrom(type == OperationType.SPLIT ? request.splitFrom() : null);
         operation.setSplitTo(type == OperationType.SPLIT ? request.splitTo() : null);
         operation.setComment(request.comment());

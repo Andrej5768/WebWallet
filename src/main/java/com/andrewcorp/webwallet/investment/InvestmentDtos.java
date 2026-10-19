@@ -122,11 +122,16 @@ public final class InvestmentDtos {
             @PositiveOrZero @Digits(integer = 15, fraction = 4) BigDecimal tax,
 
             @CurrencyCode String currency,
+            @Positive @Digits(integer = 15, fraction = 4) BigDecimal toAmount,
+            @CurrencyCode String toCurrency,
             @Min(1) @Max(1000) Integer splitFrom,
             @Min(1) @Max(1000) Integer splitTo,
             @Size(max = 1000) String comment) {}
 
-    /** @param cash how the operation changed the cash of the account in {@code currency} */
+    /**
+     * @param cash     how the operation changed the cash of the account in {@code currency}
+     * @param toAmount what an exchange brought in {@code toCurrency}
+     */
     public record OperationResponse(
             Long id,
             OperationType type,
@@ -141,6 +146,8 @@ public final class InvestmentDtos {
             BigDecimal tax,
             String currency,
             BigDecimal cash,
+            @Schema(nullable = true) BigDecimal toAmount,
+            @Schema(nullable = true) String toCurrency,
             @Schema(nullable = true) Integer splitFrom,
             @Schema(nullable = true) Integer splitTo,
             @Schema(nullable = true) String comment) {
@@ -161,6 +168,8 @@ public final class InvestmentDtos {
                     operation.getTax(),
                     operation.getCurrency(),
                     operation.cash(),
+                    operation.getToAmount(),
+                    operation.getToCurrency(),
                     operation.getSplitFrom(),
                     operation.getSplitTo(),
                     operation.getComment());

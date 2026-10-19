@@ -22,7 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * What the investment operations of a user hold on their brokerage accounts: the cash they moved per currency and the
- * positions with their lots and prices. The money brought to an account by transfers is in the ledger, not here.
+ * positions with their lots and prices. The money brought to an account by transfers is in the ledger, not here; the
+ * money brought by deposit operations is.
  */
 @Component
 public class InvestmentValuation {
@@ -49,8 +50,8 @@ public class InvestmentValuation {
         Map<Long, Map<Instrument, List<InvestmentOperation>>> byInstrument = new TreeMap<>();
         for (InvestmentOperation operation : all) {
             Long accountId = operation.getAccount().getId();
-            cash.computeIfAbsent(accountId, id -> new TreeMap<>())
-                    .merge(operation.getCurrency(), operation.cash(), BigDecimal::add);
+            Map<String, BigDecimal> accountCash = cash.computeIfAbsent(accountId, id -> new TreeMap<>());
+            operation.cashMoves().forEach((currency, amount) -> accountCash.merge(currency, amount, BigDecimal::add));
             if (operation.getInstrument() != null) {
                 byInstrument
                         .computeIfAbsent(accountId, id -> new LinkedHashMap<>())

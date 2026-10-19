@@ -189,19 +189,21 @@ public class PortfolioService {
 
     /**
      * The money brought to the accounts minus the money taken away, at the rates of their dates; the opening balances
-     * count on the first day with money on the accounts.
+     * count on the first day with money on the accounts, deposit and withdrawal operations on their days.
      */
     private BigDecimal deposited(Long userId, Map<Long, Account> scope, CurrencyConverter converter, LocalDate today) {
         List<Movement> movements = deposits.movements(scope);
+        List<InvestmentOperation> inScope = operations.findAllOfUser(userId).stream()
+                .filter(operation -> scope.containsKey(operation.getAccount().getId()))
+                .toList();
         LocalDate first = movements.isEmpty() ? today : movements.get(0).getDate();
-        for (InvestmentOperation operation : operations.findAllOfUser(userId)) {
-            if (scope.containsKey(operation.getAccount().getId())
-                    && operation.getDate().isBefore(first)) {
+        for (InvestmentOperation operation : inScope) {
+            if (operation.getDate().isBefore(first)) {
                 first = operation.getDate();
             }
         }
         BigDecimal total = BigDecimal.ZERO;
-        for (Deposit deposit : Deposits.of(scope, movements, first)) {
+        for (Deposit deposit : Deposits.of(scope, movements, inScope, first)) {
             total = total.add(converter.convert(deposit.amount(), deposit.currency(), deposit.date()));
         }
         return Money.round2(total);
