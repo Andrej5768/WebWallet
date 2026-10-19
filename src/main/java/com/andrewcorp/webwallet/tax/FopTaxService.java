@@ -1,5 +1,6 @@
 package com.andrewcorp.webwallet.tax;
 
+import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
 import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.ledger.account.Account;
@@ -16,6 +17,7 @@ import com.andrewcorp.webwallet.tax.TaxDtos.FopQuarter;
 import com.andrewcorp.webwallet.tax.TaxDtos.FopReport;
 import com.andrewcorp.webwallet.tax.TaxDtos.FopTotals;
 import com.andrewcorp.webwallet.tax.TaxDtos.IncomeReason;
+import com.andrewcorp.webwallet.tax.TaxDtos.TransactionTaxResponse;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
@@ -94,22 +96,12 @@ public class FopTaxService {
                 transactions.findTaxCandidates(userId, LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31), added);
         for (Transaction transaction : candidates) {
             Boolean mark = marked.get(transaction.getId());
-            IncomeReason reason;
-            BigDecimal amount;
-            boolean income = transaction.getType() == TransactionType.INCOME;
-            if (Boolean.TRUE.equals(mark)) {
-                reason = IncomeReason.MANUAL;
-                amount = transaction.getAmount();
-            } else if (income && fopAccounts.contains(transaction.getAccount().getId())) {
-                reason = IncomeReason.ACCOUNT;
-                amount = transaction.getAmount();
-            } else {
-                amount = categoryAmount(transaction, incomeCategories);
-                if (!income || amount.signum() == 0) {
-                    continue;
-                }
-                reason = IncomeReason.CATEGORY;
+            Counted counted = counted(transaction, mark, fopAccounts, incomeCategories);
+            if (counted == null) {
+                continue;
             }
+            IncomeReason reason = counted.reason();
+            BigDecimal amount = counted.amount();
             boolean included = !Boolean.FALSE.equals(mark);
             String currency = transaction.getAccount().getCurrency();
             BigDecimal amountUah = converter.convertIfKnown(amount, currency, transaction.getDate());
@@ -192,6 +184,47 @@ public class FopTaxService {
                 rates.incomeLimit(),
                 incomes,
                 converter.unconverted());
+    }
+
+    /** Whether a transaction is income of the sole proprietor, why, and how much of it. */
+    @Transactional(readOnly = true)
+    public TransactionTaxResponse state(Long userId, Long transactionId) {
+        Transaction transaction =
+                transactions.findByIdAndUserId(transactionId, userId).orElseThrow(ApiException::notFound);
+        Boolean mark = marks.findById(transactionId)
+                .map(TaxTransactionMark::isIncluded)
+                .orElse(null);
+        List<Long> fopAccounts = accounts.findByUserIdOrderBySortOrderAscIdAsc(userId).stream()
+                .filter(account -> account.getType() == AccountType.FOP)
+                .map(Account::getId)
+                .toList();
+        Counted counted =
+                counted(transaction, mark, fopAccounts, withSubcategories(userId, settings.incomeCategoryIds(userId)));
+        // Without the mark: what the rules alone would say
+        Counted byRules = Boolean.TRUE.equals(mark)
+                ? counted(transaction, null, fopAccounts, withSubcategories(userId, settings.incomeCategoryIds(userId)))
+                : counted;
+        return new TransactionTaxResponse(
+                mark,
+                counted != null && !Boolean.FALSE.equals(mark),
+                counted != null ? counted.reason() : null,
+                byRules != null ? byRules.reason() : null);
+    }
+
+    private record Counted(IncomeReason reason, BigDecimal amount) {}
+
+    /** Why the transaction is income of the sole proprietor and how much of it; null when it is not. */
+    private static Counted counted(
+            Transaction transaction, Boolean mark, List<Long> fopAccounts, Set<Long> incomeCategories) {
+        boolean income = transaction.getType() == TransactionType.INCOME;
+        if (Boolean.TRUE.equals(mark)) {
+            return new Counted(IncomeReason.MANUAL, transaction.getAmount());
+        }
+        if (income && fopAccounts.contains(transaction.getAccount().getId())) {
+            return new Counted(IncomeReason.ACCOUNT, transaction.getAmount());
+        }
+        BigDecimal amount = categoryAmount(transaction, incomeCategories);
+        return income && amount.signum() != 0 ? new Counted(IncomeReason.CATEGORY, amount) : null;
     }
 
     /** The part of the transaction in the categories; a split without a category counts nothing. */

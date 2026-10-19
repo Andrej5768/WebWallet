@@ -65,6 +65,20 @@ public final class TaxDtos {
 
     public record QuarterPaymentRequest(boolean paid) {}
 
+    /**
+     * Whether a transaction is income of the sole proprietor.
+     *
+     * @param mark          the user's mark: true added, false taken out, null none
+     * @param counted       whether it counts now
+     * @param reason        why it is income, also when it was taken out; null when it is not
+     * @param ruleReason    why the rules alone (the account, the categories) would count it, without the mark
+     */
+    public record TransactionTaxResponse(
+            @Schema(nullable = true) Boolean mark,
+            boolean counted,
+            @Schema(nullable = true) IncomeReason reason,
+            @Schema(nullable = true) IncomeReason ruleReason) {}
+
     /** @param document whether the document of the tax withheld abroad exists; null takes the default of the year */
     public record DividendDocumentRequest(Boolean document) {}
 

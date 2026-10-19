@@ -9,6 +9,7 @@ import com.andrewcorp.webwallet.tax.TaxDtos.QuarterPaymentRequest;
 import com.andrewcorp.webwallet.tax.TaxDtos.TaxSettingsRequest;
 import com.andrewcorp.webwallet.tax.TaxDtos.TaxSettingsResponse;
 import com.andrewcorp.webwallet.tax.TaxDtos.TransactionMarkRequest;
+import com.andrewcorp.webwallet.tax.TaxDtos.TransactionTaxResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -66,6 +67,12 @@ public class TaxController {
     public List<Long> incomeCategories(
             @CurrentUserId Long userId, @Valid @RequestBody IncomeCategoriesRequest request) {
         return settings.updateIncomeCategories(userId, request.categoryIds());
+    }
+
+    @Operation(summary = "Whether a transaction is income of the sole proprietor, and why")
+    @GetMapping("/transactions/{transactionId}")
+    public TransactionTaxResponse transaction(@CurrentUserId Long userId, @PathVariable Long transactionId) {
+        return fop.state(userId, transactionId);
     }
 
     @Operation(

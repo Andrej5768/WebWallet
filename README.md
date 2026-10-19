@@ -370,7 +370,8 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   `PUT /fop/{year}/quarters/{quarter}`), the totals, the income limit of the group and every income: of `FOP`
   accounts, the part of incomes on any account in the categories chosen with `PUT /income-categories` (their
   subcategories too), and transactions added with `PUT /transactions/{id}` `{included}` (`false` takes one out,
-  `null` forgets the mark); transfers between own accounts are not income. `GET /investments/{year}` returns the
+  `null` forgets the mark; `GET /transactions/{id}` tells whether one counts and why); transfers between own accounts
+  are not income. `GET /investments/{year}` returns the
   dividends and coupons (the tax withheld abroad reduces the personal income tax when the document exists:
   `PUT /investments/dividends/{operationId}` `{document}`), the sales (proceeds at the rate of the sale, the lots sold
   by FIFO at the rates of their purchases, so a change of the exchange rate is profit too), the loss carried over

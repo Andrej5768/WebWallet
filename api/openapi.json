@@ -3948,6 +3948,26 @@
         "required" : [ "accountId", "amount", "comment", "createdAt", "currency", "date", "id", "originalAmount", "originalCurrency", "payee", "recurring", "source", "splits", "tagIds", "toAccountId", "toAmount", "toCurrency", "type" ],
         "type" : "object"
       },
+      "TransactionTaxResponse" : {
+        "properties" : {
+          "counted" : {
+            "type" : "boolean"
+          },
+          "mark" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "reason" : {
+            "enum" : [ "ACCOUNT", "CATEGORY", "MANUAL", null ],
+            "type" : [ "string", "null" ]
+          },
+          "ruleReason" : {
+            "enum" : [ "ACCOUNT", "CATEGORY", "MANUAL", null ],
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "counted", "mark", "reason", "ruleReason" ],
+        "type" : "object"
+      },
       "TrendsResponse" : {
         "properties" : {
           "average" : {
@@ -7729,6 +7749,35 @@
       }
     },
     "/api/v1/taxes/transactions/{transactionId}" : {
+      "get" : {
+        "operationId" : "transaction",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "transactionId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TransactionTaxResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Whether a transaction is income of the sole proprietor, and why",
+        "tags" : [ "Taxes" ]
+      },
       "put" : {
         "operationId" : "mark",
         "parameters" : [ {

@@ -159,6 +159,18 @@ class TaxControllerTest extends AbstractIntegrationTest {
         assertThat(incomes.get("2030-08-20")).containsEntry("included", false).containsEntry("reason", "ACCOUNT");
         assertThat(incomes.get("2030-11-01")).containsEntry("reason", "MANUAL");
 
+        Map<String, Object> state =
+                json(get("/api/v1/taxes/transactions/" + refund).header("Authorization", auth), 200);
+        assertThat(state)
+                .containsEntry("mark", false)
+                .containsEntry("counted", false)
+                .containsEntry("reason", "ACCOUNT")
+                .containsEntry("ruleReason", "ACCOUNT");
+        assertThat(json(get("/api/v1/taxes/transactions/" + added).header("Authorization", auth), 200))
+                .containsEntry("counted", true)
+                .containsEntry("reason", "MANUAL")
+                .containsEntry("ruleReason", null);
+
         // The marks can be forgotten
         json(putJson("/api/v1/taxes/transactions/" + refund, new HashMap<String, Object>(), auth), 204);
         assertThat(number(((List<Map<String, Object>>) report().get("quarters"))
