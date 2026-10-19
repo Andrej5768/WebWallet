@@ -9,6 +9,8 @@ import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.EnumSet;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,8 +35,14 @@ public class OperationService {
     }
 
     @Transactional(readOnly = true)
-    public Page<OperationResponse> list(Long userId, Long accountId, Long instrumentId, Pageable pageable) {
-        return operations.search(userId, accountId, instrumentId, pageable).map(OperationResponse::from);
+    public Page<OperationResponse> list(
+            Long userId, Long accountId, Long instrumentId, Set<OperationType> types, Pageable pageable) {
+        boolean all = types == null || types.isEmpty();
+        // An empty list would not do in the query even when it is not used
+        Set<OperationType> filter = all ? EnumSet.allOf(OperationType.class) : types;
+        return operations
+                .search(userId, accountId, instrumentId, all, filter, pageable)
+                .map(OperationResponse::from);
     }
 
     @Transactional(readOnly = true)

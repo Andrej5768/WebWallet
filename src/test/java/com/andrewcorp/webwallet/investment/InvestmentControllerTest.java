@@ -315,6 +315,22 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
         List<Map<String, Object>> points = (List<Map<String, Object>>) history.get("points");
         assertThat(number(points.get(points.size() - 1).get("deposited"))).isEqualTo(102);
 
+        Map<String, Object> movements = json(
+                get("/api/v1/investments/operations")
+                        .param("accountId", broker.toString())
+                        .param("types", "DEPOSIT", "WITHDRAWAL")
+                        .header("Authorization", auth),
+                200);
+        assertThat((List<Map<String, Object>>) movements.get("items"))
+                .extracting(item -> item.get("type"))
+                .containsExactly("WITHDRAWAL", "DEPOSIT");
+        Map<String, Object> everything = json(
+                get("/api/v1/investments/operations")
+                        .param("accountId", broker.toString())
+                        .header("Authorization", auth),
+                200);
+        assertThat(everything).containsEntry("totalItems", 3);
+
         // Money movements have no instrument; an exchange is between two currencies
         Long aapl = apple();
         json(

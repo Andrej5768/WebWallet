@@ -23,6 +23,7 @@ import jakarta.validation.constraints.Size;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -184,16 +185,19 @@ public class InvestmentController {
         return instrumentService.prices(userId, id, start, end);
     }
 
-    @Operation(summary = "Operations of the brokerage accounts, newest first")
+    @Operation(
+            summary = "Operations of the brokerage accounts, newest first",
+            description = "Optionally of one account, one instrument and some types (all by default).")
     @GetMapping("/operations")
     public PageResponse<OperationResponse> operations(
             @CurrentUserId Long userId,
             @RequestParam(required = false) Long accountId,
             @RequestParam(required = false) Long instrumentId,
+            @RequestParam(required = false) Set<OperationType> types,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
         return PageResponse.of(
-                operationService.list(userId, accountId, instrumentId, PageRequest.of(page, size, NEWEST_FIRST)),
+                operationService.list(userId, accountId, instrumentId, types, PageRequest.of(page, size, NEWEST_FIRST)),
                 operation -> operation);
     }
 

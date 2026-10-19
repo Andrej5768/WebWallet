@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.investment;
 
 import com.andrewcorp.webwallet.ledger.account.Account;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -22,13 +23,20 @@ public interface InvestmentOperationRepository extends JpaRepository<InvestmentO
 
     List<InvestmentOperation> findByAccountAndInstrument(Account account, Instrument instrument);
 
-    /** Newest first, optionally of one account and one instrument. */
+    /** Optionally of one account, one instrument and some types ({@code allTypes} false). */
     @Query("""
             select o from InvestmentOperation o
             where o.userId = :userId
               and (:accountId is null or o.account.id = :accountId)
-              and (:instrumentId is null or o.instrument.id = :instrumentId)""")
-    Page<InvestmentOperation> search(Long userId, Long accountId, Long instrumentId, Pageable pageable);
+              and (:instrumentId is null or o.instrument.id = :instrumentId)
+              and (:allTypes = true or o.type in :types)""")
+    Page<InvestmentOperation> search(
+            Long userId,
+            Long accountId,
+            Long instrumentId,
+            boolean allTypes,
+            Collection<OperationType> types,
+            Pageable pageable);
 
     boolean existsByAccountId(Long accountId);
 
