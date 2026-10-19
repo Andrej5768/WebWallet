@@ -190,6 +190,17 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
         assertThat(number(cash.get(0).get("amount"))).isEqualTo(3255);
         assertThat(portfolio.get("byType").toString()).contains("key=STOCK").contains("key=CASH");
 
+        // The same portfolio in dollars
+        Map<String, Object> inUsd = json(
+                get("/api/v1/investments/portfolio").param("currency", "USD").header("Authorization", auth), 200);
+        assertThat(inUsd).containsEntry("currency", "USD");
+        assertThat(number(inUsd.get("value"))).isEqualTo(3255 + 3300);
+        assertThat(number(inUsd.get("deposited"))).isEqualTo(5000);
+        assertThat(number(((List<Map<String, Object>>) inUsd.get("positions"))
+                        .get(0)
+                        .get("valueInBase")))
+                .isEqualTo(3300);
+
         // The brokerage account is worth its cash and its positions
         Map<String, Object> account = json(get("/api/v1/accounts/" + broker).header("Authorization", auth), 200);
         assertThat(number(account.get("balance"))).isEqualTo(6555);

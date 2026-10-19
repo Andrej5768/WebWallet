@@ -70,11 +70,14 @@ public class PortfolioService {
         this.clock = clock;
     }
 
-    /** The portfolio of all brokerage accounts that are not archived, or of one. */
+    /**
+     * The portfolio of all brokerage accounts that are not archived, or of one, in the currency (by default the base
+     * one).
+     */
     @Transactional(readOnly = true)
-    public PortfolioResponse portfolio(Long userId, Long accountId) {
+    public PortfolioResponse portfolio(Long userId, Long accountId, String currency) {
         LocalDate today = LocalDate.now(clock);
-        CurrencyConverter converter = converters.base(userId);
+        CurrencyConverter converter = converters.to(userId, currency);
         Map<Long, Account> brokerage = investmentAccounts.scope(userId, accountId);
         Snapshot snapshot = valuation.snapshot(userId, today);
         BigDecimal deposited = deposited(userId, brokerage, converter, today);
@@ -97,7 +100,7 @@ public class PortfolioService {
             Map<String, BigDecimal> money = new TreeMap<>();
             money.put(account.getCurrency(), ledger.getOrDefault(account.getId(), account.getOpeningBalance()));
             if (holdings != null) {
-                holdings.cash().forEach((currency, amount) -> money.merge(currency, amount, BigDecimal::add));
+                holdings.cash().forEach((code, amount) -> money.merge(code, amount, BigDecimal::add));
                 for (Holding holding : holdings.holdings()) {
                     Instrument instrument = holding.instrument();
                     for (LotLedger.Sale sale : holding.lots().sales()) {

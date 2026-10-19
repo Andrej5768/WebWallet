@@ -70,11 +70,15 @@ public class InvestmentController {
     }
 
     @Operation(
-            summary = "The portfolio of the brokerage accounts in the base currency",
-            description = "All brokerage accounts that are not archived, or the given one.")
+            summary = "The portfolio of the brokerage accounts in a currency, by default the base one",
+            description = "All brokerage accounts that are not archived, or the given one. Amounts named \"InBase\" are"
+                    + " in the currency of the portfolio.")
     @GetMapping("/portfolio")
-    public PortfolioResponse portfolio(@CurrentUserId Long userId, @RequestParam(required = false) Long accountId) {
-        return portfolioService.portfolio(userId, accountId);
+    public PortfolioResponse portfolio(
+            @CurrentUserId Long userId,
+            @RequestParam(required = false) Long accountId,
+            @RequestParam(required = false) @CurrencyCode String currency) {
+        return portfolioService.portfolio(userId, accountId, currency);
     }
 
     @Operation(

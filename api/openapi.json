@@ -5564,7 +5564,7 @@
     },
     "/api/v1/investments/portfolio" : {
       "get" : {
-        "description" : "All brokerage accounts that are not archived, or the given one.",
+        "description" : "All brokerage accounts that are not archived, or the given one. Amounts named \"InBase\" are in the currency of the portfolio.",
         "operationId" : "portfolio",
         "parameters" : [ {
           "in" : "query",
@@ -5573,6 +5573,13 @@
           "schema" : {
             "format" : "int64",
             "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "currency",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "responses" : {
@@ -5590,7 +5597,7 @@
         "security" : [ {
           "bearer" : [ ]
         } ],
-        "summary" : "The portfolio of the brokerage accounts in the base currency",
+        "summary" : "The portfolio of the brokerage accounts in a currency, by default the base one",
         "tags" : [ "Investments" ]
       }
     },

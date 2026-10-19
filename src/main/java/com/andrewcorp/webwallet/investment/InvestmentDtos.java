@@ -168,7 +168,7 @@ public final class InvestmentDtos {
     }
 
     /**
-     * The portfolio in the base currency at today's rates.
+     * The portfolio in its currency (the base one unless asked otherwise) at today's rates.
      *
      * @param deposited          the money brought to the accounts minus the money taken away (transfers from and to
      *                           other accounts, opening balances), at the rates of their dates
@@ -198,7 +198,7 @@ public final class InvestmentDtos {
             List<String> unconvertedCurrencies) {}
 
     /**
-     * A position held on an account, in the currency of the instrument unless named "InBase".
+     * A position held on an account, in the currency of the instrument unless named "InBase" (in the currency of the portfolio).
      *
      * @param averagePrice the cost of a unit held, fees included
      * @param price        null when no price is known yet; the value is then the cost
