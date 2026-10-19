@@ -51,7 +51,9 @@ to grow into a public service.
 ### How finances and investments connect
 - A brokerage or crypto account is an `INVESTMENT` account in finances: it appears in the account list
   and in net worth, but stays outside the envelopes.
-- Moving money from a card to a broker is a transfer, not an expense.
+- Moving money from a card to a broker is a transfer, not an expense. Money a broker reports on its own (e.g. a
+  card payment at the broker, possibly in another currency than the account) is a deposit or withdrawal operation of
+  the investment account; both count as the money invested.
 - Trades live only in the investment module; the investment account balance equals cash plus the market
   value of positions.
 - Dividends and coupons belong to the investment module and are shown as passive income in the
@@ -386,6 +388,8 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - Each task is done in its own branch created from `dev` (e.g. `feature/monobank-sync`, `fix/...`)
   and merged into `dev` through a pull request.
 - A release is a pull request from `dev` into `master`. `master` is changed only through pull requests.
+- While the first version is being built, finished steps are pushed to `dev` directly, one commit each; CI runs on
+  every push all the same.
 - GitHub Actions runs `mvn verify` (tests and the 75% coverage check) on pushes and pull requests
   to both branches; a pull request is merged only when the build is green.
 
@@ -415,11 +419,11 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [x] Reports: spending by category, income vs. expenses, net worth, payees
 
 ### Phase 2 — Web client (separate repository)
-- [ ] React + TypeScript app with an API client generated from the OpenAPI spec
+- [x] React + TypeScript app with an API client generated from the OpenAPI spec
       (committed in `api/openapi.json`)
-- [ ] Dashboard, transaction feed, envelopes, reports, imports, goals, settings
+- [x] Dashboard, transaction feed, envelopes, reports, imports, goals, settings
       (mockups: light and dark themes, Ukrainian and English)
-- [ ] Backend changes the web client needs:
+- [x] Backend changes the web client needs:
   - [x] icon, color and a needs / wants flag on categories (for 50/30/20 analytics);
         reordering and moving categories between groups
   - [x] color on tags
@@ -452,13 +456,17 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 ### Phase 4 — Investments
 - [x] Instruments, positions, trades, dividends and coupons, corporate actions (splits); lots with FIFO and the
       average price; value history with a benchmark
-- [x] Market data provider abstraction with free providers (Twelve Data daily closes)
+- [x] Market data providers chosen by configuration (Twelve Data daily closes, Alpha Vantage dividends)
+- [x] Portfolio and value history in the base currency or another one (₴ / $ in the web client)
 - [x] Freedom Finance import (trades and cash flows XLSX) with a preview; deposits, withdrawals and currency
       exchanges as operations
 - [ ] Imports: Interactive Brokers, Ukrainian brokers, Binance, WhiteBIT, BTC / ETH addresses
-- [ ] Analytics: dividend calendar and forecast, XIRR / TWR, benchmark, allocation, rebalancing
-- [ ] Financial independence: FIRE number (lean / regular / fat / coast) and years to reach it,
-      FYM (months of expenses covered by liquid money), compound interest calculator
+- [x] Analytics: dividend calendar (received, expected, declared, forecast) with the yield, benchmark (S&P 500,
+      MSCI World, Nasdaq 100), allocation by asset class and currency
+- [ ] Analytics: XIRR / TWR, allocation by sector and country, rebalancing to target weights
+- [x] Financial independence: FIRE number (lean / regular / fat / coast) and years to reach it,
+      FYM (months of expenses covered by liquid money), compound interest calculator — computed in the web
+      client from the account balances and the reports
 
 ### Phase 5 — Ukrainian taxes
 - [ ] Dividend tax with foreign withholding credit
