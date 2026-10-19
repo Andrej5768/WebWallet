@@ -20,6 +20,8 @@ import com.andrewcorp.webwallet.investment.market.DividendProvider.Dividend;
 import com.andrewcorp.webwallet.investment.market.MarketDataProvider;
 import com.andrewcorp.webwallet.investment.market.MarketDataProvider.DailyClose;
 import com.andrewcorp.webwallet.investment.market.MarketDataProvider.Listing;
+import com.andrewcorp.webwallet.investment.market.SectorProvider;
+import com.andrewcorp.webwallet.investment.market.SectorProvider.SectorWeight;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -43,6 +45,12 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
 
     @MockitoBean
     private DividendProvider dividendProvider;
+
+    @MockitoBean
+    private SectorProvider sectorProvider;
+
+    @Autowired
+    private DividendTask dividendTask;
 
     @Autowired
     private DividendService dividendService;
@@ -378,6 +386,30 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void allocatesThePositionsBySector() throws Exception {
+        Long aapl = apple();
+        operation(trade("BUY", "2030-01-10", aapl, 10, 100, 0));
+        Map<String, Object> before = json(get("/api/v1/investments/portfolio").header("Authorization", auth), 200);
+        assertThat(before.get("bySector").toString()).contains("key=UNKNOWN").contains("share=1");
+
+        // No dividends are due without their provider: the hourly request asks for the sectors
+        when(sectorProvider.enabled()).thenReturn(true);
+        when(sectorProvider.sectors("AAPL", false))
+                .thenReturn(List.of(new SectorWeight(Sector.INFORMATION_TECHNOLOGY, BigDecimal.ONE)));
+        dividendTask.update();
+        verify(sectorProvider).sectors("AAPL", false);
+
+        Map<String, Object> after = json(get("/api/v1/investments/portfolio").header("Authorization", auth), 200);
+        List<Map<String, Object>> sectors = (List<Map<String, Object>>) after.get("bySector");
+        assertThat(sectors).hasSize(1);
+        assertThat(sectors.get(0)).containsEntry("key", "INFORMATION_TECHNOLOGY");
+        assertThat(number(sectors.get(0).get("share"))).isEqualTo(1);
+        // Checked for a while
+        dividendTask.update();
+        verify(sectorProvider, times(1)).sectors(any(), eq(false));
+    }
+
+    @Test
     void valuesBondsEnteredByHand() throws Exception {
         Long uah = account("ICU", "INVESTMENT", "UAH", 0);
         Map<String, Object> bond = new HashMap<>(Map.of(
@@ -559,6 +591,11 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
         assertThat(points)
                 .extracting(point -> number(point.get("benchmark")))
                 .containsExactly(100.0, 100.0, 100.0, 100.0, 110.0, 110.0);
+        // 100 grew to 120, the same deposit in the fund to 110; five days are too short for an annual rate
+        Map<String, Object> returns = (Map<String, Object>) history.get("returns");
+        assertThat(number(returns.get("twr"))).isEqualTo(0.2);
+        assertThat(number(returns.get("benchmarkTwr"))).isEqualTo(0.1);
+        assertThat(returns).containsEntry("xirr", null).containsEntry("twrAnnualized", null);
 
         json(get("/api/v1/investments/history").param("from", "2031-01-01").header("Authorization", auth), 400);
     }

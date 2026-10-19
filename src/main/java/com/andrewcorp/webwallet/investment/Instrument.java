@@ -74,6 +74,8 @@ public class Instrument {
 
     private Instant dividendsCheckedAt;
 
+    private Instant sectorsCheckedAt;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -243,5 +245,13 @@ public class Instrument {
 
     public void setDividendsCheckedAt(Instant dividendsCheckedAt) {
         this.dividendsCheckedAt = dividendsCheckedAt;
+    }
+
+    public Instant getSectorsCheckedAt() {
+        return sectorsCheckedAt;
+    }
+
+    public void setSectorsCheckedAt(Instant sectorsCheckedAt) {
+        this.sectorsCheckedAt = sectorsCheckedAt;
     }
 }

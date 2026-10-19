@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import com.andrewcorp.webwallet.investment.Sector;
 import com.andrewcorp.webwallet.investment.market.DividendProvider.Dividend;
+import com.andrewcorp.webwallet.investment.market.SectorProvider.SectorWeight;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,5 +59,45 @@ class AlphaVantageClientTest {
         assertThatThrownBy(() -> client.dividends("IBM")).isInstanceOf(RestClientException.class);
         assertThat(new AlphaVantageClient(RestClient.builder(), "https://av.test", "").enabled())
                 .isFalse();
+    }
+
+    @Test
+    void readsTheSectorOfACompanyFromItsIndustry() {
+        server.expect(requestTo("https://av.test/query?function=OVERVIEW&symbol=AAPL&apikey=key"))
+                .andRespond(withSuccess("""
+                        {"Symbol":"AAPL","AssetType":"Common Stock","Sector":"TECHNOLOGY",
+                         "Industry":"ELECTRONIC COMPUTERS"}""", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://av.test/query?function=OVERVIEW&symbol=NOPE&apikey=key"))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        assertThat(client.sectors("AAPL", false))
+                .containsExactly(new SectorWeight(Sector.INFORMATION_TECHNOLOGY, java.math.BigDecimal.ONE));
+        assertThat(client.sectors("NOPE", false)).isEmpty();
+    }
+
+    @Test
+    void readsTheSectorWeightsOfAFund() {
+        server.expect(requestTo("https://av.test/query?function=ETF_PROFILE&symbol=SCHD&apikey=key"))
+                .andRespond(withSuccess("""
+                        {"net_assets":"70000000000","sectors":[
+                          {"sector":"ENERGY","weight":"0.205"},
+                          {"sector":"CONSUMER STAPLES","weight":"0.188"},
+                          {"sector":"HEALTH CARE","weight":"0.157"},
+                          {"sector":"SOMETHING NEW","weight":"0.010"}],
+                         "holdings":[]}""", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://av.test/query?function=ETF_PROFILE&symbol=SPY&apikey=key"))
+                .andRespond(withSuccess("""
+                        {"Note":"Thank you for using Alpha Vantage! Our standard API call frequency is 25 a day."}""", MediaType.APPLICATION_JSON));
+
+        List<SectorWeight> weights = client.sectors("SCHD", true);
+
+        assertThat(weights)
+                .extracting(SectorWeight::sector)
+                .containsExactlyInAnyOrder(Sector.ENERGY, Sector.CONSUMER_STAPLES, Sector.HEALTH_CARE);
+        assertThat(weights)
+                .filteredOn(weight -> weight.sector() == Sector.ENERGY)
+                .first()
+                .satisfies(weight -> assertThat(weight.weight()).isEqualByComparingTo("0.205"));
+        assertThatThrownBy(() -> client.sectors("SPY", true)).isInstanceOf(RestClientException.class);
     }
 }

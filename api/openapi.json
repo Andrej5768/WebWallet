@@ -1166,6 +1166,9 @@
             },
             "type" : "array"
           },
+          "returns" : {
+            "$ref" : "#/components/schemas/Returns"
+          },
           "to" : {
             "format" : "date",
             "type" : "string"
@@ -1177,7 +1180,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "benchmark", "currency", "from", "points", "to", "unconvertedCurrencies" ],
+        "required" : [ "benchmark", "currency", "from", "points", "returns", "to", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "ImportAccount" : {
@@ -2445,6 +2448,12 @@
             },
             "type" : "array"
           },
+          "bySector" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AllocationPart"
+            },
+            "type" : "array"
+          },
           "byType" : {
             "items" : {
               "$ref" : "#/components/schemas/AllocationPart"
@@ -2501,7 +2510,7 @@
             "type" : "number"
           }
         },
-        "required" : [ "byCurrency", "byType", "cash", "currency", "dayChange", "deposited", "dividendsLast12Months", "invested", "positions", "pricesAsOf", "realizedThisYear", "unconvertedCurrencies", "unrealized", "unrealizedShare", "value" ],
+        "required" : [ "byCurrency", "bySector", "byType", "cash", "currency", "dayChange", "deposited", "dividendsLast12Months", "invested", "positions", "pricesAsOf", "realizedThisYear", "unconvertedCurrencies", "unrealized", "unrealizedShare", "value" ],
         "type" : "object"
       },
       "PositionDetailResponse" : {
@@ -2862,6 +2871,27 @@
             "type" : "boolean"
           }
         },
+        "type" : "object"
+      },
+      "Returns" : {
+        "properties" : {
+          "benchmarkTwr" : {
+            "type" : [ "number", "null" ]
+          },
+          "benchmarkXirr" : {
+            "type" : [ "number", "null" ]
+          },
+          "twr" : {
+            "type" : [ "number", "null" ]
+          },
+          "twrAnnualized" : {
+            "type" : [ "number", "null" ]
+          },
+          "xirr" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "benchmarkTwr", "benchmarkXirr", "twr", "twrAnnualized", "xirr" ],
         "type" : "object"
       },
       "RuleRequest" : {

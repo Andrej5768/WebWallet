@@ -339,15 +339,21 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   deposit and withdrawal operations, at the rates of their dates), cost (`invested`), unrealized profit, realized
   profit of the year (FIFO, at the rates of the sale dates), dividends of the last 12 months after tax, the change of
   the day, the positions (average price, price, value, share), the cash per account and currency (the transfers of the
-  ledger plus the cash of the operations) and the allocation by type and currency, in the base currency at today's
-  rates; a position without a price yet is valued at cost. `GET /positions?accountId&instrumentId` returns the lots
+  ledger plus the cash of the operations) and the allocation by type, currency and sector (`bySector`, of the value
+  of the positions: GICS sectors, a fund by its sector weights with the rest as `OTHER`, bonds as `BONDS`, `UNKNOWN`
+  until the sectors are loaded), in the base currency (or `currency`) at today's rates; a position without a price yet
+  is valued at cost. `GET /positions?accountId&instrumentId` returns the lots
   (with the unrealized profit of the open ones), the sales with the lots they took and the operations.
   `GET /history?accountId&from&to&currency&benchmark` returns the value day by day (weekly over 400 days) at the
   closes and NBU rates of the day, from the first day with money on the accounts (an earlier `from` starts there;
   dates between 1990 and 2100, at most 20 years), the net deposits (transfers from and to other accounts, opening
   balances) and, with `benchmark` `SP500` (SPY), `MSCI_WORLD` (URTH) or `NASDAQ100` (QQQ), what the same deposits
   would be worth in the fund bought and sold at the closes of their days (deposits before its first known close are
-  bought at that close; price only, dividends not reinvested). The balance of an
+  bought at that close; price only, dividends not reinvested). `returns` are computed from every day of the period:
+  `twr` (time-weighted: the daily returns chained, so deposits and their timing do not count), `twrAnnualized` (for a
+  year or longer), `xirr` (money-weighted, per year: the rate at which the value at the start and the deposits grow to
+  the value at the end; for 30 days or longer), and the same for the benchmark (`benchmarkTwr`, `benchmarkXirr`), all as
+  shares in the currency of the history. The balance of an
   `INVESTMENT` account is its ledger balance plus the cash of its operations and the value of its positions at today's
   prices and rates; the net worth report still counts only the ledger for past months.
 - Dividend calendar: `GET /api/v1/investments/dividends?accountId&from&to&currency` (by default a year back and a year
@@ -362,9 +368,10 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   positions), the payments per month by status and what each instrument paid over the last 12 months; the totals cover
   the 12 months around today whatever the range. Dividends come from Alpha Vantage (free key in
   `ALPHA_VANTAGE_API_KEY`, about 25 requests a day): the US-dollar stocks, ETFs and funds someone holds are checked
-  once a week, one an hour.
-- Market data providers: the services use `MarketDataProvider` (instruments and daily closes) and `DividendProvider`
-  (dividends); the implementation is chosen with `app.market-data.prices-provider` (`twelve-data`) and
+  once a week, one an hour. The same hourly request loads the sectors when no dividends are due: of a company from its
+  SEC industry (`OVERVIEW`), of a fund its weights (`ETF_PROFILE`), checked every 90 days.
+- Market data providers: the services use `MarketDataProvider` (instruments and daily closes), `DividendProvider`
+  (dividends) and `SectorProvider` (sectors, from the same service as the dividends); the implementation is chosen with `app.market-data.prices-provider` (`twelve-data`) and
   `app.market-data.dividends-provider` (`alpha-vantage`). Another service is another implementation of the interface;
   instruments are identified by the ticker and the ISO 10383 market identifier code of the exchange.
 
@@ -463,7 +470,9 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [ ] Imports: Interactive Brokers, Ukrainian brokers, Binance, WhiteBIT, BTC / ETH addresses
 - [x] Analytics: dividend calendar (received, expected, declared, forecast) with the yield, benchmark (S&P 500,
       MSCI World, Nasdaq 100), allocation by asset class and currency
-- [ ] Analytics: XIRR / TWR, allocation by sector and country, rebalancing to target weights
+- [x] Returns: time-weighted (TWR) and money-weighted (XIRR) over a period, also of the benchmark; allocation by
+      sector (GICS)
+- [ ] Analytics: allocation by country, rebalancing to target weights
 - [x] Financial independence: FIRE number (lean / regular / fat / coast) and years to reach it,
       FYM (months of expenses covered by liquid money), compound interest calculator — computed in the web
       client from the account balances and the reports

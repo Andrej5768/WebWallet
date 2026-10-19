@@ -27,6 +27,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -38,6 +39,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class PortfolioService {
 
     static final String CASH = "CASH";
+    /** Keys of the allocation by sector besides the sectors. */
+    static final String BONDS = "BONDS";
+
+    static final String OTHER = "OTHER";
+    static final String UNKNOWN = "UNKNOWN";
 
     private final Converters converters;
     private final InvestmentValuation valuation;
@@ -47,6 +53,7 @@ public class PortfolioService {
     private final InvestmentAccounts investmentAccounts;
     private final Deposits deposits;
     private final InvestmentOperationRepository operations;
+    private final InstrumentSectorRepository sectors;
     private final Clock clock;
 
     public PortfolioService(
@@ -58,6 +65,7 @@ public class PortfolioService {
             InvestmentAccounts investmentAccounts,
             Deposits deposits,
             InvestmentOperationRepository operations,
+            InstrumentSectorRepository sectors,
             Clock clock) {
         this.converters = converters;
         this.valuation = valuation;
@@ -67,6 +75,7 @@ public class PortfolioService {
         this.investmentAccounts = investmentAccounts;
         this.deposits = deposits;
         this.operations = operations;
+        this.sectors = sectors;
         this.clock = clock;
     }
 
@@ -184,6 +193,7 @@ public class PortfolioService {
                 cash,
                 allocation(byType, value),
                 allocation(byCurrency, value),
+                allocation(bySector(positions), positionsValue),
                 converter.unconverted());
     }
 
@@ -299,6 +309,52 @@ public class PortfolioService {
                 Money.share(unrealized, lots.cost()),
                 draft.valueInBase(),
                 draft.valueInBase() != null ? Money.share(draft.valueInBase(), total) : null);
+    }
+
+    /**
+     * The value of the positions by sector: a company in its sector, a fund by its weights with the rest (e.g. its cash)
+     * as other; bonds apart; instruments whose sectors are not known (yet) as unknown.
+     */
+    private Map<String, BigDecimal> bySector(List<PositionDraft> positions) {
+        List<Long> ids = positions.stream()
+                .map(draft -> draft.holding().instrument().getId())
+                .distinct()
+                .toList();
+        Map<Long, List<InstrumentSector>> weights = new HashMap<>();
+        if (!ids.isEmpty()) {
+            for (InstrumentSector sector : sectors.findByInstrumentIdIn(ids)) {
+                weights.computeIfAbsent(sector.getInstrumentId(), id -> new ArrayList<>())
+                        .add(sector);
+            }
+        }
+        Map<String, BigDecimal> bySector = new TreeMap<>();
+        for (PositionDraft draft : positions) {
+            BigDecimal value = draft.valueInBase();
+            if (value == null) {
+                continue;
+            }
+            Instrument instrument = draft.holding().instrument();
+            if (instrument.getType() == InstrumentType.BOND || instrument.getType() == InstrumentType.GOVERNMENT_BOND) {
+                bySector.merge(BONDS, value, BigDecimal::add);
+                continue;
+            }
+            List<InstrumentSector> parts = weights.getOrDefault(instrument.getId(), List.of());
+            if (parts.isEmpty()) {
+                bySector.merge(UNKNOWN, value, BigDecimal::add);
+                continue;
+            }
+            BigDecimal rest = value;
+            for (InstrumentSector part : parts) {
+                BigDecimal share = value.multiply(part.getWeight());
+                bySector.merge(part.getSector().name(), share, BigDecimal::add);
+                rest = rest.subtract(share);
+            }
+            if (rest.signum() > 0) {
+                bySector.merge(OTHER, rest, BigDecimal::add);
+            }
+        }
+        bySector.replaceAll((key, amount) -> Money.round2(amount));
+        return bySector;
     }
 
     private static List<AllocationPart> allocation(Map<String, BigDecimal> parts, BigDecimal total) {

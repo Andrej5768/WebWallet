@@ -139,7 +139,11 @@ public class HistoryService {
         BigDecimal fundPending = BigDecimal.ZERO;
         int next = 0;
         BigDecimal depositedTotal = BigDecimal.ZERO;
+        // Over the period shown: every day counts, also between the sampled ones
+        ReturnTracker returns = new ReturnTracker();
+        ReturnTracker fundReturns = new ReturnTracker();
         for (LocalDate day = first; !day.isAfter(end); day = day.plusDays(1)) {
+            BigDecimal depositedBefore = depositedTotal;
             for (Runnable event : events.getOrDefault(day, List.of())) {
                 event.run();
             }
@@ -155,8 +159,7 @@ public class HistoryService {
                 fundUnits = fundUnits.add(fundPending.divide(fundClose.getValue(), PRECISION));
                 fundPending = BigDecimal.ZERO;
             }
-            boolean sampled = !day.isBefore(start) && (ChronoUnit.DAYS.between(day, end) % step == 0);
-            if (!sampled) {
+            if (day.isBefore(start)) {
                 continue;
             }
             BigDecimal value = BigDecimal.ZERO;
@@ -177,6 +180,14 @@ public class HistoryService {
             BigDecimal fundValue = fundClose != null
                     ? converter.convert(fundUnits.multiply(fundClose.getValue()), fund.getCurrency(), day)
                     : null;
+            BigDecimal depositedToday = depositedTotal.subtract(depositedBefore);
+            returns.add(day, value, depositedToday);
+            if (fundValue != null) {
+                fundReturns.add(day, fundValue, depositedToday);
+            }
+            if (ChronoUnit.DAYS.between(day, end) % step != 0) {
+                continue;
+            }
             points.add(new HistoryPoint(
                     day,
                     Money.round2(value),
@@ -195,6 +206,12 @@ public class HistoryService {
                                 fundCloses.isEmpty() ? null : fundCloses.firstKey())
                         : null,
                 points,
+                new Returns(
+                        returns.twr(),
+                        returns.twrAnnualized(),
+                        returns.xirr(),
+                        fund != null ? fundReturns.twr() : null,
+                        fund != null ? fundReturns.xirr() : null),
                 converter.unconverted());
     }
 
@@ -314,8 +331,27 @@ public class HistoryService {
             @Schema(nullable = true) LocalDate pricesFrom) {}
 
     /**
+     * The returns over the period, in its currency, as shares (0.12 is 12 %); null when they cannot be told.
+     *
+     * @param twr            time-weighted: the daily returns chained, without the effect of the deposits
+     * @param twrAnnualized  the time-weighted return per year, for periods of a year or longer
+     * @param xirr           money-weighted, per year: the rate at which the value at the start and the deposits grow
+     *                       to the value at the end; for periods of {@value ReturnTracker#MIN_DAYS_FOR_XIRR} days or
+     *                       longer
+     * @param benchmarkTwr   of the same deposits in the fund, from its first close in the period
+     * @param benchmarkXirr  of the same deposits in the fund
+     */
+    public record Returns(
+            @Schema(nullable = true) BigDecimal twr,
+            @Schema(nullable = true) BigDecimal twrAnnualized,
+            @Schema(nullable = true) BigDecimal xirr,
+            @Schema(nullable = true) BigDecimal benchmarkTwr,
+            @Schema(nullable = true) BigDecimal benchmarkXirr) {}
+
+    /**
      * @param benchmark null without a comparison or when the market data provider is not configured
      * @param points    daily, weekly (counted back from the end) for periods over {@value #MAX_DAILY_POINTS} days
+     * @param returns   computed from every day of the period, also when the points are weekly
      */
     public record HistoryResponse(
             String currency,
@@ -323,5 +359,6 @@ public class HistoryService {
             LocalDate to,
             @Schema(nullable = true) BenchmarkInfo benchmark,
             List<HistoryPoint> points,
+            Returns returns,
             List<String> unconvertedCurrencies) {}
 }

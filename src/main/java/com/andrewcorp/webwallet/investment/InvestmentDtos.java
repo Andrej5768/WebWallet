@@ -204,6 +204,7 @@ public final class InvestmentDtos {
             List<CashResponse> cash,
             List<AllocationPart> byType,
             List<AllocationPart> byCurrency,
+            List<AllocationPart> bySector,
             List<String> unconvertedCurrencies) {}
 
     /**
@@ -239,7 +240,11 @@ public final class InvestmentDtos {
             BigDecimal amount,
             @Schema(nullable = true) BigDecimal amountInBase) {}
 
-    /** @param key an instrument type, {@code CASH}, or a currency code */
+    /**
+     * @param key   an instrument type or {@code CASH}; a currency code; or a sector (GICS, see {@link Sector}),
+     *              {@code BONDS}, {@code OTHER} (e.g. the cash of a fund) or {@code UNKNOWN} (not loaded yet)
+     * @param share of the portfolio value; by sector, of the value of the positions
+     */
     public record AllocationPart(String key, BigDecimal value, BigDecimal share) {}
 
     /**
