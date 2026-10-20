@@ -1,0 +1,10 @@
+[Unit]
+Description=Check master for a new WebWallet release every 2 minutes
+
+[Timer]
+# By the clock, so a failed run is retried too
+OnCalendar=*:0/2
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

@@ -172,6 +172,29 @@ server {
 Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see the client addresses from
 `X-Forwarded-For`.
 
+#### Production server
+
+The live instance runs on one VM with Docker and Caddy; the files are in `deploy/`. A push to `master` builds
+`ghcr.io/andrej5768/webwallet` once the tests pass (the web client repository builds its own image the same way), and
+`webwallet-deploy.timer` on the server checks every 2 minutes: it resets the checkout to `origin/master` and runs
+`deploy.sh`, which dumps the database before a new backend image runs its migrations, restarts the backend, replaces
+the web client files and installs `deploy/Caddyfile`. Secrets live only on the server: `.env` and a read-only token
+for the private images; CI pushes them with the token of the run, so GitHub holds no stored secrets.
+
+Setting up a server: clone the repository into `/home/andre/WebWallet`, write `.env` (see `.env.example`), install
+Docker and Caddy, then
+
+```shell
+# A classic GitHub token with only the read:packages scope, kept in /root/.docker/config.json
+sudo docker login ghcr.io -u <github user>
+sudo cp deploy/webwallet-deploy.service deploy/webwallet-deploy.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now webwallet-deploy.timer
+# Nightly dump at 04:00 UTC, kept for 14 days
+(crontab -l; echo "0 4 * * * $HOME/WebWallet/deploy/backup-db.sh nightly") | crontab -
+```
+
+Logs of the deploys: `journalctl -u webwallet-deploy`.
+
 ### API conventions
 
 - `PUT` of accounts, categories and tags keeps the values of omitted optional fields. The `icon`, `color` and

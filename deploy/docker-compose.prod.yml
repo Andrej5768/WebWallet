@@ -1,0 +1,5 @@
+# Production on top of docker-compose.yml: the backend image that CI built from master instead of a local build.
+services:
+  backend:
+    build: !reset null
+    image: ghcr.io/andrej5768/webwallet:master

@@ -1,0 +1,15 @@
+[Unit]
+Description=Deploy WebWallet from master
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=andre
+WorkingDirectory=/home/andre/WebWallet
+Environment=BACKUP_DIR=/home/andre/backups
+# The checkout is updated before the script starts, so a changed script is read whole
+ExecStartPre=/usr/bin/git fetch -q origin master
+ExecStartPre=/usr/bin/git reset -q --hard origin/master
+# Root for the site files, the Caddy config and Docker
+ExecStart=+/bin/sh deploy/deploy.sh
