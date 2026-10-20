@@ -13,7 +13,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.io.IOException;
-import java.io.InputStream;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -49,7 +48,10 @@ public class ZenMoneyImportController {
         return importer.importDump(userId, client.fetchAll(request.token()));
     }
 
-    @Operation(summary = "Import a saved response of the Zen Money sync API (POST /v8/diff/ with serverTimestamp 0)")
+    @Operation(
+            summary = "Import a file of Zen Money",
+            description = "The CSV export of the app (dump of transactions) or a saved response of the sync API"
+                    + " (POST /v8/diff/ with serverTimestamp 0)")
     @PostMapping(path = "/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ImportResult importFile(@CurrentUserId Long userId, @RequestPart("file") MultipartFile file) {
         return importer.importDump(userId, parse(file));
@@ -67,17 +69,21 @@ public class ZenMoneyImportController {
     }
 
     @Operation(
-            summary = "Preview a saved response of the Zen Money sync API without saving anything",
+            summary = "Preview a file of Zen Money without saving anything",
             description = "Like POST /api/v1/imports/zenmoney/preview; only the parsed records are kept, not the file.")
     @PostMapping(path = "/file/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ImportPreviewResponse previewFile(@CurrentUserId Long userId, @RequestPart("file") MultipartFile file) {
         return previews.previewZenMoney(userId, parse(file));
     }
 
+    /** The CSV export of the app, or a saved response of the sync API (JSON). */
     private ZenMoneyDump parse(MultipartFile file) {
         ZenMoneyDump dump;
-        try (InputStream input = file.getInputStream()) {
-            dump = jsonMapper.readValue(input, ZenMoneyDump.class);
+        try {
+            byte[] content = file.getBytes();
+            dump = ZenMoneyCsv.looksLikeCsv(content)
+                    ? ZenMoneyCsv.parse(content)
+                    : jsonMapper.readValue(content, ZenMoneyDump.class);
         } catch (IOException | JacksonException e) {
             throw new ApiException(ErrorCode.INVALID_IMPORT_FILE);
         }
