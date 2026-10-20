@@ -1,9 +1,7 @@
 <h1>WebWallet</h1>
 
-My own personal financial project: personal finance tracking in the spirit of
-Zen Money combined with investment analytics in the spirit of
-Snowball Income. Built for personal use first, but designed
-to grow into a public service.
+My own personal financial project: personal finance tracking combined with investment analytics and Ukrainian taxes.
+Built for personal use first, but designed to grow into a public service.
 
 ## Product vision
 
@@ -37,7 +35,7 @@ to grow into a public service.
 - Planning: recurring payments, balance forecast, financial goals.
 - Reports: spending by category, income vs. expenses, net worth over time, spending by payee.
 
-### Investments (Snowball Income analog)
+### Investments
 - Assets: stocks and ETFs (US / Europe), bonds including Ukrainian government bonds (OVDP), crypto,
   other assets with manual valuation.
 - Trade sources: manual entry, Interactive Brokers (Flex Query), Freedom Finance, Ukrainian brokers;
@@ -385,7 +383,7 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [x] Dockerfile and Docker Compose (backend + PostgreSQL + Mailpit)
 - [x] Ukrainian and English localization only
 
-### Phase 1 — Finance MVP (enough to move off Zen Money)
+### Phase 1 — Finance MVP
 - [x] New domain model: accounts, two-level categories, tags, payees, transactions with transfer legs
       and splits, money as amount + ISO currency
 - [x] Daily NBU exchange rates
