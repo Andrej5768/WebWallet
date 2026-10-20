@@ -5,6 +5,7 @@ import com.andrewcorp.webwallet.auth.dto.LoginRequest;
 import com.andrewcorp.webwallet.auth.dto.LoginResponse;
 import com.andrewcorp.webwallet.auth.dto.RegisterRequest;
 import com.andrewcorp.webwallet.auth.dto.ResetPasswordRequest;
+import com.andrewcorp.webwallet.auth.dto.RestoreAccountRequest;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.dto.TwoFactorLoginRequest;
 import com.andrewcorp.webwallet.auth.dto.VerifyEmailRequest;
@@ -12,6 +13,7 @@ import com.andrewcorp.webwallet.auth.twofactor.TrustedDeviceCookie;
 import com.andrewcorp.webwallet.auth.twofactor.TwoFactorService;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.user.AccountDeletionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,18 +44,21 @@ public class AuthController {
     private final RefreshTokenCookie refreshTokenCookie;
     private final TwoFactorService twoFactor;
     private final TrustedDeviceCookie trustedDeviceCookie;
+    private final AccountDeletionService accountDeletion;
 
     public AuthController(
             AuthService authService,
             TokenService tokenService,
             RefreshTokenCookie refreshTokenCookie,
             TwoFactorService twoFactor,
-            TrustedDeviceCookie trustedDeviceCookie) {
+            TrustedDeviceCookie trustedDeviceCookie,
+            AccountDeletionService accountDeletion) {
         this.authService = authService;
         this.tokenService = tokenService;
         this.refreshTokenCookie = refreshTokenCookie;
         this.twoFactor = twoFactor;
         this.trustedDeviceCookie = trustedDeviceCookie;
+        this.accountDeletion = accountDeletion;
     }
 
     @Operation(
@@ -142,6 +147,18 @@ public class AuthController {
             tokenService.revokeSession(refreshToken);
         }
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.cleared());
+    }
+
+    @Operation(
+            summary = "Cancel the deletion of the account",
+            description = "With restoreToken of an ACCOUNT_DELETION_SCHEDULED problem also signs in, like /login;"
+                    + " with the token of the emailed link only cancels, and the response has no tokens")
+    @PostMapping("/restore")
+    public ResponseEntity<LoginResponse> restore(@Valid @RequestBody RestoreAccountRequest request) {
+        IssuedTokens tokens = accountDeletion.restore(request.token());
+        return tokens == null
+                ? ResponseEntity.ok(new LoginResponse(null, null, null, null))
+                : refreshTokenCookie.respond(new AuthService.LoginResult(tokens, null));
     }
 
     @Operation(summary = "Send a password reset link")

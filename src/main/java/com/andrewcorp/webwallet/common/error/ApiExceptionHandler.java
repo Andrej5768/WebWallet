@@ -53,6 +53,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                                                     LocaleContextHolder.getLocale())))
                             .toList());
         }
+        ex.properties().forEach(problem::setProperty);
         return ResponseEntity.status(ex.code().status()).body(problem);
     }
 

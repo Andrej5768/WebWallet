@@ -872,6 +872,36 @@
         "required" : [ "amount" ],
         "type" : "object"
       },
+      "DeleteAccountRequest" : {
+        "properties" : {
+          "code" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "confirmEmail" : {
+            "maxLength" : 320,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "password" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "DeletionResponse" : {
+        "properties" : {
+          "deletionScheduledAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "deletionScheduledAt" ],
+        "type" : "object"
+      },
       "Destination" : {
         "properties" : {
           "accountId" : {
@@ -3258,6 +3288,17 @@
         },
         "type" : "object"
       },
+      "RestoreAccountRequest" : {
+        "properties" : {
+          "token" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "token" ],
+        "type" : "object"
+      },
       "Returns" : {
         "properties" : {
           "benchmarkTwr" : {
@@ -5024,6 +5065,36 @@
           }
         },
         "summary" : "Set a new password with the token from the password reset email",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/restore" : {
+      "post" : {
+        "description" : "With restoreToken of an ACCOUNT_DELETION_SCHEDULED problem also signs in, like /login; with the token of the emailed link only cancels, and the response has no tokens",
+        "operationId" : "restore",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RestoreAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Cancel the deletion of the account",
         "tags" : [ "Authentication" ]
       }
     },
@@ -6995,6 +7066,63 @@
           "bearer" : [ ]
         } ],
         "summary" : "Update the profile of the current user",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/delete" : {
+      "post" : {
+        "description" : "The account is blocked at once and deleted with all its data after 14 days; all sessions end and an email with a link that cancels is sent. Needs the password (an account without one: confirmEmail) and, when two-factor authentication is on, a code.",
+        "operationId" : "delete_9",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeleteAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeletionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Delete the account",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/export" : {
+      "get" : {
+        "description" : "A ZIP archive: webwallet.json with the rows of every table the user owns, and transactions.csv for spreadsheets. Passwords, bank tokens and other secrets are left out.",
+        "operationId" : "export",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/zip" : {
+                "schema" : {
+                  "format" : "byte",
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Download all data of the user",
         "tags" : [ "Current user" ]
       }
     },

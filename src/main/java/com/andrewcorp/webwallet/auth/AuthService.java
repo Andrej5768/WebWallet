@@ -113,7 +113,7 @@ public class AuthService {
      * Checks the password and starts a session, or the second step when two-factor authentication is on and the
      * browser is not trusted.
      */
-    @Transactional
+    @Transactional(noRollbackFor = ApiException.class)
     public LoginResult login(LoginRequest request, String trustedDeviceToken, String clientIp) {
         String email = User.normalizeEmail(request.email());
         rateLimiter.checkLogin(clientIp, email);
@@ -137,7 +137,7 @@ public class AuthService {
      * Starts a session for a user whose identity is proven, or the second step when two-factor authentication is on
      * and the browser is not trusted.
      */
-    @Transactional
+    @Transactional(noRollbackFor = ApiException.class)
     public LoginResult startSession(User user, String trustedDeviceToken) {
         if (user.isTwoFactorEnabled() && !twoFactor.isTrusted(user, trustedDeviceToken)) {
             return new LoginResult(null, twoFactor.startLogin(user));

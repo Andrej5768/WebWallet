@@ -80,6 +80,9 @@ public class User {
     /** Email of the linked Google account, shown in the settings. */
     private String googleEmail;
 
+    /** Set when the user asked to delete the account: it is deleted at this moment unless the user cancels. */
+    private Instant deletionScheduledAt;
+
     protected User() {}
 
     public User(String email, String passwordHash, String firstName, String lastName, String locale) {
@@ -206,6 +209,14 @@ public class User {
     public void setGoogleAccount(String subject, String email) {
         this.googleSubject = subject;
         this.googleEmail = email;
+    }
+
+    public Instant getDeletionScheduledAt() {
+        return deletionScheduledAt;
+    }
+
+    public void setDeletionScheduledAt(Instant deletionScheduledAt) {
+        this.deletionScheduledAt = deletionScheduledAt;
     }
 
     public boolean isTwoFactorEnabled() {

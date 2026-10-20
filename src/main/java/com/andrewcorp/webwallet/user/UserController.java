@@ -6,6 +6,8 @@ import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.twofactor.TwoFactorService;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.user.dto.ChangePasswordRequest;
+import com.andrewcorp.webwallet.user.dto.DeleteAccountRequest;
+import com.andrewcorp.webwallet.user.dto.DeletionResponse;
 import com.andrewcorp.webwallet.user.dto.ResetRequest;
 import com.andrewcorp.webwallet.user.dto.UpdateProfileRequest;
 import com.andrewcorp.webwallet.user.dto.UserResponse;
@@ -13,6 +15,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,18 +40,27 @@ public class UserController {
     private final AuthService authService;
     private final RefreshTokenCookie refreshTokenCookie;
     private final TwoFactorService twoFactor;
+    private final AccountDeletionService accountDeletion;
+    private final DataExportService dataExport;
+    private final Clock clock;
 
     public UserController(
             UserService userService,
             UserDataService userDataService,
             AuthService authService,
             RefreshTokenCookie refreshTokenCookie,
-            TwoFactorService twoFactor) {
+            TwoFactorService twoFactor,
+            AccountDeletionService accountDeletion,
+            DataExportService dataExport,
+            Clock clock) {
         this.userService = userService;
         this.userDataService = userDataService;
         this.authService = authService;
         this.refreshTokenCookie = refreshTokenCookie;
         this.twoFactor = twoFactor;
+        this.accountDeletion = accountDeletion;
+        this.dataExport = dataExport;
+        this.clock = clock;
     }
 
     private UserResponse response(User user) {
@@ -73,6 +88,33 @@ public class UserController {
             @CurrentUserId Long userId, @Valid @RequestBody ChangePasswordRequest request) {
         return refreshTokenCookie.respond(
                 authService.changePassword(userId, request.currentPassword(), request.newPassword()));
+    }
+
+    @Operation(
+            summary = "Download all data of the user",
+            description = "A ZIP archive: webwallet.json with the rows of every table the user owns, and"
+                    + " transactions.csv for spreadsheets. Passwords, bank tokens and other secrets are left out.")
+    @GetMapping(value = "/export", produces = "application/zip")
+    public ResponseEntity<byte[]> export(@CurrentUserId Long userId) {
+        String name = "webwallet-export-" + LocalDate.now(clock) + ".zip";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + name + "\"")
+                .body(dataExport.export(userId));
+    }
+
+    @Operation(
+            summary = "Delete the account",
+            description = "The account is blocked at once and deleted with all its data after 14 days; all sessions"
+                    + " end and an email with a link that cancels is sent. Needs the password (an account without one:"
+                    + " confirmEmail) and, when two-factor authentication is on, a code.")
+    @PostMapping("/delete")
+    public ResponseEntity<DeletionResponse> delete(
+            @CurrentUserId Long userId, @Valid @RequestBody DeleteAccountRequest request) {
+        Instant at =
+                accountDeletion.requestDeletion(userId, request.password(), request.code(), request.confirmEmail());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.cleared())
+                .body(new DeletionResponse(at));
     }
 
     @Operation(

@@ -11,6 +11,11 @@ public enum ErrorCode {
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "error.invalidCredentials"),
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "error.emailNotVerified"),
     ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, "error.accountDisabled"),
+    /**
+     * Signed in to an account that is to be deleted; the problem has restoreToken for /api/v1/auth/restore and
+     * deletionScheduledAt.
+     */
+    ACCOUNT_DELETION_SCHEDULED(HttpStatus.FORBIDDEN, "error.accountDeletionScheduled"),
     TOO_MANY_ATTEMPTS(HttpStatus.TOO_MANY_REQUESTS, "error.tooManyAttempts"),
     TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "error.tooManyRequests"),
     INVALID_TOKEN(HttpStatus.BAD_REQUEST, "error.invalidToken"),

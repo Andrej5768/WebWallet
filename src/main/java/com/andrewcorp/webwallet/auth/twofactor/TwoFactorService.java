@@ -194,6 +194,12 @@ public class TwoFactorService {
         return new Login(tokenService.issueTokens(user), deviceToken);
     }
 
+    /** Checks a code of the app or a recovery code, e.g. before the account is deleted. */
+    @Transactional(noRollbackFor = ApiException.class)
+    public void checkCode(User user, String code) {
+        verifySecondFactor(user, code);
+    }
+
     /** Forgets the trusted browsers, e.g. when the password changes. */
     @Transactional
     public void forgetDevices(Long userId) {

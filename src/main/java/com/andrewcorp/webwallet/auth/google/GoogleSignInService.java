@@ -130,7 +130,7 @@ public class GoogleSignInService {
     }
 
     /** Exchanges the ticket of the callback for a session or the second step of two-factor authentication. */
-    @Transactional
+    @Transactional(noRollbackFor = ApiException.class)
     public AuthService.LoginResult complete(String ticket, String trustedDeviceToken) {
         UserToken token = userTokens
                 .findByTokenHashAndType(TokenHasher.hash(ticket), UserTokenType.GOOGLE_LOGIN)
