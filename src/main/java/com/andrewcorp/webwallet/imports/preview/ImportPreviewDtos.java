@@ -55,6 +55,9 @@ public final class ImportPreviewDtos {
      * @param rememberRule          also create a categorization rule: later operations of the payee get the category,
      *                              including the other operations of this import without changes. Ignored without a
      *                              payee or a category, and for a kept category that the import creates
+     * @param pairKey               merge this expense or income with the given operation of the import into one
+     *                              transfer, e.g. from its {@code transferSuggestions}; the type stays as detected
+     * @param pairTransactionId     merge it with the given expense or income of the ledger into one transfer instead
      */
     public record OperationEdit(
             @NotBlank @Size(max = 300) String key,
@@ -65,5 +68,7 @@ public final class ImportPreviewDtos {
             Boolean keepSuggestedCategory,
             @Schema(nullable = true) List<Long> tagIds,
             @Schema(nullable = true) @Size(max = 1000) String comment,
-            Boolean rememberRule) {}
+            Boolean rememberRule,
+            @Schema(nullable = true) @Size(max = 300) String pairKey,
+            @Schema(nullable = true) Long pairTransactionId) {}
 }

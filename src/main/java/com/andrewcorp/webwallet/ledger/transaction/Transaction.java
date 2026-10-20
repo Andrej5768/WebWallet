@@ -99,6 +99,9 @@ public class Transaction {
     /** Id of the bank operation on {@link #toAccount}: the incoming half of a transfer. */
     private String toBankId;
 
+    /** Import id of the incoming half when an imported income was merged into this transfer. */
+    private String toExternalId;
+
     /** A card payment the bank has only reserved; it may still change its amount or be cancelled. */
     private boolean hold;
 
@@ -263,6 +266,14 @@ public class Transaction {
 
     public void setHold(boolean hold) {
         this.hold = hold;
+    }
+
+    public String getToExternalId() {
+        return toExternalId;
+    }
+
+    public void setToExternalId(String toExternalId) {
+        this.toExternalId = toExternalId;
     }
 
     public String getBankId() {

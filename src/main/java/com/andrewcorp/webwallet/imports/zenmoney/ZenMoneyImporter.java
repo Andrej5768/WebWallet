@@ -238,6 +238,7 @@ public class ZenMoneyImporter {
                 }
                 review.apply(source.id(), transaction);
                 transactions.save(transaction);
+                review.saved(source.id(), transaction);
                 if (preview != null) {
                     preview.add(source.id(), transaction, false);
                 }

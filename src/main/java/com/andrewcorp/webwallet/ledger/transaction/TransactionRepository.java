@@ -19,9 +19,21 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
 
     Optional<Transaction> findByIdAndUserId(Long id, Long userId);
 
-    @Query(
-            "select t.externalId from Transaction t where t.userId = :userId and t.source = :source and t.externalId is not null")
+    /** Import ids of the source, also of incomes merged into a transfer with another operation. */
+    @Query("""
+            select t.externalId from Transaction t
+            where t.userId = :userId and t.source = :source and t.externalId is not null
+            union
+            select t.toExternalId from Transaction t where t.userId = :userId and t.toExternalId is not null""")
     Set<String> findExternalIds(Long userId, TransactionSource source);
+
+    /** Expenses and incomes of the dates with their accounts, to look for the halves of transfers. */
+    @Query("""
+            select t from Transaction t join fetch t.account
+            where t.userId = :userId and t.date between :from and :to
+              and t.type in (com.andrewcorp.webwallet.ledger.transaction.TransactionType.EXPENSE,
+                             com.andrewcorp.webwallet.ledger.transaction.TransactionType.INCOME)""")
+    List<Transaction> findPairCandidates(Long userId, LocalDate from, LocalDate to);
 
     boolean existsByUserIdAndSourceAndExternalId(Long userId, TransactionSource source, String externalId);
 

@@ -24,7 +24,10 @@ import com.andrewcorp.webwallet.ledger.payee.PayeeService;
 import com.andrewcorp.webwallet.ledger.rule.RuleService;
 import com.andrewcorp.webwallet.ledger.tag.Tag;
 import com.andrewcorp.webwallet.ledger.tag.TagService;
+import com.andrewcorp.webwallet.ledger.transaction.Transaction;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
+import com.andrewcorp.webwallet.ledger.transaction.TransferPairs;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -70,6 +73,9 @@ public class ImportPreviewService {
     private final PayeeService payees;
     private final RuleService rules;
     private final JsonMapper jsonMapper;
+    private final TransactionRepository transactions;
+    private final TransferPairs transferPairs;
+    private final TransferSuggestions transferSuggestions;
     private final TransactionTemplate tx;
     private final Clock clock;
 
@@ -83,6 +89,9 @@ public class ImportPreviewService {
             PayeeService payees,
             RuleService rules,
             JsonMapper jsonMapper,
+            TransactionRepository transactions,
+            TransferPairs transferPairs,
+            TransferSuggestions transferSuggestions,
             PlatformTransactionManager transactionManager,
             Clock clock) {
         this.previews = previews;
@@ -94,6 +103,9 @@ public class ImportPreviewService {
         this.payees = payees;
         this.rules = rules;
         this.jsonMapper = jsonMapper;
+        this.transactions = transactions;
+        this.transferPairs = transferPairs;
+        this.transferSuggestions = transferSuggestions;
         this.tx = new TransactionTemplate(transactionManager);
         this.clock = clock;
     }
@@ -131,6 +143,8 @@ public class ImportPreviewService {
         List<ImportOperation> operations =
                 new ArrayList<>(collector.operations().reversed());
         operations.sort(Comparator.comparing(ImportOperation::date).reversed());
+        // After the dry run is rolled back: the ledger is read as it is before the import
+        operations = transferSuggestions.add(userId, operations);
         StoredPreview stored = new StoredPreview(summary, operations);
         ImportPreview preview = store(userId, source, input, stored);
         return response(preview, stored, 0, DEFAULT_PAGE_SIZE);
@@ -205,8 +219,9 @@ public class ImportPreviewService {
             if (operation == null) {
                 throw ApiException.invalid(field + ".key", "error.notFound");
             }
-            edits.put(edit.key(), edit(userId, operation, edit, field));
+            edits.put(edit.key(), edit(userId, operation, edit, field, byKey));
         }
+        checkPairsAreDisjoint(edits);
         for (OperationEdit edit : requested) {
             ImportReview.Edit resolved = edits.get(edit.key());
             String payee = byKey.get(edit.key()).payee();
@@ -228,6 +243,8 @@ public class ImportPreviewService {
                 zenMoney.importDump(userId, jsonMapper.readValue(preview.getInput(), ZenMoneyDump.class), review, null);
             case FREEDOM -> throw ApiException.notFound();
         };
+        // The chosen pairs become transfers once both halves are saved
+        review.pairs().forEach(pair -> transferPairs.merge(userId, pair.expense(), pair.income()));
         previews.delete(preview);
         return result;
     }
@@ -238,7 +255,35 @@ public class ImportPreviewService {
         return previews.deleteExpired(clock.instant());
     }
 
-    private ImportReview.Edit edit(Long userId, ImportOperation operation, OperationEdit edit, String field) {
+    /** Each operation and transaction is merged with one other at most; a pair chosen on both halves is fine. */
+    private static void checkPairsAreDisjoint(Map<String, ImportReview.Edit> edits) {
+        Map<String, String> partners = new HashMap<>();
+        edits.forEach((key, edit) -> {
+            String other = edit.pairKey() != null
+                    ? "operation:" + edit.pairKey()
+                    : edit.pairTransaction() != null
+                            ? "transaction:" + edit.pairTransaction().getId()
+                            : null;
+            if (edit.include() && other != null) {
+                link(partners, "operation:" + key, other);
+                link(partners, other, "operation:" + key);
+            }
+        });
+    }
+
+    private static void link(Map<String, String> partners, String half, String other) {
+        String existing = partners.putIfAbsent(half, other);
+        if (existing != null && !existing.equals(other)) {
+            throw ApiException.invalid("operations", "validation.transferPair");
+        }
+    }
+
+    private ImportReview.Edit edit(
+            Long userId,
+            ImportOperation operation,
+            OperationEdit edit,
+            String field,
+            Map<String, ImportOperation> byKey) {
         if (Boolean.FALSE.equals(edit.include())) {
             return new ImportReview.Edit(false, null, null, null, false, Set.of(), null);
         }
@@ -285,7 +330,34 @@ public class ImportPreviewService {
         }
         Set<Tag> tagSet = tags.findAll(userId, edit.tagIds(), field + ".tagIds");
         String comment = Texts.truncate(Texts.trimToNull(edit.comment()), MAX_COMMENT_LENGTH);
-        return new ImportReview.Edit(true, type, transferAccount, category, keepCategory, tagSet, comment);
+        String pairKey = null;
+        Transaction pairTransaction = null;
+        if (edit.pairKey() != null || edit.pairTransactionId() != null) {
+            // Only an expense or an income as detected pairs with the opposite kind of operation
+            if (type != detected || detected == TransactionType.TRANSFER) {
+                throw ApiException.invalid(field + ".pairKey", "validation.transferPair");
+            }
+            if (edit.pairKey() != null) {
+                ImportOperation other = byKey.get(edit.pairKey());
+                if (other == null
+                        || other.key().equals(operation.key())
+                        || other.duplicate()
+                        || other.type() == detected
+                        || other.type() == TransactionType.TRANSFER) {
+                    throw ApiException.invalid(field + ".pairKey", "validation.transferPair");
+                }
+                pairKey = edit.pairKey();
+            } else {
+                pairTransaction = transactions
+                        .findByIdAndUserId(edit.pairTransactionId(), userId)
+                        .orElseThrow(() -> ApiException.invalid(field + ".pairTransactionId", "error.notFound"));
+                if (pairTransaction.getType() == detected || pairTransaction.getType() == TransactionType.TRANSFER) {
+                    throw ApiException.invalid(field + ".pairTransactionId", "validation.transferPair");
+                }
+            }
+        }
+        return new ImportReview.Edit(
+                true, type, transferAccount, category, keepCategory, tagSet, comment, pairKey, pairTransaction);
     }
 
     /** A preview of ledger transactions; the others have their own pages and confirmation. */
