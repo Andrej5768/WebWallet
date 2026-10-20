@@ -28,7 +28,8 @@ wallet.andrew-dev.org {
 		header @assets Cache-Control "public, max-age=31536000, immutable"
 		@page not path /assets/*
 		header @page Cache-Control "no-cache"
-		try_files {path} /index.html
+		# privacy.html and terms.html are the legal pages as plain HTML, readable without JavaScript
+		try_files {path} {path}.html /index.html
 		file_server
 	}
 }
