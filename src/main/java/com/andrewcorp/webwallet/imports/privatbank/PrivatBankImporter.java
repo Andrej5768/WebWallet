@@ -201,6 +201,7 @@ public class PrivatBankImporter {
                 List.of(new SplitData(batch.suggestions().suggest(payee, null, bankCategory, kind), amount, null)));
         batch.review().apply(key, transaction);
         transactions.save(transaction);
+        batch.review().saved(key, transaction);
         result.transactionsImported++;
         if (batch.preview() != null) {
             batch.preview().add(key, transaction, false);

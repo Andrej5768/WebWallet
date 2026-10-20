@@ -1539,12 +1539,21 @@
           "toAmount" : {
             "type" : [ "number", "null" ]
           },
+          "transferLike" : {
+            "type" : "boolean"
+          },
+          "transferSuggestions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TransferSuggestion"
+            },
+            "type" : [ "array", "null" ]
+          },
           "type" : {
             "enum" : [ "EXPENSE", "INCOME", "TRANSFER" ],
             "type" : "string"
           }
         },
-        "required" : [ "account", "amount", "categoryId", "categoryName", "comment", "currency", "date", "duplicate", "key", "payee", "tagIds", "toAccount", "toAmount", "type" ],
+        "required" : [ "account", "amount", "categoryId", "categoryName", "comment", "currency", "date", "duplicate", "key", "payee", "tagIds", "toAccount", "toAmount", "transferLike", "transferSuggestions", "type" ],
         "type" : "object"
       },
       "ImportPreviewResponse" : {
@@ -2312,6 +2321,15 @@
             "maxLength" : 300,
             "minLength" : 0,
             "type" : "string"
+          },
+          "pairKey" : {
+            "maxLength" : 300,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "pairTransactionId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
           },
           "rememberRule" : {
             "type" : "boolean"
@@ -4176,6 +4194,79 @@
           }
         },
         "required" : [ "counted", "mark", "reason", "ruleReason" ],
+        "type" : "object"
+      },
+      "TransferPairRequest" : {
+        "properties" : {
+          "expenseId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "incomeId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "expenseId", "incomeId" ],
+        "type" : "object"
+      },
+      "TransferPairResponse" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "difference" : {
+            "type" : "number"
+          },
+          "exact" : {
+            "type" : "boolean"
+          },
+          "expenseId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "incomeId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "date", "difference", "exact", "expenseId", "incomeId" ],
+        "type" : "object"
+      },
+      "TransferSuggestion" : {
+        "properties" : {
+          "accountName" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "difference" : {
+            "type" : "number"
+          },
+          "exact" : {
+            "type" : "boolean"
+          },
+          "operationKey" : {
+            "type" : [ "string", "null" ]
+          },
+          "transactionId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          }
+        },
+        "required" : [ "accountName", "amount", "currency", "date", "description", "difference", "exact", "operationKey", "transactionId" ],
         "type" : "object"
       },
       "TrendsResponse" : {
@@ -8743,6 +8834,107 @@
         "tags" : [ "Transactions" ]
       }
     },
+    "/api/v1/transactions/transfer-pairs" : {
+      "get" : {
+        "description" : "The same day, different own accounts in the same currency, amounts within 10 %, both without a category or marked as transfers by the bank; dismissed pairs are left out",
+        "operationId" : "suggestions",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/TransferPairResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Expenses and incomes that may be one transfer",
+        "tags" : [ "Transactions" ]
+      }
+    },
+    "/api/v1/transactions/transfer-pairs/dismiss" : {
+      "post" : {
+        "operationId" : "dismiss",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TransferPairRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Say an expense and an income are not one transfer, so that the pair is not suggested again",
+        "tags" : [ "Transactions" ]
+      }
+    },
+    "/api/v1/transactions/transfer-pairs/merge" : {
+      "post" : {
+        "description" : "The expense becomes a transfer to the account of the income with both amounts; the income is deleted",
+        "operationId" : "merge",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TransferPairRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TransactionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Merge an expense and an income into one transfer",
+        "tags" : [ "Transactions" ]
+      }
+    },
     "/api/v1/transactions/{id}" : {
       "delete" : {
         "operationId" : "delete",
@@ -8829,6 +9021,38 @@
         "security" : [ {
           "bearer" : [ ]
         } ],
+        "tags" : [ "Transactions" ]
+      }
+    },
+    "/api/v1/transactions/{id}/split-transfer" : {
+      "post" : {
+        "description" : "Undoes a merge: the income is created again on the target account, and the pair is not suggested again. Returns the expense.",
+        "operationId" : "split",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TransactionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Split a transfer into an expense and an income",
         "tags" : [ "Transactions" ]
       }
     }

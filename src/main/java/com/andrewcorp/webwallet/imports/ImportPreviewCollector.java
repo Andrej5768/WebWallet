@@ -3,6 +3,8 @@ package com.andrewcorp.webwallet.imports;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
+import com.andrewcorp.webwallet.ledger.transaction.TransferPairs;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -47,7 +49,9 @@ public final class ImportPreviewCollector {
                 category == null ? null : category.getName(),
                 List.of(),
                 transaction.getComment(),
-                duplicate));
+                duplicate,
+                transaction.getType() != TransactionType.TRANSFER && TransferPairs.transferLike(transaction),
+                null));
     }
 
     /** In the order of the import: oldest first. */
