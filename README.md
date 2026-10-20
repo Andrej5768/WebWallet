@@ -21,7 +21,8 @@ to grow into a public service.
 
 ### Personal finance (first priority)
 - Multi-currency: each account has its own currency; reports in the base currency using NBU exchange rates.
-- Account types: cash and cards, credit cards and loans, deposits and savings, debts with people, investment accounts.
+- Account types: cash and cards, credit cards and loans, deposits and savings, debts with people, investment accounts,
+  accounts of a sole proprietor (ФОП).
 - Two-level categories (category → subcategory), tags and payees.
 - Transactions: expense, income, transfer (including cross-currency with two amounts), split across several categories.
 - Data entry:
@@ -46,12 +47,15 @@ to grow into a public service.
 - Market data behind a provider interface: free sources first (Finnhub / Alpha Vantage, CoinGecko,
   NBU for exchange rates), a paid provider later for the public version.
 - Ukrainian taxes: tax on dividends with credit for foreign withholding tax, tax on investment profit
-  (NBU rates on trade dates), annual declaration summary. Tax rates are configurable per year.
+  (NBU rates on trade dates), annual declaration summary; the single tax, military levy and social contribution of a
+  sole proprietor by quarter. Tax rates are configurable per year.
 
 ### How finances and investments connect
 - A brokerage or crypto account is an `INVESTMENT` account in finances: it appears in the account list
   and in net worth, but stays outside the envelopes.
-- Moving money from a card to a broker is a transfer, not an expense.
+- Moving money from a card to a broker is a transfer, not an expense. Money a broker reports on its own (e.g. a
+  card payment at the broker, possibly in another currency than the account) is a deposit or withdrawal operation of
+  the investment account; both count as the money invested.
 - Trades live only in the investment module; the investment account balance equals cash plus the market
   value of positions.
 - Dividends and coupons belong to the investment module and are shown as passive income in the
@@ -86,7 +90,7 @@ docker compose --profile app up -d --build
 
 Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`,
 `ENCRYPTION_KEY` (encrypts bank tokens), `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`,
-`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `APP_PUBLIC_URL` (makes the Monobank `WEBHOOK` mode available), `TRUSTED_PROXIES`
+`APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `TWELVE_DATA_API_KEY` and `ALPHA_VANTAGE_API_KEY` (market data and dividends, see below), `APP_PUBLIC_URL` (makes the Monobank `WEBHOOK` mode available), `TRUSTED_PROXIES`
 (a regular expression of reverse proxy addresses allowed to set `X-Forwarded-For`, loopback by default),
 `API_DOCS_ENABLED`, `REFRESH_COOKIE_SECURE`
 (see `src/main/resources/application.properties`).
@@ -168,6 +172,29 @@ server {
 Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see the client addresses from
 `X-Forwarded-For`.
 
+#### Production server
+
+The live instance runs on one VM with Docker and Caddy; the files are in `deploy/`. A push to `master` builds
+`ghcr.io/andrej5768/webwallet` once the tests pass (the web client repository builds its own image the same way), and
+`webwallet-deploy.timer` on the server checks every 2 minutes: it resets the checkout to `origin/master` and runs
+`deploy.sh`, which dumps the database before a new backend image runs its migrations, restarts the backend, replaces
+the web client files and installs `deploy/Caddyfile`. Secrets live only on the server: `.env` and a read-only token
+for the private images; CI pushes them with the token of the run, so GitHub holds no stored secrets.
+
+Setting up a server: clone the repository into `/home/andre/WebWallet`, write `.env` (see `.env.example`), install
+Docker and Caddy, then
+
+```shell
+# A classic GitHub token with only the read:packages scope, kept in /root/.docker/config.json
+sudo docker login ghcr.io -u <github user>
+sudo cp deploy/webwallet-deploy.service deploy/webwallet-deploy.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now webwallet-deploy.timer
+# Nightly dump at 04:00 UTC, kept for 14 days
+(crontab -l; echo "0 4 * * * $HOME/WebWallet/deploy/backup-db.sh nightly") | crontab -
+```
+
+Logs of the deploys: `journalctl -u webwallet-deploy`.
+
 ### API conventions
 
 - `PUT` of accounts, categories and tags keeps the values of omitted optional fields. The `icon`, `color` and
@@ -230,6 +257,22 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   leaves it out, an expense or income may become a transfer to or from `transferAccountId` (same currency), and `rememberRule`
   creates a categorization rule for the payee before the import. `DELETE /api/v1/imports/previews/{id}` discards a
   preview; an unknown or expired one is 404 `NOT_FOUND`. A user keeps at most 3 previews.
+- Broker reports: `POST /api/v1/imports/freedom/preview` (multipart `files`: the trades report and the cash flows
+  report of Freedom Finance as XLSX, in any order, one of each at most; optional `accountId`, else the brokerage
+  account named Freedom Finance, created when there is none) runs the import in a transaction that is rolled back and
+  returns `{id, source, expiresAt, account, from, to, instruments, operations, cash, merged, providerUnavailable}`:
+  every row of the reports, newest first, as `NEW`, `DUPLICATE` (imported before, by the number of the trade or the
+  operation) or `SKIPPED` (`SERVICE`: blocking and unblocking money for a withdrawal; `UNKNOWN`), the money per
+  currency and the quantity of each ticker after the import, and the instrument suggested for each ticker (one the user
+  already holds, else a listing of the provider on the market of the ticker suffix such as `.US`, else one to create
+  by hand, e.g. a fund of the Moscow exchange). A trade of a currency pair (`EUR/USD`) is an `EXCHANGE`, a card
+  payment or bank transfer a `DEPOSIT` or `WITHDRAWAL`, a dividend takes the tax withheld on the same security, and a
+  trade takes its fee from the cash flows (the trades report does not name its currency; a fee charged in another
+  currency than the trade's is a `FEE` of its own). `POST /api/v1/imports/freedom/previews/{id}/confirm` with
+  `{instruments: [{ticker, instrumentId | symbol + micCode | manual}], excluded: [key]}` imports it and returns
+  `{accountId, accountCreated, instrumentsCreated, operationsImported, duplicates}`; it is rejected (400) when the
+  reports sell more than they buy before. `GET /api/v1/imports/previews/{id}` is 404 for these previews;
+  `DELETE` discards them.
 - Start over: `POST /api/v1/me/reset` with `{keepCategories, confirm: "DELETE"}` (any other `confirm` is 400) deletes
   all accounts, transactions, payees, tags, the budget, bank connections and import previews of the user in one
   transaction and answers 204. With `keepCategories: false` the categories and categorization rules are deleted too
@@ -270,7 +313,7 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   transaction; with `autoCreate` it is created on the due date (only for dates from the day the payment was created
   on). `POST .../skip` skips one, `DELETE .../occurrences/{date}` makes it pending again (a linked transaction stays)
   and stops matching and creating it automatically; so does deleting the transaction that paid it. Matching runs
-  before the occurrences are read and every hour. `GET /api/v1/recurring/occurrences?from&to` lists the occurrences
+  before the occurrences are read and every hour, also with transactions entered ahead of time (up to a year). `GET /api/v1/recurring/occurrences?from&to` lists the occurrences
   of all payments by date (by default from 31 days ago to 31 days ahead, at most 400 days) with `status` (`PENDING`,
   `PAID`, `SKIPPED`), `overdue` and `transactionId`; pending ones overdue for more than 31 days are dropped. A
   transaction that pays an occurrence has `recurring: {id, name, dueDate}`.
@@ -290,6 +333,101 @@ Set `TRUSTED_PROXIES` to the address of the proxy, so that the rate limits see t
   `startAmount`; again when it moves to another account) to the target on the deadline: `expected` by today,
   `monthsLeft` (a started month counts), `monthlyNeeded` and `status`: `ACHIEVED` (marked with `achieved: true`, or
   the target is reached), `NO_DATE`, `ON_TRACK`, `BEHIND` (more than 3% of the target below the pace) or `OVERDUE`.
+  When the progress cannot be converted (an account in a currency without a rate), it counts as zero, the pace is not
+  judged (`ON_TRACK`, no `expected`) and the currency is in `unconvertedCurrencies`. A contribution may not take the
+  saved amount below zero or to 15 digits.
+- Investments (`/api/v1/investments`): operations of `INVESTMENT` accounts (`GET/POST /operations`,
+  `GET/PUT/DELETE /operations/{id}`): `BUY` and `SELL` (`quantity`, `price`, `amount` = quantity × price by default,
+  `fee`), `DIVIDEND` and `COUPON` (gross `amount`, withheld `tax`), `FEE` (no instrument needed), `SPLIT`
+  (`splitFrom` into `splitTo`, each at most 1000), and, without an instrument, `DEPOSIT` and `WITHDRAWAL` (money
+  brought to or taken from the account in any currency, e.g. a card payment at the broker; they count as deposited)
+  and `EXCHANGE` (`amount` plus `fee` of `currency` for `toAmount` of another `toCurrency`), in the currency of the
+  instrument (else of the account) by default; a trade must be in the currency of its instrument, and a dividend,
+  coupon, fee or movement of money must be more than zero. Every purchase is a lot; a
+  sale takes the oldest lots first (FIFO) and may not sell more than is held on its date, also after an edit or a
+  deletion of an earlier operation (400); the operations of an account are changed one at a time. The fee of a
+  purchase is part of the cost of its lot. Quantities keep 8 decimals, also after a split. Market instruments
+  (stocks, ETFs, funds) are found with `GET /instruments/search?q=` (own and known ones first, then, for at least 2
+  characters, the market data provider) and added with `POST /instruments/market` `{symbol, micCode}`; they are
+  shared and their data come from the provider. The provider quota is shared by everyone: its results are cached for
+  an hour, and a user may make 30 searches an hour that reach it (429 `TOO_MANY_REQUESTS` beyond). A user may read a
+  market instrument (`GET /instruments/{id}`, `/prices`) only when they have operations of it, it is a benchmark, or
+  they found or added it within the last day, as the instruments show what other users hold. Instruments entered by
+  hand (`POST/PUT/DELETE /instruments`, e.g. Ukrainian government bonds) are valued `NOMINAL` (nominal plus the
+  coupon accrued since the last payment; coupons are counted back from `maturityDate`, `couponFrequency` times a year:
+  1, 2, 3, 4, 6 or 12) or `MANUAL` (`manualPrice`); their dates are between 1990 and 2100. Daily closes come from
+  Twelve Data (free plan, key in `TWELVE_DATA_API_KEY`; without it prices are entered by hand): a task checks a few
+  instruments a minute, each every 6 hours, loading the history back to the first operation (for a benchmark the
+  first deposit to a brokerage account; at least a year), unadjusted, as the operations record splits and dividends;
+  the last known close is loaded again, as it may have been the price during the session. `GET /portfolio?accountId=`
+  returns the value, `deposited` (the money brought to the accounts minus the money taken away by transfers and
+  deposit and withdrawal operations, at the rates of their dates), cost (`invested`), unrealized profit, realized
+  profit of the year (FIFO, at the rates of the sale dates), dividends of the last 12 months after tax, the change of
+  the day, the positions (average price, price, value, share), the cash per account and currency (the transfers of the
+  ledger plus the cash of the operations) and the allocation by type, currency and sector (`bySector`, of the value
+  of the positions: GICS sectors, a fund by its sector weights with the rest as `OTHER`, bonds as `BONDS`, `UNKNOWN`
+  until the sectors are loaded), in the base currency (or `currency`) at today's rates; a position without a price yet
+  is valued at cost. `GET /positions?accountId&instrumentId` returns the lots
+  (with the unrealized profit of the open ones), the sales with the lots they took and the operations.
+  `GET /history?accountId&from&to&currency&benchmark` returns the value day by day (weekly over 400 days) at the
+  closes and NBU rates of the day, from the first day with money on the accounts (an earlier `from` starts there;
+  dates between 1990 and 2100, at most 20 years), the net deposits (transfers from and to other accounts, opening
+  balances) and, with `benchmark` `SP500` (SPY), `MSCI_WORLD` (URTH) or `NASDAQ100` (QQQ), what the same deposits
+  would be worth in the fund bought and sold at the closes of their days (deposits before its first known close are
+  bought at that close; price only, dividends not reinvested). `returns` are computed from every day of the period:
+  `twr` (time-weighted: the daily returns chained, so deposits and their timing do not count), `twrAnnualized` (for a
+  year or longer), `xirr` (money-weighted, per year: the rate at which the value at the start and the deposits grow to
+  the value at the end; for 30 days or longer), and the same for the benchmark (`benchmarkTwr`, `benchmarkXirr`), all as
+  shares in the currency of the history. The balance of an
+  `INVESTMENT` account is its ledger balance plus the cash of its operations and the value of its positions at today's
+  prices and rates; the net worth report still counts only the ledger for past months.
+- Taxes (`/api/v1/taxes`, in hryvnias at the NBU rates of the dates). `GET/PUT /settings/{year}`: the rates of a
+  year — the group of the sole proprietor (1, 2, 3; `fopVat` for the lower rate of a VAT payer), the single tax and the
+  military levy (shares of the income for group 3, amounts a month for groups 1 and 2), the minimum social contribution
+  (`esvEnabled`, `esvRate` of `minWage`), the personal income tax and military levy of investment income, and whether a
+  dividend has the document of the tax withheld abroad by default. `PUT` replaces the user's own values; `null` takes
+  the default of the year, which the response returns too (`defaults`) with links to the sources (`sources`): the
+  defaults are those known when the year was added and must be checked. `GET /fop/{year}` returns the quarters (income,
+  single tax, military levy, social contribution, the deadlines of the declaration, the taxes and the contribution —
+  a weekend moves them to Monday, public holidays are not known — and whether the user marked them paid with
+  `PUT /fop/{year}/quarters/{quarter}`), the totals, the income limit of the group and every income: of `FOP`
+  accounts, the part of incomes on any account in the categories chosen with `PUT /income-categories` (their
+  subcategories too), and transactions added with `PUT /transactions/{id}` `{included}` (`false` takes one out,
+  `null` forgets the mark; `GET /transactions/{id}` tells whether one counts and why); transfers between own accounts
+  are not income. `GET /investments/{year}` returns the
+  dividends and coupons (the tax withheld abroad reduces the personal income tax when the document exists:
+  `PUT /investments/dividends/{operationId}` `{document}`), the sales (proceeds at the rate of the sale, the lots sold
+  by FIFO at the rates of their purchases, so a change of the exchange rate is profit too), the loss carried over
+  from earlier years, the taxable profit, the taxes and the deadlines (declaration by 1 May, payment by 31 July of the
+  next year). Government bonds are exempt.
+- Declarations (`/api/v1/taxes`): `GET/PUT /profile` keeps the taxpayer details the declarations need (tax number,
+  name, address, the tax office with its region and district codes, the main activity of a sole proprietor),
+  encrypted. `GET /declarations/fop/{year}/{quarter}` writes the declaration of a sole proprietor of group 3 (form
+  F0103309, amounts from the start of the year; the fourth quarter adds F0133109 with the social contribution of the
+  year, both in a ZIP), `GET /declarations/property/{year}` the yearly declaration of property and income (F0100215:
+  foreign dividends on line 10.10 with the tax paid abroad on line 18, the investment profit on line 10.8, with
+  F0121215 — Ф1 — for the sales, in a ZIP). The files follow the formats of the State Tax Service (windows-1251, its
+  file names, linked appendices) and are validated against its schemas in the tests; they are opened, checked and
+  signed in the tax service cabinet. The tick boxes of the yearly declaration are those of a resident filling it in
+  personally, of the general category.
+- Dividend calendar: `GET /api/v1/investments/dividends?accountId&from&to&currency` (by default a year back and a year
+  ahead, dates between 1990 and 2100, at most 5 years) lists the payments by date with a `status`: `RECEIVED` (the `DIVIDEND` and `COUPON`
+  operations), `EXPECTED` (due to the holder on the ex-dividend date but not recorded), `DECLARED` (from the dividend
+  provider, or the coupon schedule of a bond: nominal × rate / frequency × quantity, computed rather than stepped
+  through, so a far maturity costs nothing) and `FORECAST` (the payments of
+  the last 12 months repeated a year later for what is held now, after the last declared one). A recorded dividend
+  dated from 5 days before the ex-dividend date to 31 days after the payment date stands for the declared one. The tax
+  of the coming ones is estimated from the last dividend of the instrument (`taxEstimated`). It also returns the gross
+  and net payments of the next 12 months, the monthly average, the yield (on the value and on the cost of the
+  positions), the payments per month by status and what each instrument paid over the last 12 months; the totals cover
+  the 12 months around today whatever the range. Dividends come from Alpha Vantage (free key in
+  `ALPHA_VANTAGE_API_KEY`, about 25 requests a day): the US-dollar stocks, ETFs and funds someone holds are checked
+  once a week, one an hour. The same hourly request loads the sectors when no dividends are due: of a company from its
+  SEC industry (`OVERVIEW`), of a fund its weights (`ETF_PROFILE`), checked every 90 days.
+- Market data providers: the services use `MarketDataProvider` (instruments and daily closes), `DividendProvider`
+  (dividends) and `SectorProvider` (sectors, from the same service as the dividends); the implementation is chosen with `app.market-data.prices-provider` (`twelve-data`) and
+  `app.market-data.dividends-provider` (`alpha-vantage`). Another service is another implementation of the interface;
+  instruments are identified by the ticker and the ISO 10383 market identifier code of the exchange.
 
 ### OpenAPI spec
 
@@ -311,6 +449,8 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - Each task is done in its own branch created from `dev` (e.g. `feature/monobank-sync`, `fix/...`)
   and merged into `dev` through a pull request.
 - A release is a pull request from `dev` into `master`. `master` is changed only through pull requests.
+- While the first version is being built, finished steps are pushed to `dev` directly, one commit each; CI runs on
+  every push all the same.
 - GitHub Actions runs `mvn verify` (tests and the 75% coverage check) on pushes and pull requests
   to both branches; a pull request is merged only when the build is green.
 
@@ -340,11 +480,11 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [x] Reports: spending by category, income vs. expenses, net worth, payees
 
 ### Phase 2 — Web client (separate repository)
-- [ ] React + TypeScript app with an API client generated from the OpenAPI spec
+- [x] React + TypeScript app with an API client generated from the OpenAPI spec
       (committed in `api/openapi.json`)
-- [ ] Dashboard, transaction feed, envelopes, reports, imports, goals, settings
+- [x] Dashboard, transaction feed, envelopes, reports, imports, goals, settings
       (mockups: light and dark themes, Ukrainian and English)
-- [ ] Backend changes the web client needs:
+- [x] Backend changes the web client needs:
   - [x] icon, color and a needs / wants flag on categories (for 50/30/20 analytics);
         reordering and moving categories between groups
   - [x] color on tags
@@ -375,17 +515,31 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
   - [x] savings: net saved and cumulative savings per month, savings rate against a target
 
 ### Phase 4 — Investments
-- [ ] Instruments, positions, trades, dividends and coupons, corporate actions (splits)
-- [ ] Market data provider abstraction with free providers
-- [ ] Imports: Interactive Brokers, Freedom Finance, Ukrainian brokers, Binance, WhiteBIT, BTC / ETH addresses
-- [ ] Analytics: dividend calendar and forecast, XIRR / TWR, benchmark, allocation, rebalancing
-- [ ] Financial independence: FIRE number (lean / regular / fat / coast) and years to reach it,
-      FYM (months of expenses covered by liquid money), compound interest calculator
+- [x] Instruments, positions, trades, dividends and coupons, corporate actions (splits); lots with FIFO and the
+      average price; value history with a benchmark
+- [x] Market data providers chosen by configuration (Twelve Data daily closes, Alpha Vantage dividends)
+- [x] Portfolio and value history in the base currency or another one (₴ / $ in the web client)
+- [x] Freedom Finance import (trades and cash flows XLSX) with a preview; deposits, withdrawals and currency
+      exchanges as operations
+- [ ] Imports: Interactive Brokers, Ukrainian brokers, Binance, WhiteBIT, BTC / ETH addresses
+- [x] Analytics: dividend calendar (received, expected, declared, forecast) with the yield, benchmark (S&P 500,
+      MSCI World, Nasdaq 100), allocation by asset class and currency
+- [x] Returns: time-weighted (TWR) and money-weighted (XIRR) over a period, also of the benchmark; allocation by
+      sector (GICS)
+- [ ] Analytics: allocation by country, rebalancing to target weights
+- [x] Financial independence: FIRE number (lean / regular / fat / coast) and years to reach it,
+      FYM (months of expenses covered by liquid money), compound interest calculator — computed in the web
+      client from the account balances and the reports
 
 ### Phase 5 — Ukrainian taxes
-- [ ] Dividend tax with foreign withholding credit
-- [ ] Investment profit tax using NBU rates on trade dates
-- [ ] Annual declaration summary
+- [x] Tax rates per year with defaults and links to the sources, all replaceable by the user
+- [x] Sole proprietor (ФОП): account type, income from its accounts, chosen categories and chosen transactions;
+      single tax, military levy and social contribution by quarter with deadlines and the income limit
+- [x] Dividend tax with foreign withholding credit (when the document exists)
+- [x] Investment profit tax using NBU rates on trade dates, with the loss carried over
+- [x] Annual declaration summary
+- [x] Declaration files (XML for the tax service cabinet): the sole proprietor of group 3 with the social
+      contribution, the yearly declaration with Ф1
 
 ### Phase 6 — Notifications and mobile
 - [ ] Telegram bot (notifications and quick expense entry)

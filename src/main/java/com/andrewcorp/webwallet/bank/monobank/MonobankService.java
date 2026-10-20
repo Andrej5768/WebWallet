@@ -437,7 +437,10 @@ public class MonobankService {
                         Account created = new Account(
                                 userId,
                                 title,
-                                creditLimit.signum() > 0 ? AccountType.CREDIT_CARD : AccountType.CARD,
+                                // Monobank marks the accounts of a sole proprietor as "fop"
+                                "fop".equalsIgnoreCase(bankAccount.type())
+                                        ? AccountType.FOP
+                                        : creditLimit.signum() > 0 ? AccountType.CREDIT_CARD : AccountType.CARD,
                                 currency);
                         created.setExternal(SOURCE, bankAccount.id());
                         created.setCardNumbers(cardNumbers.isEmpty() ? null : cardNumbers);
@@ -526,7 +529,7 @@ public class MonobankService {
     }
 
     private ConnectionResponse status(BankConnection connection) {
-        Map<Long, BigDecimal> balances = accountService.balances(connection.getUserId());
+        Map<Long, BigDecimal> balances = accountService.ledgerBalances(connection.getUserId());
         List<LinkResponse> linkResponses = links.findByConnectionOrderByIdAsc(connection).stream()
                 .map(link -> {
                     BigDecimal balance = link.getAccount() == null

@@ -1,7 +1,7 @@
 package com.andrewcorp.webwallet.report;
 
+import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.category.Category;
@@ -19,7 +19,6 @@ import com.andrewcorp.webwallet.report.ReportDtos.SpendingResponse;
 import com.andrewcorp.webwallet.report.ReportRepository.MonthChange;
 import com.andrewcorp.webwallet.report.ReportRepository.PayeeRow;
 import com.andrewcorp.webwallet.report.ReportRepository.SplitRow;
-import com.andrewcorp.webwallet.user.UserService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -44,25 +43,22 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ReportService {
 
+    private final Converters converters;
     private final ReportRepository reports;
     private final CategoryRepository categories;
     private final AccountRepository accounts;
-    private final UserService users;
-    private final ExchangeRateService exchangeRates;
     private final Clock clock;
 
     public ReportService(
+            Converters converters,
             ReportRepository reports,
             CategoryRepository categories,
             AccountRepository accounts,
-            UserService users,
-            ExchangeRateService exchangeRates,
             Clock clock) {
+        this.converters = converters;
         this.reports = reports;
         this.categories = categories;
         this.accounts = accounts;
-        this.users = users;
-        this.exchangeRates = exchangeRates;
         this.clock = clock;
     }
 
@@ -222,7 +218,7 @@ public class ReportService {
     }
 
     private CurrencyConverter converter(Long userId) {
-        return exchangeRates.converterTo(users.get(userId).getBaseCurrency());
+        return converters.base(userId);
     }
 
     private static CategorySpending spending(

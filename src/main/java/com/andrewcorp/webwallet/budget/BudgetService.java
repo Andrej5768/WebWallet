@@ -6,15 +6,14 @@ import com.andrewcorp.webwallet.budget.BudgetDtos.MoveRequest;
 import com.andrewcorp.webwallet.budget.BudgetRepository.SplitRow;
 import com.andrewcorp.webwallet.budget.BudgetRepository.TransferRow;
 import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
-import com.andrewcorp.webwallet.user.UserService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -37,32 +36,28 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class BudgetService {
 
+    private final Converters converters;
     private final BudgetRepository budget;
     private final CategoryRepository categories;
     private final AccountRepository accounts;
-    private final UserService users;
-    private final ExchangeRateService exchangeRates;
     private final Clock clock;
 
     public BudgetService(
+            Converters converters,
             BudgetRepository budget,
             CategoryRepository categories,
             AccountRepository accounts,
-            UserService users,
-            ExchangeRateService exchangeRates,
             Clock clock) {
+        this.converters = converters;
         this.budget = budget;
         this.categories = categories;
         this.accounts = accounts;
-        this.users = users;
-        this.exchangeRates = exchangeRates;
         this.clock = clock;
     }
 
     @Transactional(readOnly = true)
     public MonthResponse month(Long userId, YearMonth month) {
-        CurrencyConverter converter =
-                exchangeRates.converterTo(users.get(userId).getBaseCurrency());
+        CurrencyConverter converter = converters.base(userId);
         return new Calculation(userId, month, converter).result();
     }
 

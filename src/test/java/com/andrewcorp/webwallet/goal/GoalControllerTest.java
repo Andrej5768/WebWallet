@@ -191,4 +191,32 @@ class GoalControllerTest extends AbstractIntegrationTest {
         json(postJson("/api/v1/goals/" + id + "/contributions", Map.of("amount", 100), auth), 400);
         json(get("/api/v1/goals/" + id).header("Authorization", otherAuth), 404);
     }
+
+    @Test
+    void rejectsTooLargeContributions() throws Exception {
+        Map<String, Object> body = goal("Cushion", 84000, null, null);
+        Long id = id(json(postJson("/api/v1/goals", body, auth), 201));
+        json(postJson("/api/v1/goals/" + id + "/contributions", Map.of("amount", 999999999999999.0), auth), 200);
+        json(postJson("/api/v1/goals/" + id + "/contributions", Map.of("amount", 10), auth), 400);
+    }
+
+    @Test
+    void doesNotJudgeTheProgressOfAnAccountWithoutARate() throws Exception {
+        Long kzt = account("Tenge", "CASH", "KZT", 500000);
+        Long id = id(json(postJson("/api/v1/goals", goal("Trip", 600000, "2030-12-01", kzt), auth), 201));
+        // In tenge, as the account: no rate needed
+        assertThat(number(json(get("/api/v1/goals/" + id).header("Authorization", auth), 200)
+                        .get("saved")))
+                .isEqualTo(500000);
+
+        // In hryvnias the progress needs the KZT rate, which is unknown
+        Map<String, Object> inHryvnias = goal("Trip", 600000, "2030-12-01", kzt);
+        inHryvnias.put("currency", "UAH");
+        json(putJson("/api/v1/goals/" + id, inHryvnias, auth), 200);
+        Map<String, Object> goal = json(get("/api/v1/goals/" + id).header("Authorization", auth), 200);
+        assertThat(goal).containsEntry("status", "ON_TRACK").containsEntry("expected", null);
+        assertThat(number(goal.get("saved"))).isZero();
+        Map<String, Object> list = json(get("/api/v1/goals").header("Authorization", auth), 200);
+        assertThat((List<String>) list.get("unconvertedCurrencies")).contains("KZT");
+    }
 }

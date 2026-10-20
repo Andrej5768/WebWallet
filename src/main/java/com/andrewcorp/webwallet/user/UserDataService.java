@@ -26,7 +26,7 @@ public class UserDataService {
 
     /**
      * Deletes the accounts, transactions (with their splits and tags), payees, tags, budget, recurring payments,
-     * goals, bank connections and import previews of the user, and, unless they are kept, the categories and
+     * goals, investment operations and own instruments, bank connections and import previews of the user, and, unless they are kept, the categories and
      * categorization rules; deleted categories are replaced by the default ones. Payees that kept rules refer to stay.
      * All or nothing.
      */
@@ -41,6 +41,8 @@ public class UserDataService {
         delete("delete from import_previews where user_id = ?", userId);
         delete("delete from recurring_payments where user_id = ?", userId);
         delete("delete from goals where user_id = ?", userId);
+        delete("delete from investment_operations where user_id = ?", userId);
+        delete("delete from instruments where user_id = ?", userId);
         delete("delete from bank_connections where user_id = ?", userId);
         delete("delete from transactions where user_id = ?", userId);
         delete("delete from budget_assignments where user_id = ?", userId);

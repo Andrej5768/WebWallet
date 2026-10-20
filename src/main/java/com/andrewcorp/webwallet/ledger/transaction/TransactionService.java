@@ -1,14 +1,12 @@
 package com.andrewcorp.webwallet.ledger.transaction;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.web.Periods;
+import com.andrewcorp.webwallet.ledger.LedgerLookups;
 import com.andrewcorp.webwallet.ledger.account.Account;
-import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
-import com.andrewcorp.webwallet.ledger.payee.Payee;
-import com.andrewcorp.webwallet.ledger.payee.PayeeRepository;
-import com.andrewcorp.webwallet.ledger.payee.PayeeService;
 import com.andrewcorp.webwallet.ledger.rule.RuleService;
 import com.andrewcorp.webwallet.ledger.tag.TagService;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction.SplitData;
@@ -34,28 +32,22 @@ import org.springframework.transaction.annotation.Transactional;
 public class TransactionService {
 
     private final TransactionRepository transactions;
-    private final AccountRepository accounts;
     private final CategoryRepository categories;
-    private final PayeeRepository payees;
-    private final PayeeService payeeService;
+    private final LedgerLookups lookups;
     private final TagService tagService;
     private final RuleService ruleService;
     private final RecurringOccurrenceRepository occurrences;
 
     public TransactionService(
             TransactionRepository transactions,
-            AccountRepository accounts,
             CategoryRepository categories,
-            PayeeRepository payees,
-            PayeeService payeeService,
+            LedgerLookups lookups,
             TagService tagService,
             RuleService ruleService,
             RecurringOccurrenceRepository occurrences) {
         this.transactions = transactions;
-        this.accounts = accounts;
         this.categories = categories;
-        this.payees = payees;
-        this.payeeService = payeeService;
+        this.lookups = lookups;
         this.tagService = tagService;
         this.ruleService = ruleService;
         this.occurrences = occurrences;
@@ -160,10 +152,8 @@ public class TransactionService {
     }
 
     private void apply(Long userId, Transaction transaction, TransactionRequest request) {
-        if (request.date().isBefore(Transaction.MIN_DATE) || request.date().isAfter(Transaction.MAX_DATE)) {
-            throw ApiException.invalid("date", "error.transaction.date");
-        }
-        Account account = account(userId, request.accountId(), "accountId");
+        Periods.checkDate(request.date(), "date");
+        Account account = lookups.account(userId, request.accountId(), "accountId");
         // A bank operation belongs to its account: moved elsewhere, the transaction no longer stands for it, and the
         // operation must be imported again
         if (transaction.getAccount() != null
@@ -190,7 +180,7 @@ public class TransactionService {
             applyExpenseOrIncome(userId, transaction, request);
         }
 
-        transaction.setPayee(payee(userId, request));
+        transaction.setPayee(lookups.payee(userId, request.payeeId(), request.payeeName()));
         transaction.setComment(request.comment());
         transaction.replaceTags(tagService.findAll(userId, request.tagIds(), "tagIds"));
     }
@@ -206,7 +196,7 @@ public class TransactionService {
                 || (request.splits() != null && !request.splits().isEmpty())) {
             throw ApiException.invalid("splits", "error.transaction.transferCategory");
         }
-        Account toAccount = account(userId, request.toAccountId(), "toAccountId");
+        Account toAccount = lookups.account(userId, request.toAccountId(), "toAccountId");
         BigDecimal toAmount = request.toAmount();
         if (toAmount == null) {
             if (!toAccount.getCurrency().equals(account.getCurrency())) {
@@ -231,8 +221,8 @@ public class TransactionService {
         CategoryKind kind = CategoryKind.of(request.type());
         List<SplitData> splits = new ArrayList<>();
         if (request.splits() == null || request.splits().isEmpty()) {
-            splits.add(
-                    new SplitData(category(userId, request.categoryId(), kind, "categoryId"), request.amount(), null));
+            splits.add(new SplitData(
+                    lookups.category(userId, request.categoryId(), kind, "categoryId"), request.amount(), null));
         } else {
             if (request.categoryId() != null) {
                 throw ApiException.invalid("categoryId", "error.transaction.categoryAndSplits");
@@ -241,7 +231,7 @@ public class TransactionService {
             for (int i = 0; i < request.splits().size(); i++) {
                 SplitRequest split = request.splits().get(i);
                 splits.add(new SplitData(
-                        category(userId, split.categoryId(), kind, "splits[" + i + "].categoryId"),
+                        lookups.category(userId, split.categoryId(), kind, "splits[" + i + "].categoryId"),
                         split.amount(),
                         split.comment()));
                 total = total.add(split.amount());
@@ -256,35 +246,5 @@ public class TransactionService {
         releaseBankId(transaction, transaction.getToBankId());
         transaction.setToBankId(null);
         transaction.replaceSplits(splits);
-    }
-
-    private Account account(Long userId, Long id, String field) {
-        return accounts.findByIdAndUserId(id, userId).orElseThrow(() -> ApiException.invalid(field, "error.notFound"));
-    }
-
-    /** Null id means uncategorized. An income may have an expense category: it is a refund of that spending. */
-    private Category category(Long userId, Long id, CategoryKind kind, String field) {
-        if (id == null) {
-            return null;
-        }
-        Category category = categories
-                .findByIdAndUserId(id, userId)
-                .orElseThrow(() -> ApiException.invalid(field, "error.notFound"));
-        boolean refund = kind == CategoryKind.INCOME && category.getKind() == CategoryKind.EXPENSE;
-        if (category.getKind() != kind && !refund) {
-            throw ApiException.invalid(field, "error.category.kind");
-        }
-        return category;
-    }
-
-    private Payee payee(Long userId, TransactionRequest request) {
-        if (request.payeeId() != null) {
-            return payees.findByIdAndUserId(request.payeeId(), userId)
-                    .orElseThrow(() -> ApiException.invalid("payeeId", "error.notFound"));
-        }
-        if (request.payeeName() != null && !request.payeeName().isBlank()) {
-            return payeeService.findOrCreate(userId, request.payeeName());
-        }
-        return null;
     }
 }

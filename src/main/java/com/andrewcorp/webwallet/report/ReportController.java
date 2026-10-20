@@ -1,7 +1,7 @@
 package com.andrewcorp.webwallet.report;
 
-import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
+import com.andrewcorp.webwallet.common.web.Periods;
 import com.andrewcorp.webwallet.report.ReportDtos.IncomeExpenseResponse;
 import com.andrewcorp.webwallet.report.ReportDtos.NetWorthResponse;
 import com.andrewcorp.webwallet.report.ReportDtos.PayeesResponse;
@@ -84,12 +84,7 @@ public class ReportController {
         YearMonth current = YearMonth.now(clock);
         LocalDate end = to != null ? to : current.atEndOfMonth();
         LocalDate start = from != null ? from : current.minusMonths(11).atDay(1);
-        if (start.isAfter(end)) {
-            throw ApiException.invalid("from", "error.report.period");
-        }
-        if (start.isBefore(end.minusYears(MAX_YEARS))) {
-            throw ApiException.invalid("from", "error.report.periodTooLong");
-        }
+        Periods.checkYears(start, end, MAX_YEARS, "from");
         return new Period(start, end);
     }
 

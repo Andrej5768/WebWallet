@@ -17,8 +17,9 @@ import com.andrewcorp.webwallet.analytics.AnalyticsDtos.TrendsResponse;
 import com.andrewcorp.webwallet.budget.BudgetDtos.CategoryRow;
 import com.andrewcorp.webwallet.budget.BudgetDtos.MonthResponse;
 import com.andrewcorp.webwallet.budget.BudgetService;
+import com.andrewcorp.webwallet.common.util.Money;
+import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
@@ -33,7 +34,6 @@ import com.andrewcorp.webwallet.report.ReportRepository;
 import com.andrewcorp.webwallet.report.ReportRepository.BoundaryTransferRow;
 import com.andrewcorp.webwallet.report.ReportRepository.SplitRow;
 import com.andrewcorp.webwallet.report.ReportService;
-import com.andrewcorp.webwallet.user.UserService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -71,31 +71,28 @@ public class AnalyticsService {
      */
     private static final BigDecimal ANOMALY_MIN_SHARE = new BigDecimal("0.02");
 
+    private final Converters converters;
     private final ReportRepository reports;
     private final CategoryRepository categories;
     private final BudgetService budgetService;
     private final RecurringService recurringService;
     private final PlanningRepository planning;
-    private final UserService users;
-    private final ExchangeRateService exchangeRates;
     private final Clock clock;
 
     public AnalyticsService(
+            Converters converters,
             ReportRepository reports,
             CategoryRepository categories,
             BudgetService budgetService,
             RecurringService recurringService,
             PlanningRepository planning,
-            UserService users,
-            ExchangeRateService exchangeRates,
             Clock clock) {
+        this.converters = converters;
         this.reports = reports;
         this.categories = categories;
         this.budgetService = budgetService;
         this.recurringService = recurringService;
         this.planning = planning;
-        this.users = users;
-        this.exchangeRates = exchangeRates;
         this.clock = clock;
     }
 
@@ -173,7 +170,8 @@ public class AnalyticsService {
                     BigDecimal amountA = a.byCategory.getOrDefault(id, BigDecimal.ZERO);
                     BigDecimal amountB = b.byCategory.getOrDefault(id, BigDecimal.ZERO);
                     BigDecimal change = amountA.subtract(amountB);
-                    return new CategoryChange(id, tree.name(id), amountA, amountB, change, share(change, amountB));
+                    return new CategoryChange(
+                            id, tree.name(id), amountA, amountB, change, Money.share(change, amountB));
                 })
                 .filter(change -> change.a().signum() != 0 || change.b().signum() != 0)
                 .sorted(Comparator.comparing(
@@ -192,7 +190,7 @@ public class AnalyticsService {
                 totalA,
                 totalB,
                 change,
-                share(change, totalB),
+                Money.share(change, totalB),
                 days,
                 changes,
                 converter.unconverted());
@@ -292,7 +290,14 @@ public class AnalyticsService {
                     .sorted(Comparator.comparing(Destination::amount).reversed())
                     .toList();
             MonthSavings month = new MonthSavings(
-                    entry.getKey(), income, expense, net, rate(net, income), cumulative, complete, moved);
+                    entry.getKey(),
+                    income,
+                    expense,
+                    net,
+                    Money.positiveShare(net, income),
+                    cumulative,
+                    complete,
+                    moved);
             months.add(month);
             if (net.signum() > 0 && (best == null || net.compareTo(best.net()) > 0)) {
                 best = month;
@@ -303,7 +308,7 @@ public class AnalyticsService {
                 to,
                 converter.target(),
                 target,
-                rate(completeNet, completeIncome),
+                Money.positiveShare(completeNet, completeIncome),
                 cumulative,
                 best != null ? best.month() : null,
                 months,
@@ -341,10 +346,10 @@ public class AnalyticsService {
                 to,
                 converter.target(),
                 income,
-                new Part(needs, rate(needs, income), NEEDS_TARGET),
-                new Part(wants, rate(wants, income), WANTS_TARGET),
-                new Part(savings, rate(savings, income), SAVINGS_TARGET),
-                new Part(unclassified, rate(unclassified, income), null),
+                new Part(needs, Money.positiveShare(needs, income), NEEDS_TARGET),
+                new Part(wants, Money.positiveShare(wants, income), WANTS_TARGET),
+                new Part(savings, Money.positiveShare(savings, income), SAVINGS_TARGET),
+                new Part(unclassified, Money.positiveShare(unclassified, income), null),
                 converter.unconverted());
     }
 
@@ -372,7 +377,7 @@ public class AnalyticsService {
                     planned,
                     actual,
                     planned.subtract(actual),
-                    share(actual, planned),
+                    Money.share(actual, planned),
                     remaining,
                     forecast(planned, actual, recurring(row), remaining),
                     children);
@@ -500,7 +505,7 @@ public class AnalyticsService {
     }
 
     private CurrencyConverter converter(Long userId) {
-        return exchangeRates.converterTo(users.get(userId).getBaseCurrency());
+        return converters.base(userId);
     }
 
     private static List<YearMonth> months(YearMonth from, YearMonth to) {
@@ -522,15 +527,6 @@ public class AnalyticsService {
     }
 
     /** {@code part / whole}, null when the whole is zero. */
-    private static BigDecimal share(BigDecimal part, BigDecimal whole) {
-        return whole.signum() == 0 ? null : part.divide(whole, 4, RoundingMode.HALF_UP);
-    }
-
-    /** {@code part / income}, null without income. */
-    private static BigDecimal rate(BigDecimal part, BigDecimal income) {
-        return income.signum() <= 0 ? null : part.divide(income, 4, RoundingMode.HALF_UP);
-    }
-
     private static BigDecimal sum(List<PlanRow> rows, Function<PlanRow, BigDecimal> field) {
         return rows.stream().map(field).reduce(BigDecimal.ZERO, BigDecimal::add);
     }

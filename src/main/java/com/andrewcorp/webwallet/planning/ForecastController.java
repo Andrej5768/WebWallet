@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.planning;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
+import com.andrewcorp.webwallet.common.web.Periods;
 import com.andrewcorp.webwallet.planning.ForecastDtos.ForecastResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -44,9 +45,7 @@ public class ForecastController {
         if (end.isBefore(today)) {
             throw ApiException.invalid("to", "error.forecast.past");
         }
-        if (end.isAfter(today.plusDays(MAX_DAYS))) {
-            throw ApiException.invalid("to", "error.recurring.periodTooLong");
-        }
+        Periods.checkDays(today, end, MAX_DAYS + 1, "to");
         return forecastService.forecast(userId, end);
     }
 }

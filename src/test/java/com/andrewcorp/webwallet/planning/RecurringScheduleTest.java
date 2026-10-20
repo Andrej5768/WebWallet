@@ -57,4 +57,12 @@ class RecurringScheduleTest {
         assertThat(RecurringService.dates(recurring, date("2027-01-01"), date("2027-12-31")))
                 .isEmpty();
     }
+
+    @Test
+    void doesNotSkipAnOccurrenceOfAnOldSeries() {
+        RecurringPayment recurring = recurring(Frequency.MONTHLY, 1, "2010-01-05", null);
+
+        assertThat(RecurringService.dates(recurring, date("2026-10-16"), date("2026-12-31")))
+                .containsExactly(date("2026-11-05"), date("2026-12-05"));
+    }
 }

@@ -33,7 +33,7 @@
             "type" : "integer"
           },
           "type" : {
-            "enum" : [ "CASH", "CARD", "CREDIT_CARD", "LOAN", "DEPOSIT", "SAVINGS", "DEBT", "INVESTMENT" ],
+            "enum" : [ "CASH", "CARD", "CREDIT_CARD", "LOAN", "DEPOSIT", "SAVINGS", "DEBT", "INVESTMENT", "FOP" ],
             "type" : "string"
           }
         },
@@ -81,7 +81,7 @@
             "type" : "integer"
           },
           "type" : {
-            "enum" : [ "CASH", "CARD", "CREDIT_CARD", "LOAN", "DEPOSIT", "SAVINGS", "DEBT", "INVESTMENT" ],
+            "enum" : [ "CASH", "CARD", "CREDIT_CARD", "LOAN", "DEPOSIT", "SAVINGS", "DEBT", "INVESTMENT", "FOP" ],
             "type" : "string"
           }
         },
@@ -113,6 +113,21 @@
           }
         },
         "required" : [ "available", "availableWithCredit", "currency", "netWorth", "readyToAssign", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "AllocationPart" : {
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "share" : {
+            "type" : "number"
+          },
+          "value" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "key", "share", "value" ],
         "type" : "object"
       },
       "Anomaly" : {
@@ -150,6 +165,281 @@
           }
         },
         "required" : [ "assigned" ],
+        "type" : "object"
+      },
+      "BenchmarkInfo" : {
+        "properties" : {
+          "key" : {
+            "enum" : [ "SP500", "MSCI_WORLD", "NASDAQ100" ],
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "pricesFrom" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "key", "name", "pricesFrom", "symbol" ],
+        "type" : "object"
+      },
+      "BrokerConfirmRequest" : {
+        "properties" : {
+          "excluded" : {
+            "items" : {
+              "maxLength" : 200,
+              "minLength" : 0,
+              "type" : "string"
+            },
+            "maxItems" : 100000,
+            "minItems" : 0,
+            "type" : "array"
+          },
+          "instruments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TickerChoice"
+            },
+            "maxItems" : 1000,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "BrokerImportResult" : {
+        "properties" : {
+          "accountCreated" : {
+            "type" : "boolean"
+          },
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "duplicates" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "instrumentsCreated" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "operationsImported" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "accountCreated", "accountId", "duplicates", "instrumentsCreated", "operationsImported" ],
+        "type" : "object"
+      },
+      "BrokerPreviewResponse" : {
+        "properties" : {
+          "account" : {
+            "$ref" : "#/components/schemas/PreviewAccount"
+          },
+          "cash" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CashPreview"
+            },
+            "type" : "array"
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "instruments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TickerPreview"
+            },
+            "type" : "array"
+          },
+          "merged" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "operations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OperationPreview"
+            },
+            "type" : "array"
+          },
+          "providerUnavailable" : {
+            "type" : "boolean"
+          },
+          "source" : {
+            "enum" : [ "PRIVATBANK", "ZENMONEY", "FREEDOM" ],
+            "type" : "string"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "account", "cash", "expiresAt", "from", "id", "instruments", "merged", "operations", "providerUnavailable", "source", "to" ],
+        "type" : "object"
+      },
+      "CalendarEvent" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "exDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "gross" : {
+            "type" : "number"
+          },
+          "grossInTarget" : {
+            "type" : "number"
+          },
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "net" : {
+            "type" : "number"
+          },
+          "netInTarget" : {
+            "type" : "number"
+          },
+          "perShare" : {
+            "type" : [ "number", "null" ]
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "status" : {
+            "enum" : [ "RECEIVED", "EXPECTED", "DECLARED", "FORECAST" ],
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "tax" : {
+            "type" : "number"
+          },
+          "taxEstimated" : {
+            "type" : "boolean"
+          },
+          "type" : {
+            "enum" : [ "STOCK", "ETF", "FUND", "BOND", "GOVERNMENT_BOND", "CRYPTO", "OTHER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "currency", "date", "exDate", "gross", "grossInTarget", "instrumentId", "name", "net", "netInTarget", "perShare", "quantity", "status", "symbol", "tax", "taxEstimated", "type" ],
+        "type" : "object"
+      },
+      "CalendarResponse" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "events" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CalendarEvent"
+            },
+            "type" : "array"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "monthly" : {
+            "type" : "number"
+          },
+          "months" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MonthPayments"
+            },
+            "type" : "array"
+          },
+          "next12Months" : {
+            "type" : "number"
+          },
+          "next12MonthsNet" : {
+            "type" : "number"
+          },
+          "received12Months" : {
+            "type" : "number"
+          },
+          "receivedByInstrument" : {
+            "items" : {
+              "$ref" : "#/components/schemas/InstrumentIncome"
+            },
+            "type" : "array"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "yield" : {
+            "type" : [ "number", "null" ]
+          },
+          "yieldOnCost" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "currency", "events", "from", "monthly", "months", "next12Months", "next12MonthsNet", "received12Months", "receivedByInstrument", "to", "unconvertedCurrencies", "yield", "yieldOnCost" ],
+        "type" : "object"
+      },
+      "CashPreview" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "amount", "currency" ],
+        "type" : "object"
+      },
+      "CashResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "amountInBase" : {
+            "type" : [ "number", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "amount", "amountInBase", "currency" ],
         "type" : "object"
       },
       "CategoryChange" : {
@@ -589,6 +879,71 @@
         "required" : [ "accountId", "amount", "name" ],
         "type" : "object"
       },
+      "DividendDocumentRequest" : {
+        "properties" : {
+          "document" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "DividendTax" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "amountUah" : {
+            "type" : "number"
+          },
+          "credit" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "document" : {
+            "type" : "boolean"
+          },
+          "documentSet" : {
+            "type" : "boolean"
+          },
+          "military" : {
+            "type" : "number"
+          },
+          "operationId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "pdfo" : {
+            "type" : "number"
+          },
+          "rate" : {
+            "type" : [ "number", "null" ]
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "withheld" : {
+            "type" : "number"
+          },
+          "withheldUah" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "accountId", "amount", "amountUah", "credit", "currency", "date", "document", "documentSet", "military", "operationId", "pdfo", "rate", "symbol", "type", "withheld", "withheldUah" ],
+        "type" : "object"
+      },
       "EmailRequest" : {
         "properties" : {
           "email" : {
@@ -599,6 +954,161 @@
           }
         },
         "required" : [ "email" ],
+        "type" : "object"
+      },
+      "FopIncome" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "accountName" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "amountUah" : {
+            "type" : [ "number", "null" ]
+          },
+          "comment" : {
+            "type" : [ "string", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "included" : {
+            "type" : "boolean"
+          },
+          "payee" : {
+            "type" : [ "string", "null" ]
+          },
+          "quarter" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "rate" : {
+            "type" : [ "number", "null" ]
+          },
+          "reason" : {
+            "enum" : [ "ACCOUNT", "CATEGORY", "MANUAL" ],
+            "type" : "string"
+          },
+          "transactionId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "accountId", "accountName", "amount", "amountUah", "comment", "currency", "date", "included", "payee", "quarter", "rate", "reason", "transactionId" ],
+        "type" : "object"
+      },
+      "FopQuarter" : {
+        "properties" : {
+          "declarationDue" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "esv" : {
+            "type" : "number"
+          },
+          "esvDue" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "military" : {
+            "type" : "number"
+          },
+          "paid" : {
+            "type" : "boolean"
+          },
+          "quarter" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "singleTax" : {
+            "type" : "number"
+          },
+          "taxDue" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "total" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "declarationDue", "esv", "esvDue", "income", "military", "paid", "quarter", "singleTax", "taxDue", "total" ],
+        "type" : "object"
+      },
+      "FopReport" : {
+        "properties" : {
+          "fopAccountIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "incomeLimit" : {
+            "type" : "number"
+          },
+          "incomes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FopIncome"
+            },
+            "type" : "array"
+          },
+          "quarters" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FopQuarter"
+            },
+            "type" : "array"
+          },
+          "rates" : {
+            "$ref" : "#/components/schemas/TaxRates"
+          },
+          "totals" : {
+            "$ref" : "#/components/schemas/FopTotals"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "year" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "fopAccountIds", "incomeLimit", "incomes", "quarters", "rates", "totals", "unconvertedCurrencies", "year" ],
+        "type" : "object"
+      },
+      "FopTotals" : {
+        "properties" : {
+          "esv" : {
+            "type" : "number"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "military" : {
+            "type" : "number"
+          },
+          "singleTax" : {
+            "type" : "number"
+          },
+          "total" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "esv", "income", "military", "singleTax", "total" ],
         "type" : "object"
       },
       "ForecastDay" : {
@@ -835,6 +1345,64 @@
         "required" : [ "currency", "goals", "monthlyNeeded", "saved", "target", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "HistoryPoint" : {
+        "properties" : {
+          "benchmark" : {
+            "type" : [ "number", "null" ]
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "deposited" : {
+            "type" : "number"
+          },
+          "value" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "benchmark", "date", "deposited", "value" ],
+        "type" : "object"
+      },
+      "HistoryResponse" : {
+        "properties" : {
+          "benchmark" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/BenchmarkInfo"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "from" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "points" : {
+            "items" : {
+              "$ref" : "#/components/schemas/HistoryPoint"
+            },
+            "type" : "array"
+          },
+          "returns" : {
+            "$ref" : "#/components/schemas/Returns"
+          },
+          "to" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "benchmark", "currency", "from", "points", "returns", "to", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
       "ImportAccount" : {
         "properties" : {
           "created" : {
@@ -927,7 +1495,7 @@
             "$ref" : "#/components/schemas/PageResponseImportOperation"
           },
           "source" : {
-            "enum" : [ "PRIVATBANK", "ZENMONEY" ],
+            "enum" : [ "PRIVATBANK", "ZENMONEY", "FREEDOM" ],
             "type" : "string"
           },
           "summary" : {
@@ -981,6 +1549,21 @@
         "required" : [ "accountsCreated", "accountsUpdated", "budgetsImported", "categoriesCreated", "payeesCreated", "transactionsImported", "transactionsMatched", "transactionsSkipped", "warnings" ],
         "type" : "object"
       },
+      "IncomeCategoriesRequest" : {
+        "properties" : {
+          "categoryIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "maxItems" : 500,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        },
+        "required" : [ "categoryIds" ],
+        "type" : "object"
+      },
       "IncomeExpenseResponse" : {
         "properties" : {
           "currency" : {
@@ -1020,6 +1603,180 @@
           }
         },
         "required" : [ "currency", "expense", "from", "income", "months", "net", "savingsRate", "to", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "InstrumentChoice" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "exchange" : {
+            "type" : [ "string", "null" ]
+          },
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "manual" : {
+            "type" : "boolean"
+          },
+          "micCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "STOCK", "ETF", "FUND", "BOND", "GOVERNMENT_BOND", "CRYPTO", "OTHER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "currency", "exchange", "instrumentId", "manual", "micCode", "name", "symbol", "type" ],
+        "type" : "object"
+      },
+      "InstrumentIncome" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "amount", "instrumentId", "symbol" ],
+        "type" : "object"
+      },
+      "InstrumentResponse" : {
+        "properties" : {
+          "couponFrequency" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "couponRate" : {
+            "type" : [ "number", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "exchange" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "isin" : {
+            "type" : [ "string", "null" ]
+          },
+          "maturityDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "micCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "nominal" : {
+            "type" : [ "number", "null" ]
+          },
+          "own" : {
+            "type" : "boolean"
+          },
+          "price" : {
+            "type" : [ "number", "null" ]
+          },
+          "priceDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "STOCK", "ETF", "FUND", "BOND", "GOVERNMENT_BOND", "CRYPTO", "OTHER" ],
+            "type" : "string"
+          },
+          "valuation" : {
+            "enum" : [ "MARKET", "NOMINAL", "MANUAL" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "couponFrequency", "couponRate", "currency", "exchange", "id", "isin", "maturityDate", "micCode", "name", "nominal", "own", "price", "priceDate", "symbol", "type", "valuation" ],
+        "type" : "object"
+      },
+      "InvestmentTaxReport" : {
+        "properties" : {
+          "carriedIn" : {
+            "type" : "number"
+          },
+          "carriedOut" : {
+            "type" : "number"
+          },
+          "creditUah" : {
+            "type" : "number"
+          },
+          "declarationDue" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "dividends" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DividendTax"
+            },
+            "type" : "array"
+          },
+          "dividendsUah" : {
+            "type" : "number"
+          },
+          "military" : {
+            "type" : "number"
+          },
+          "paymentDue" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "pdfo" : {
+            "type" : "number"
+          },
+          "profit" : {
+            "type" : "number"
+          },
+          "rates" : {
+            "$ref" : "#/components/schemas/TaxRates"
+          },
+          "sales" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SaleTax"
+            },
+            "type" : "array"
+          },
+          "taxableProfit" : {
+            "type" : "number"
+          },
+          "total" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "year" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "carriedIn", "carriedOut", "creditUah", "declarationDue", "dividends", "dividendsUah", "military", "paymentDue", "pdfo", "profit", "rates", "sales", "taxableProfit", "total", "unconvertedCurrencies", "year" ],
         "type" : "object"
       },
       "LinkRequest" : {
@@ -1083,6 +1840,48 @@
         "required" : [ "email", "password" ],
         "type" : "object"
       },
+      "LotResponse" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "operationId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "remaining" : {
+            "type" : "number"
+          },
+          "unitCost" : {
+            "type" : "number"
+          },
+          "unrealized" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "date", "operationId", "quantity", "remaining", "unitCost", "unrealized" ],
+        "type" : "object"
+      },
+      "MarketInstrumentRequest" : {
+        "properties" : {
+          "micCode" : {
+            "maxLength" : 10,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "symbol" : {
+            "maxLength" : 30,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "symbol" ],
+        "type" : "object"
+      },
       "MonthIncomeExpense" : {
         "properties" : {
           "expense" : {
@@ -1120,6 +1919,27 @@
           }
         },
         "required" : [ "assets", "liabilities", "month", "netWorth" ],
+        "type" : "object"
+      },
+      "MonthPayments" : {
+        "properties" : {
+          "declared" : {
+            "type" : "number"
+          },
+          "expected" : {
+            "type" : "number"
+          },
+          "forecast" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "received" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "declared", "expected", "forecast", "month", "received" ],
         "type" : "object"
       },
       "MonthResponse" : {
@@ -1430,11 +2250,290 @@
         "required" : [ "key" ],
         "type" : "object"
       },
+      "OperationPreview" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "cash" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "fee" : {
+            "type" : "number"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "price" : {
+            "type" : [ "number", "null" ]
+          },
+          "quantity" : {
+            "type" : [ "number", "null" ]
+          },
+          "skip" : {
+            "enum" : [ "SERVICE", "UNKNOWN", null ],
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "enum" : [ "NEW", "DUPLICATE", "SKIPPED" ],
+            "type" : "string"
+          },
+          "tax" : {
+            "type" : "number"
+          },
+          "ticker" : {
+            "type" : [ "string", "null" ]
+          },
+          "toAmount" : {
+            "type" : [ "number", "null" ]
+          },
+          "toCurrency" : {
+            "type" : [ "string", "null" ]
+          },
+          "type" : {
+            "enum" : [ "BUY", "SELL", "DIVIDEND", "COUPON", "FEE", "SPLIT", "DEPOSIT", "WITHDRAWAL", "EXCHANGE", null ],
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "amount", "cash", "currency", "date", "description", "fee", "key", "price", "quantity", "skip", "status", "tax", "ticker", "toAmount", "toCurrency", "type" ],
+        "type" : "object"
+      },
+      "OperationRequest" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "comment" : {
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "fee" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "price" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "quantity" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "splitFrom" : {
+            "format" : "int32",
+            "maximum" : 1000,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "splitTo" : {
+            "format" : "int32",
+            "maximum" : 1000,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "tax" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "toAmount" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "toCurrency" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "BUY", "SELL", "DIVIDEND", "COUPON", "FEE", "SPLIT", "DEPOSIT", "WITHDRAWAL", "EXCHANGE" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "date", "type" ],
+        "type" : "object"
+      },
+      "OperationResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "cash" : {
+            "type" : "number"
+          },
+          "comment" : {
+            "type" : [ "string", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "fee" : {
+            "type" : "number"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "price" : {
+            "type" : [ "number", "null" ]
+          },
+          "quantity" : {
+            "type" : [ "number", "null" ]
+          },
+          "splitFrom" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "splitTo" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "symbol" : {
+            "type" : [ "string", "null" ]
+          },
+          "tax" : {
+            "type" : "number"
+          },
+          "toAmount" : {
+            "type" : [ "number", "null" ]
+          },
+          "toCurrency" : {
+            "type" : [ "string", "null" ]
+          },
+          "type" : {
+            "enum" : [ "BUY", "SELL", "DIVIDEND", "COUPON", "FEE", "SPLIT", "DEPOSIT", "WITHDRAWAL", "EXCHANGE" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "amount", "cash", "comment", "currency", "date", "fee", "id", "instrumentId", "price", "quantity", "splitFrom", "splitTo", "symbol", "tax", "toAmount", "toCurrency", "type" ],
+        "type" : "object"
+      },
+      "OwnInstrumentRequest" : {
+        "properties" : {
+          "couponFrequency" : {
+            "format" : "int32",
+            "maximum" : 12,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "couponRate" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "isin" : {
+            "pattern" : "[A-Z]{2}[A-Z0-9]{9}[0-9]",
+            "type" : "string"
+          },
+          "manualPrice" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "manualPriceDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "maturityDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "name" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "nominal" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "symbol" : {
+            "maxLength" : 30,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "STOCK", "ETF", "FUND", "BOND", "GOVERNMENT_BOND", "CRYPTO", "OTHER" ],
+            "type" : "string"
+          },
+          "valuation" : {
+            "enum" : [ "MARKET", "NOMINAL", "MANUAL" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "currency", "name", "symbol", "type", "valuation" ],
+        "type" : "object"
+      },
       "PageResponseImportOperation" : {
         "properties" : {
           "items" : {
             "items" : {
               "$ref" : "#/components/schemas/ImportOperation"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalItems" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalPages" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "items", "page", "size", "totalItems", "totalPages" ],
+        "type" : "object"
+      },
+      "PageResponseOperationResponse" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OperationResponse"
             },
             "type" : "array"
           },
@@ -1640,6 +2739,218 @@
           }
         },
         "required" : [ "actual", "categoryId", "children", "completion", "difference", "forecast", "name", "planned", "plannedRemaining" ],
+        "type" : "object"
+      },
+      "PortfolioResponse" : {
+        "properties" : {
+          "byCurrency" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AllocationPart"
+            },
+            "type" : "array"
+          },
+          "bySector" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AllocationPart"
+            },
+            "type" : "array"
+          },
+          "byType" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AllocationPart"
+            },
+            "type" : "array"
+          },
+          "cash" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CashResponse"
+            },
+            "type" : "array"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "dayChange" : {
+            "type" : "number"
+          },
+          "deposited" : {
+            "type" : "number"
+          },
+          "dividendsLast12Months" : {
+            "type" : "number"
+          },
+          "invested" : {
+            "type" : "number"
+          },
+          "positions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PositionResponse"
+            },
+            "type" : "array"
+          },
+          "pricesAsOf" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "realizedThisYear" : {
+            "type" : "number"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "unrealized" : {
+            "type" : "number"
+          },
+          "unrealizedShare" : {
+            "type" : [ "number", "null" ]
+          },
+          "value" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "byCurrency", "bySector", "byType", "cash", "currency", "dayChange", "deposited", "dividendsLast12Months", "invested", "positions", "pricesAsOf", "realizedThisYear", "unconvertedCurrencies", "unrealized", "unrealizedShare", "value" ],
+        "type" : "object"
+      },
+      "PositionDetailResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "averagePrice" : {
+            "type" : [ "number", "null" ]
+          },
+          "cost" : {
+            "type" : "number"
+          },
+          "dividends" : {
+            "type" : "number"
+          },
+          "instrument" : {
+            "$ref" : "#/components/schemas/InstrumentResponse"
+          },
+          "lots" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LotResponse"
+            },
+            "type" : "array"
+          },
+          "operations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OperationResponse"
+            },
+            "type" : "array"
+          },
+          "price" : {
+            "type" : [ "number", "null" ]
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "realized" : {
+            "type" : "number"
+          },
+          "sales" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SaleResponse"
+            },
+            "type" : "array"
+          },
+          "unrealized" : {
+            "type" : "number"
+          },
+          "value" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "accountId", "averagePrice", "cost", "dividends", "instrument", "lots", "operations", "price", "quantity", "realized", "sales", "unrealized", "value" ],
+        "type" : "object"
+      },
+      "PositionResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "averagePrice" : {
+            "type" : "number"
+          },
+          "cost" : {
+            "type" : "number"
+          },
+          "dayChange" : {
+            "type" : [ "number", "null" ]
+          },
+          "instrument" : {
+            "$ref" : "#/components/schemas/InstrumentResponse"
+          },
+          "price" : {
+            "type" : [ "number", "null" ]
+          },
+          "priceDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "share" : {
+            "type" : [ "number", "null" ]
+          },
+          "unrealized" : {
+            "type" : "number"
+          },
+          "unrealizedShare" : {
+            "type" : [ "number", "null" ]
+          },
+          "value" : {
+            "type" : "number"
+          },
+          "valueInBase" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "accountId", "averagePrice", "cost", "dayChange", "instrument", "price", "priceDate", "quantity", "share", "unrealized", "unrealizedShare", "value", "valueInBase" ],
+        "type" : "object"
+      },
+      "PreviewAccount" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "currency", "id", "name" ],
+        "type" : "object"
+      },
+      "PricePoint" : {
+        "properties" : {
+          "close" : {
+            "type" : "number"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "required" : [ "close", "date" ],
+        "type" : "object"
+      },
+      "QuarterPaymentRequest" : {
+        "properties" : {
+          "paid" : {
+            "type" : "boolean"
+          }
+        },
         "type" : "object"
       },
       "RecurringRef" : {
@@ -1871,6 +3182,27 @@
         },
         "type" : "object"
       },
+      "Returns" : {
+        "properties" : {
+          "benchmarkTwr" : {
+            "type" : [ "number", "null" ]
+          },
+          "benchmarkXirr" : {
+            "type" : [ "number", "null" ]
+          },
+          "twr" : {
+            "type" : [ "number", "null" ]
+          },
+          "twrAnnualized" : {
+            "type" : [ "number", "null" ]
+          },
+          "xirr" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "required" : [ "benchmarkTwr", "benchmarkXirr", "twr", "twrAnnualized", "xirr" ],
+        "type" : "object"
+      },
       "RuleRequest" : {
         "properties" : {
           "bankCategory" : {
@@ -1935,6 +3267,103 @@
         "required" : [ "bankCategory", "categoryId", "id", "learned", "mcc", "payee", "payeePattern" ],
         "type" : "object"
       },
+      "SalePart" : {
+        "properties" : {
+          "lotDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "lotOperationId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "unitCost" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "lotDate", "lotOperationId", "quantity", "unitCost" ],
+        "type" : "object"
+      },
+      "SaleResponse" : {
+        "properties" : {
+          "cost" : {
+            "type" : "number"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "operationId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "parts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SalePart"
+            },
+            "type" : "array"
+          },
+          "proceeds" : {
+            "type" : "number"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "realized" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "cost", "date", "operationId", "parts", "proceeds", "quantity", "realized" ],
+        "type" : "object"
+      },
+      "SaleTax" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "cost" : {
+            "type" : "number"
+          },
+          "costUah" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "incomeUah" : {
+            "type" : "number"
+          },
+          "operationId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "proceeds" : {
+            "type" : "number"
+          },
+          "quantity" : {
+            "type" : "number"
+          },
+          "resultInCurrency" : {
+            "type" : "number"
+          },
+          "resultUah" : {
+            "type" : "number"
+          },
+          "symbol" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "accountId", "cost", "costUah", "currency", "date", "incomeUah", "operationId", "proceeds", "quantity", "resultInCurrency", "resultUah", "symbol" ],
+        "type" : "object"
+      },
       "SavingsResponse" : {
         "properties" : {
           "averageRate" : {
@@ -1997,6 +3426,53 @@
           }
         },
         "required" : [ "syncMode" ],
+        "type" : "object"
+      },
+      "SearchResponse" : {
+        "properties" : {
+          "providerEnabled" : {
+            "type" : "boolean"
+          },
+          "results" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SearchResult"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "providerEnabled", "results" ],
+        "type" : "object"
+      },
+      "SearchResult" : {
+        "properties" : {
+          "country" : {
+            "type" : [ "string", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "exchange" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "micCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "STOCK", "ETF", "FUND", "BOND", "GOVERNMENT_BOND", "CRYPTO", "OTHER" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "country", "currency", "exchange", "id", "micCode", "name", "symbol", "type" ],
         "type" : "object"
       },
       "SpendingResponse" : {
@@ -2105,6 +3581,277 @@
         "required" : [ "color", "id", "name" ],
         "type" : "object"
       },
+      "TaxProfileData" : {
+        "properties" : {
+          "apartment" : {
+            "maxLength" : 20,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "building" : {
+            "maxLength" : 20,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "city" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "corpus" : {
+            "maxLength" : 20,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "district" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "districtCode" : {
+            "format" : "int32",
+            "maximum" : 99,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "email" : {
+            "format" : "email",
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "kvedCode" : {
+            "pattern" : "[0-9]{2}\\.([0-9]{1,2}|[0-9]{2}\\.[0-9])",
+            "type" : [ "string", "null" ]
+          },
+          "kvedName" : {
+            "maxLength" : 250,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "name" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "phone" : {
+            "maxLength" : 30,
+            "minLength" : 0,
+            "pattern" : "[0-9 ()\\-+.,;]{4,}",
+            "type" : [ "string", "null" ]
+          },
+          "region" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "regionCode" : {
+            "format" : "int32",
+            "maximum" : 99,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "street" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "taxOffice" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "tin" : {
+            "minLength" : 1,
+            "pattern" : "[0-9]{10}|[0-9]{9}|[АБВГДЕЄЖЗИІКЛМНОПРСТУФХЦЧШЩЮЯ]{2}[0-9]{6}",
+            "type" : "string"
+          },
+          "zip" : {
+            "pattern" : "[0-9]{5}",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "city", "districtCode", "name", "regionCode", "street", "taxOffice", "tin" ],
+        "type" : "object"
+      },
+      "TaxRates" : {
+        "properties" : {
+          "esvEnabled" : {
+            "type" : "boolean"
+          },
+          "esvRate" : {
+            "type" : "number"
+          },
+          "fopGroup" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "fopMilitaryMonthly" : {
+            "type" : "number"
+          },
+          "fopMilitaryRate" : {
+            "type" : "number"
+          },
+          "fopVat" : {
+            "type" : "boolean"
+          },
+          "foreignDocumentDefault" : {
+            "type" : "boolean"
+          },
+          "investmentMilitaryRate" : {
+            "type" : "number"
+          },
+          "minWage" : {
+            "type" : "number"
+          },
+          "pdfoRate" : {
+            "type" : "number"
+          },
+          "singleTaxMonthly" : {
+            "type" : "number"
+          },
+          "singleTaxRate" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "esvEnabled", "esvRate", "fopGroup", "fopMilitaryMonthly", "fopMilitaryRate", "fopVat", "foreignDocumentDefault", "investmentMilitaryRate", "minWage", "pdfoRate", "singleTaxMonthly", "singleTaxRate" ],
+        "type" : "object"
+      },
+      "TaxSettingsRequest" : {
+        "properties" : {
+          "esvEnabled" : {
+            "type" : "boolean"
+          },
+          "esvRate" : {
+            "maximum" : 100,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "fopGroup" : {
+            "format" : "int32",
+            "maximum" : 3,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "fopMilitaryMonthly" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "fopMilitaryRate" : {
+            "maximum" : 100,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "fopVat" : {
+            "type" : "boolean"
+          },
+          "foreignDocumentDefault" : {
+            "type" : "boolean"
+          },
+          "investmentMilitaryRate" : {
+            "maximum" : 100,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "minWage" : {
+            "exclusiveMinimum" : 0,
+            "type" : "number"
+          },
+          "pdfoRate" : {
+            "maximum" : 100,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "singleTaxMonthly" : {
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "singleTaxRate" : {
+            "maximum" : 100,
+            "minimum" : 0,
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "TaxSettingsResponse" : {
+        "properties" : {
+          "defaults" : {
+            "$ref" : "#/components/schemas/TaxRates"
+          },
+          "incomeCategoryIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "sources" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "values" : {
+            "$ref" : "#/components/schemas/TaxRates"
+          },
+          "year" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "defaults", "incomeCategoryIds", "sources", "values", "year" ],
+        "type" : "object"
+      },
+      "TickerChoice" : {
+        "properties" : {
+          "instrumentId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "manual" : {
+            "type" : "boolean"
+          },
+          "micCode" : {
+            "maxLength" : 10,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "symbol" : {
+            "maxLength" : 30,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "ticker" : {
+            "maxLength" : 50,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "ticker" ],
+        "type" : "object"
+      },
+      "TickerPreview" : {
+        "properties" : {
+          "currency" : {
+            "type" : "string"
+          },
+          "quantityAfter" : {
+            "type" : "number"
+          },
+          "shortfall" : {
+            "type" : "boolean"
+          },
+          "suggestion" : {
+            "$ref" : "#/components/schemas/InstrumentChoice"
+          },
+          "ticker" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "currency", "quantityAfter", "shortfall", "suggestion", "ticker" ],
+        "type" : "object"
+      },
       "TokenRequest" : {
         "properties" : {
           "token" : {
@@ -2130,6 +3877,14 @@
           }
         },
         "required" : [ "accessToken", "expiresIn", "tokenType" ],
+        "type" : "object"
+      },
+      "TransactionMarkRequest" : {
+        "properties" : {
+          "included" : {
+            "type" : "boolean"
+          }
+        },
         "type" : "object"
       },
       "TransactionRequest" : {
@@ -2286,6 +4041,26 @@
         "required" : [ "accountId", "amount", "comment", "createdAt", "currency", "date", "id", "originalAmount", "originalCurrency", "payee", "recurring", "source", "splits", "tagIds", "toAccountId", "toAmount", "toCurrency", "type" ],
         "type" : "object"
       },
+      "TransactionTaxResponse" : {
+        "properties" : {
+          "counted" : {
+            "type" : "boolean"
+          },
+          "mark" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "reason" : {
+            "enum" : [ "ACCOUNT", "CATEGORY", "MANUAL", null ],
+            "type" : [ "string", "null" ]
+          },
+          "ruleReason" : {
+            "enum" : [ "ACCOUNT", "CATEGORY", "MANUAL", null ],
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "counted", "mark", "reason", "ruleReason" ],
+        "type" : "object"
+      },
       "TrendsResponse" : {
         "properties" : {
           "average" : {
@@ -2435,7 +4210,7 @@
         "tags" : [ "Accounts" ]
       },
       "post" : {
-        "operationId" : "create_7",
+        "operationId" : "create_8",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -2489,7 +4264,7 @@
     },
     "/api/v1/accounts/{id}" : {
       "delete" : {
-        "operationId" : "delete_7",
+        "operationId" : "delete_8",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -2540,7 +4315,7 @@
       },
       "put" : {
         "description" : "Omitted optional fields keep their values; a credit limit or interest rate of 0 removes it",
-        "operationId" : "update_5",
+        "operationId" : "update_6",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3305,7 +5080,7 @@
         "tags" : [ "Categories" ]
       },
       "post" : {
-        "operationId" : "create_6",
+        "operationId" : "create_7",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -3375,7 +5150,7 @@
     },
     "/api/v1/categories/{id}" : {
       "delete" : {
-        "operationId" : "delete_6",
+        "operationId" : "delete_7",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3398,7 +5173,7 @@
       },
       "put" : {
         "description" : "The parent is always applied (null makes a top-level category); other omitted optional fields keep their values. icon, color and necessity sent as null are removed. A necessity is allowed only on expense categories; it is removed when the category becomes income.",
-        "operationId" : "update_4",
+        "operationId" : "update_5",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3462,7 +5237,7 @@
         "tags" : [ "Categorization rules" ]
       },
       "post" : {
-        "operationId" : "create_5",
+        "operationId" : "create_6",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -3515,7 +5290,7 @@
     },
     "/api/v1/categorization-rules/{id}" : {
       "delete" : {
-        "operationId" : "delete_5",
+        "operationId" : "delete_6",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3536,7 +5311,7 @@
         "tags" : [ "Categorization rules" ]
       },
       "put" : {
-        "operationId" : "update_3",
+        "operationId" : "update_4",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3628,7 +5403,7 @@
         "tags" : [ "Goals" ]
       },
       "post" : {
-        "operationId" : "create_4",
+        "operationId" : "create_5",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -3659,7 +5434,7 @@
     },
     "/api/v1/goals/{id}" : {
       "delete" : {
-        "operationId" : "delete_4",
+        "operationId" : "delete_5",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3709,7 +5484,7 @@
       },
       "put" : {
         "description" : "Omitted achieved and sortOrder keep their values. Moved to another account, the pace starts again from its balance.",
-        "operationId" : "update_2",
+        "operationId" : "update_3",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3787,6 +5562,99 @@
         } ],
         "summary" : "Add to (or take from) the progress of a goal without an account",
         "tags" : [ "Goals" ]
+      }
+    },
+    "/api/v1/imports/freedom/preview" : {
+      "post" : {
+        "description" : "The trades report and the cash flows report, in any order; the cash flows give the currency of the fees, so both are needed for exact money. Without accountId the operations go to the brokerage account named Freedom Finance, created when there is none. Confirm with POST /previews/{id}/confirm within an hour, discard with DELETE /api/v1/imports/previews/{id}. Only the parsed reports are kept, not the files.",
+        "operationId" : "preview_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "files" : {
+                    "items" : {
+                      "format" : "binary",
+                      "type" : "string"
+                    },
+                    "type" : "array"
+                  }
+                },
+                "required" : [ "files" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BrokerPreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Preview Freedom Finance reports (XLSX) without saving anything",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/freedom/previews/{id}/confirm" : {
+      "post" : {
+        "description" : "Tickers not listed get the suggested instruments, operations not excluded are imported; those imported before are skipped. Rejected when the reports sell more than they buy before. The preview is removed afterwards; 404 when it is unknown or expired.",
+        "operationId" : "confirm_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerConfirmRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BrokerImportResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Import the previewed reports",
+        "tags" : [ "Imports" ]
       }
     },
     "/api/v1/imports/previews/{id}" : {
@@ -4140,6 +6008,658 @@
         } ],
         "summary" : "Preview everything from Zen Money with an API token without saving anything",
         "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/investments/dividends" : {
+      "get" : {
+        "description" : "By default from a year ago to a year ahead, at most 5 years. Received ones are the operations; expected ones were due to a holder on the ex-dividend date but are not recorded; declared ones come from the dividend provider or the coupon schedule of a bond; the forecast repeats the payments of the last 12 months for what is held now.",
+        "operationId" : "dividends",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "currency",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CalendarResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Dividends and coupons: received, expected, declared and forecast, by day and by month",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/history" : {
+      "get" : {
+        "description" : "Cash and positions at the closes of each day in the currency (by default the base one) at the NBU rates of the day. The benchmark is what the same deposits would be worth in the index fund, bought and sold at the closes of their days; its prices load within minutes after it is first asked for. Periods over 400 days are sampled weekly.",
+        "operationId" : "history",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "currency",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "benchmark",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "SP500", "MSCI_WORLD", "NASDAQ100" ],
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HistoryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The value of the brokerage accounts day by day, the net deposits and a benchmark",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/instruments" : {
+      "get" : {
+        "operationId" : "instruments",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/InstrumentResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Instruments of the user's operations and those entered by hand, with the latest prices",
+        "tags" : [ "Investments" ]
+      },
+      "post" : {
+        "operationId" : "createOwn",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnInstrumentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstrumentResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Enter an instrument by hand, e.g. a Ukrainian government bond",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/instruments/market" : {
+      "post" : {
+        "description" : "Its data come from the market data provider; prices load within minutes.",
+        "operationId" : "addMarket",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MarketInstrumentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstrumentResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Add a market instrument found by a search, or get the one already known",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/instruments/search" : {
+      "get" : {
+        "description" : "Own and known instruments first, then those of the market data provider; a result without an id is added with POST /instruments/market.",
+        "operationId" : "search",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "q",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 50,
+            "minLength" : 1,
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Find instruments by ticker, name or ISIN",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/instruments/{id}" : {
+      "delete" : {
+        "operationId" : "deleteOwn",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Delete an instrument entered by hand that has no operations",
+        "tags" : [ "Investments" ]
+      },
+      "get" : {
+        "operationId" : "instrument",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstrumentResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Investments" ]
+      },
+      "put" : {
+        "operationId" : "updateOwn",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnInstrumentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstrumentResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Replace an instrument entered by hand, e.g. with a new manual price",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/instruments/{id}/prices" : {
+      "get" : {
+        "operationId" : "prices",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/PricePoint"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Daily closes of a market instrument, by default of the last year",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/operations" : {
+      "get" : {
+        "description" : "Optionally of one account, one instrument and some types (all by default).",
+        "operationId" : "operations",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "instrumentId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "types",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "enum" : [ "BUY", "SELL", "DIVIDEND", "COUPON", "FEE", "SPLIT", "DEPOSIT", "WITHDRAWAL", "EXCHANGE" ],
+              "type" : "string"
+            },
+            "type" : "array",
+            "uniqueItems" : true
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "maximum" : 200,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseOperationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Operations of the brokerage accounts, newest first",
+        "tags" : [ "Investments" ]
+      },
+      "post" : {
+        "description" : "A sale of more than is held on its date is rejected.",
+        "operationId" : "create_4",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OperationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OperationResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Record a trade, a dividend or coupon, a fee or a split",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/operations/{id}" : {
+      "delete" : {
+        "operationId" : "delete_4",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Delete an operation; deleting a purchase whose units were sold later is rejected",
+        "tags" : [ "Investments" ]
+      },
+      "get" : {
+        "operationId" : "operation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OperationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Investments" ]
+      },
+      "put" : {
+        "operationId" : "update_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OperationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OperationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/portfolio" : {
+      "get" : {
+        "description" : "All brokerage accounts that are not archived, or the given one. Amounts named \"InBase\" are in the currency of the portfolio.",
+        "operationId" : "portfolio",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "currency",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PortfolioResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The portfolio of the brokerage accounts in a currency, by default the base one",
+        "tags" : [ "Investments" ]
+      }
+    },
+    "/api/v1/investments/positions" : {
+      "get" : {
+        "operationId" : "position",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "instrumentId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PositionDetailResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "One instrument on one account: the position, its lots (FIFO), sales and operations",
+        "tags" : [ "Investments" ]
       }
     },
     "/api/v1/me" : {
@@ -5060,6 +7580,461 @@
         } ],
         "summary" : "Rename a tag or change its color",
         "tags" : [ "Tags" ]
+      }
+    },
+    "/api/v1/taxes/declarations/fop/{year}/{quarter}" : {
+      "get" : {
+        "description" : "F0103309 with the amounts from the start of the year; for the fourth quarter with F0133109, the social contribution of the year, both in a ZIP. To be opened, checked and signed in the tax service cabinet.",
+        "operationId" : "fop_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2025,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "quarter",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 4,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "format" : "byte",
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The declaration of a sole proprietor of group 3 for a quarter, as XML of the tax service",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/declarations/property/{year}" : {
+      "get" : {
+        "description" : "F0100215 with F0121215 (Ф1) when there were sales, in a ZIP: foreign dividends with the tax paid abroad and the investment profit. To be opened, checked and signed in the tax service cabinet.",
+        "operationId" : "property",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2025,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "format" : "byte",
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The yearly declaration of property and income, as XML of the tax service",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/fop/{year}" : {
+      "get" : {
+        "operationId" : "fop",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2000,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FopReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The income, taxes, social contribution and deadlines of the sole proprietor by quarter",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/fop/{year}/quarters/{quarter}" : {
+      "put" : {
+        "operationId" : "markPaid",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2000,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "quarter",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 4,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/QuarterPaymentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Mark the taxes of a quarter as paid or not",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/income-categories" : {
+      "put" : {
+        "description" : "Their subcategories count too; the income of FOP accounts counts whatever its category.",
+        "operationId" : "incomeCategories",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IncomeCategoriesRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "format" : "int64",
+                    "type" : "integer"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Replace the income categories whose income is income of the sole proprietor on any account",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/investments/dividends/{operationId}" : {
+      "put" : {
+        "operationId" : "dividendDocument",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "operationId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DividendDocumentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Mark whether the document of the tax withheld abroad from a dividend exists; null forgets",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/investments/{year}" : {
+      "get" : {
+        "description" : "In hryvnias at the NBU rates of the dates: the profit of a sale counts its lots (FIFO) at the rates of their purchases, so a change of the exchange rate is profit too.",
+        "operationId" : "investments",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2000,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InvestmentTaxReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The taxes of the investment income of a year: dividends, sales, the carried loss",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/profile" : {
+      "get" : {
+        "operationId" : "profile",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TaxProfileData"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The taxpayer details for the declarations; 404 until they are entered",
+        "tags" : [ "Taxes" ]
+      },
+      "put" : {
+        "description" : "Kept encrypted. The tax office codes (region and district, C_REG and C_RAJ) are those of the office the taxpayer is registered with.",
+        "operationId" : "saveProfile",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TaxProfileData"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TaxProfileData"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Replace the taxpayer details for the declarations",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/settings/{year}" : {
+      "get" : {
+        "description" : "The defaults are those known when the year was added and may be outdated: the user replaces any of them.",
+        "operationId" : "settings",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2000,
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TaxSettingsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "The tax rates of a year: the user's own values over the defaults, and where to check them",
+        "tags" : [ "Taxes" ]
+      },
+      "put" : {
+        "operationId" : "updateSettings",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "year",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "maximum" : 2100,
+            "minimum" : 2000,
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TaxSettingsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TaxSettingsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Replace the user's own tax values of a year; null takes the default",
+        "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/taxes/transactions/{transactionId}" : {
+      "get" : {
+        "operationId" : "transaction",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "transactionId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TransactionTaxResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Whether a transaction is income of the sole proprietor, and why",
+        "tags" : [ "Taxes" ]
+      },
+      "put" : {
+        "operationId" : "mark",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "transactionId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TransactionMarkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Add a transaction to the income of the sole proprietor, take it out, or forget the mark (null)",
+        "tags" : [ "Taxes" ]
       }
     },
     "/api/v1/transactions" : {

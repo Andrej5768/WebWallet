@@ -80,6 +80,10 @@ public interface PlanningRepository extends Repository<Transaction, Long> {
               and t.date between :from and :to""")
     List<Expense> findExpenses(Long userId, LocalDate from, LocalDate to);
 
+    /** Date of the newest transaction of the user, possibly ahead of today. */
+    @Query("select max(t.date) from Transaction t where t.userId = :userId")
+    LocalDate findLastDate(Long userId);
+
     /** Date of the oldest transaction of the user. */
     @Query("select min(t.date) from Transaction t where t.userId = :userId")
     LocalDate findFirstDate(Long userId);

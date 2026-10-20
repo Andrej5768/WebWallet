@@ -423,4 +423,16 @@ class RecurringControllerTest extends AbstractIntegrationTest {
         assertThat(json(get("/api/v1/recurring/" + id).header("Authorization", auth), 200))
                 .containsEntry("name", "Rent");
     }
+
+    @Test
+    void matchesTransactionsEnteredAheadOfTime() throws Exception {
+        LocalDate due = TODAY.plusDays(20);
+        Long id = create(series("Rent", "EXPENSE", card, 14000, due));
+        Long paid = transaction("EXPENSE", due, card, 14000, null);
+
+        Map<String, Object> occurrence = occurrence(id, due);
+
+        assertThat(occurrence).containsEntry("status", "PAID");
+        assertThat(((Number) occurrence.get("transactionId")).longValue()).isEqualTo(paid);
+    }
 }

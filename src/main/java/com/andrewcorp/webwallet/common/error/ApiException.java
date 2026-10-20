@@ -25,8 +25,8 @@ public class ApiException extends RuntimeException {
     }
 
     /** Validation error of a business rule, rendered like a bean validation error of the given field. */
-    public static ApiException invalid(String field, String messageKey) {
-        return new ApiException(ErrorCode.VALIDATION_FAILED, List.of(new FieldViolation(field, messageKey)));
+    public static ApiException invalid(String field, String messageKey, Object... args) {
+        return new ApiException(ErrorCode.VALIDATION_FAILED, List.of(new FieldViolation(field, messageKey, args)));
     }
 
     public ErrorCode code() {
@@ -39,6 +39,12 @@ public class ApiException extends RuntimeException {
 
     /**
      * @param messageKey key in messages.properties
+     * @param args       arguments of the message, e.g. a limit
      */
-    public record FieldViolation(String field, String messageKey) {}
+    public record FieldViolation(String field, String messageKey, Object[] args) {
+
+        public FieldViolation(String field, String messageKey) {
+            this(field, messageKey, new Object[0]);
+        }
+    }
 }

@@ -122,6 +122,17 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
               and s.category is null and size(t.splits) = 1""")
     List<Transaction> findUncategorized(Long userId);
 
+    /**
+     * The incomes of the period and the transactions given by id (those the user added to the taxes), with their
+     * accounts, payees and categories, for the income of the sole proprietor.
+     */
+    @Query("""
+            select distinct t from Transaction t join fetch t.account left join fetch t.payee
+              left join fetch t.splits s left join fetch s.category
+            where t.userId = :userId and t.date between :from and :to
+              and (t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.INCOME or t.id in :ids)""")
+    List<Transaction> findTaxCandidates(Long userId, LocalDate from, LocalDate to, Collection<Long> ids);
+
     /** Category of the latest categorized transaction with this payee, to categorize new ones the same way. */
     @Query("""
             select s.category from TransactionSplit s join s.transaction t

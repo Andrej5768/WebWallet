@@ -132,12 +132,21 @@ public class ImportPreviewService {
                 new ArrayList<>(collector.operations().reversed());
         operations.sort(Comparator.comparing(ImportOperation::date).reversed());
         StoredPreview stored = new StoredPreview(summary, operations);
+        ImportPreview preview = store(userId, source, input, stored);
+        return response(preview, stored, 0, DEFAULT_PAGE_SIZE);
+    }
+
+    /**
+     * Keeps a parsed import for an hour, as JSON: the input to import on confirmation and what the preview shows. The
+     * oldest previews of the user go when there are too many.
+     */
+    public ImportPreview store(Long userId, ImportSource source, Object input, Object shown) {
         Instant now = clock.instant();
         ImportPreview preview = new ImportPreview(
                 userId,
                 source,
                 jsonMapper.writeValueAsString(input),
-                jsonMapper.writeValueAsString(stored),
+                jsonMapper.writeValueAsString(shown),
                 now,
                 now.plus(TTL));
         tx.executeWithoutResult(status -> {
@@ -147,13 +156,28 @@ public class ImportPreviewService {
             }
             previews.save(preview);
         });
-        return response(preview, stored, 0, DEFAULT_PAGE_SIZE);
+        return preview;
+    }
+
+    /** A preview of the source; 404 when it is unknown, expired or of another source. */
+    @Transactional(readOnly = true)
+    public ImportPreview find(Long userId, UUID id, ImportSource source) {
+        ImportPreview preview = find(userId, id);
+        if (preview.getSource() != source) {
+            throw ApiException.notFound();
+        }
+        return preview;
+    }
+
+    @Transactional
+    public void delete(ImportPreview preview) {
+        previews.delete(preview);
     }
 
     /** A page of the operations of a preview; 404 when it is unknown or expired. */
     @Transactional(readOnly = true)
     public ImportPreviewResponse get(Long userId, UUID id, int page, int size) {
-        ImportPreview preview = find(userId, id);
+        ImportPreview preview = ledger(userId, id);
         return response(preview, stored(preview), page, size);
     }
 
@@ -168,7 +192,7 @@ public class ImportPreviewService {
      */
     @Transactional
     public ImportResult confirm(Long userId, UUID id, ConfirmRequest request) {
-        ImportPreview preview = find(userId, id);
+        ImportPreview preview = ledger(userId, id);
         Map<String, ImportOperation> byKey = new HashMap<>();
         stored(preview).operations().forEach(operation -> byKey.putIfAbsent(operation.key(), operation));
 
@@ -202,6 +226,7 @@ public class ImportPreviewService {
             }
             case ZENMONEY ->
                 zenMoney.importDump(userId, jsonMapper.readValue(preview.getInput(), ZenMoneyDump.class), review, null);
+            case FREEDOM -> throw ApiException.notFound();
         };
         previews.delete(preview);
         return result;
@@ -261,6 +286,15 @@ public class ImportPreviewService {
         Set<Tag> tagSet = tags.findAll(userId, edit.tagIds(), field + ".tagIds");
         String comment = Texts.truncate(Texts.trimToNull(edit.comment()), MAX_COMMENT_LENGTH);
         return new ImportReview.Edit(true, type, transferAccount, category, keepCategory, tagSet, comment);
+    }
+
+    /** A preview of ledger transactions; the others have their own pages and confirmation. */
+    private ImportPreview ledger(Long userId, UUID id) {
+        ImportPreview preview = find(userId, id);
+        if (!preview.getSource().ledger()) {
+            throw ApiException.notFound();
+        }
+        return preview;
     }
 
     private ImportPreview find(Long userId, UUID id) {
