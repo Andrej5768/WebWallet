@@ -472,5 +472,6 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 
 ## License
 
-This project is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md).
-Personal and other noncommercial use is allowed. Commercial use requires a separate agreement with the author.
+All rights reserved. The source code is published for reference only: running, copying, modifying or distributing it
+requires written permission from the author. See [LICENSE.md](LICENSE.md); versions before 20 October 2026 were
+available under the PolyForm Noncommercial License 1.0.0.
