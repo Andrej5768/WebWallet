@@ -34,6 +34,11 @@ public class RefreshTokenCookie {
                 .body(TokenResponse.bearer(tokens.accessToken(), tokens.expiresIn()));
     }
 
+    /** A {@code Set-Cookie} value with the refresh token of the session. */
+    public String of(IssuedTokens tokens) {
+        return cookie(tokens.refreshToken(), maxAge);
+    }
+
     /** A {@code Set-Cookie} value that makes the browser delete the refresh token. */
     public String cleared() {
         return cookie("", Duration.ZERO);

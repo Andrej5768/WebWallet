@@ -3,6 +3,7 @@ package com.andrewcorp.webwallet.user;
 import com.andrewcorp.webwallet.auth.AuthService;
 import com.andrewcorp.webwallet.auth.RefreshTokenCookie;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
+import com.andrewcorp.webwallet.auth.twofactor.TwoFactorService;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.user.dto.ChangePasswordRequest;
 import com.andrewcorp.webwallet.user.dto.ResetRequest;
@@ -32,28 +33,35 @@ public class UserController {
     private final UserDataService userDataService;
     private final AuthService authService;
     private final RefreshTokenCookie refreshTokenCookie;
+    private final TwoFactorService twoFactor;
 
     public UserController(
             UserService userService,
             UserDataService userDataService,
             AuthService authService,
-            RefreshTokenCookie refreshTokenCookie) {
+            RefreshTokenCookie refreshTokenCookie,
+            TwoFactorService twoFactor) {
         this.userService = userService;
         this.userDataService = userDataService;
         this.authService = authService;
         this.refreshTokenCookie = refreshTokenCookie;
+        this.twoFactor = twoFactor;
+    }
+
+    private UserResponse response(User user) {
+        return UserResponse.from(user, twoFactor.recoveryCodesLeft(user.getId()));
     }
 
     @Operation(summary = "Get the profile of the current user")
     @GetMapping
     public UserResponse me(@CurrentUserId Long userId) {
-        return UserResponse.from(userService.get(userId));
+        return response(userService.get(userId));
     }
 
     @Operation(summary = "Update the profile of the current user")
     @PutMapping
     public UserResponse updateProfile(@CurrentUserId Long userId, @Valid @RequestBody UpdateProfileRequest request) {
-        return UserResponse.from(userService.updateProfile(userId, request));
+        return response(userService.updateProfile(userId, request));
     }
 
     @Operation(

@@ -16,6 +16,9 @@ public enum ErrorCode {
     INVALID_TOKEN(HttpStatus.BAD_REQUEST, "error.invalidToken"),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "error.invalidRefreshToken"),
     INVALID_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "error.invalidCurrentPassword"),
+    INVALID_TWO_FACTOR_CODE(HttpStatus.BAD_REQUEST, "error.invalidTwoFactorCode"),
+    /** The time to enter the two-factor code is over; the client starts the sign-in again. */
+    TWO_FACTOR_EXPIRED(HttpStatus.UNAUTHORIZED, "error.twoFactorExpired"),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "error.unauthorized"),
     FORBIDDEN(HttpStatus.FORBIDDEN, "error.forbidden"),
     NOT_FOUND(HttpStatus.NOT_FOUND, "error.notFound"),

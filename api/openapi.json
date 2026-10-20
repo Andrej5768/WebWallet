@@ -879,6 +879,22 @@
         "required" : [ "accountId", "amount", "name" ],
         "type" : "object"
       },
+      "DisableTwoFactorRequest" : {
+        "properties" : {
+          "code" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "password" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "code" ],
+        "type" : "object"
+      },
       "DividendDocumentRequest" : {
         "properties" : {
           "document" : {
@@ -1838,6 +1854,25 @@
           }
         },
         "required" : [ "email", "password" ],
+        "type" : "object"
+      },
+      "LoginResponse" : {
+        "properties" : {
+          "accessToken" : {
+            "type" : [ "string", "null" ]
+          },
+          "expiresIn" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "tokenType" : {
+            "type" : [ "string", "null" ]
+          },
+          "twoFactorChallenge" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "accessToken", "expiresIn", "tokenType", "twoFactorChallenge" ],
         "type" : "object"
       },
       "LotResponse" : {
@@ -2951,6 +2986,18 @@
             "type" : "boolean"
           }
         },
+        "type" : "object"
+      },
+      "RecoveryCodesResponse" : {
+        "properties" : {
+          "recoveryCodes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "recoveryCodes" ],
         "type" : "object"
       },
       "RecurringRef" : {
@@ -4097,6 +4144,48 @@
         "required" : [ "average", "categories", "currency", "from", "months", "to", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "TwoFactorCodeRequest" : {
+        "properties" : {
+          "code" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "code" ],
+        "type" : "object"
+      },
+      "TwoFactorLoginRequest" : {
+        "properties" : {
+          "challenge" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "code" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "trustDevice" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "challenge", "code" ],
+        "type" : "object"
+      },
+      "TwoFactorSetupResponse" : {
+        "properties" : {
+          "otpauthUri" : {
+            "type" : "string"
+          },
+          "secret" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "otpauthUri", "secret" ],
+        "type" : "object"
+      },
       "UpdateProfileRequest" : {
         "properties" : {
           "baseCurrency" : {
@@ -4150,12 +4239,19 @@
           "locale" : {
             "type" : "string"
           },
+          "recoveryCodesLeft" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
           "role" : {
             "enum" : [ "USER", "ADMIN" ],
             "type" : "string"
+          },
+          "twoFactorEnabled" : {
+            "type" : "boolean"
           }
         },
-        "required" : [ "baseCurrency", "createdAt", "email", "emailVerified", "firstName", "id", "lastName", "locale", "role" ],
+        "required" : [ "baseCurrency", "createdAt", "email", "emailVerified", "firstName", "id", "lastName", "locale", "recoveryCodesLeft", "role", "twoFactorEnabled" ],
         "type" : "object"
       },
       "VerifyEmailRequest" : {
@@ -4597,13 +4693,52 @@
     },
     "/api/v1/auth/login" : {
       "post" : {
-        "description" : "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only to /api/v1/auth",
+        "description" : "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only to /api/v1/auth. With two-factor authentication on, unless the browser is trusted, returns twoFactorChallenge instead, to exchange with a code at /api/v1/auth/login/two-factor.",
         "operationId" : "login",
+        "parameters" : [ {
+          "description" : "Set when the browser was trusted at an earlier two-factor sign-in",
+          "in" : "cookie",
+          "name" : "trusted_device",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Sign in with email and password",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/login/two-factor" : {
+      "post" : {
+        "description" : "Exchanges the challenge of the login response and a code of the authenticator app or a recovery code for a session. A wrong code keeps the challenge until it expires; an expired one fails with TWO_FACTOR_EXPIRED. With trustDevice the browser gets a cookie that skips the code for a while.",
+        "operationId" : "loginTwoFactor",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TwoFactorLoginRequest"
               }
             }
           },
@@ -4621,7 +4756,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Sign in with email and password",
+        "summary" : "Finish signing in with a two-factor code",
         "tags" : [ "Authentication" ]
       }
     },
@@ -6770,6 +6905,121 @@
           "bearer" : [ ]
         } ],
         "summary" : "Start over: delete all finance data",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/two-factor/disable" : {
+      "post" : {
+        "description" : "Needs the password (unless the account has none) and a code of the app or a recovery code. Recovery codes and trusted browsers are deleted.",
+        "operationId" : "disable",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DisableTwoFactorRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Turn off two-factor authentication",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/two-factor/enable" : {
+      "post" : {
+        "description" : "Returns the recovery codes; they are not shown again. Trusted browsers are forgotten.",
+        "operationId" : "enable",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TwoFactorCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RecoveryCodesResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Turn on two-factor authentication with a code of the new secret",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/two-factor/recovery-codes" : {
+      "post" : {
+        "description" : "Needs a code of the authenticator app; the old recovery codes stop working",
+        "operationId" : "regenerateRecoveryCodes",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TwoFactorCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RecoveryCodesResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Replace the recovery codes",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/two-factor/setup" : {
+      "post" : {
+        "description" : "Returns a new secret for the authenticator app; it becomes active once /enable gets a code of it. Fails with CONFLICT when two-factor authentication is already on.",
+        "operationId" : "setup",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoFactorSetupResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Start turning on two-factor authentication",
         "tags" : [ "Current user" ]
       }
     },

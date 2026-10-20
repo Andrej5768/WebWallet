@@ -33,6 +33,8 @@ public record AppProperties(
      *     and the account for {@code accountBlockDuration}
      * @param maxEmailRequestsPerAddress requests that send an email (registration, verification, password reset)
      *     per address within {@code emailRequestWindow}
+     * @param twoFactorChallengeTtl time to enter the two-factor code after the password
+     * @param trustedDeviceTtl how long a browser marked as trusted skips the two-factor code
      * @param refreshCookieSecure whether the refresh token cookie is sent over HTTPS only; disabled only for local
      *     development over plain HTTP
      */
@@ -45,6 +47,8 @@ public record AppProperties(
             @Positive int maxEmailRequestsPerAddress,
             @Positive int maxEmailRequestsPerIp,
             @NotNull Duration emailRequestWindow,
+            @NotNull Duration twoFactorChallengeTtl,
+            @NotNull Duration trustedDeviceTtl,
             @NotBlank String refreshCookieName,
             @DefaultValue("true") boolean refreshCookieSecure) {}
 }

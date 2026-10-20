@@ -22,6 +22,8 @@ public class AuthRateLimiter {
     private final AttemptCounter emailRequestsByAddress;
     /** Wrong current passwords when changing the password, e.g. with a stolen access token. */
     private final AttemptCounter failedPasswordChecksByUser;
+    /** Wrong two-factor codes, after the password or with a stolen access token. */
+    private final AttemptCounter failedTwoFactorCodesByUser;
 
     public AuthRateLimiter(AppProperties properties) {
         AppProperties.Auth auth = properties.auth();
@@ -29,6 +31,7 @@ public class AuthRateLimiter {
         this.failedLoginsByAccount = new AttemptCounter(auth.maxFailedLogins(), auth.accountBlockDuration());
         this.emailRequestsByIp = new AttemptCounter(auth.maxEmailRequestsPerIp(), auth.emailRequestWindow());
         this.failedPasswordChecksByUser = new AttemptCounter(auth.maxFailedLogins(), auth.accountBlockDuration());
+        this.failedTwoFactorCodesByUser = new AttemptCounter(auth.maxFailedLogins(), auth.accountBlockDuration());
         this.emailRequestsByAddress = new AttemptCounter(auth.maxEmailRequestsPerAddress(), auth.emailRequestWindow());
     }
 
@@ -56,6 +59,16 @@ public class AuthRateLimiter {
 
     public void passwordCheckFailed(Long userId) {
         failedPasswordChecksByUser.record(userId.toString());
+    }
+
+    public void checkTwoFactor(Long userId) {
+        if (failedTwoFactorCodesByUser.isExceeded(userId.toString())) {
+            throw new ApiException(ErrorCode.TOO_MANY_ATTEMPTS);
+        }
+    }
+
+    public void twoFactorFailed(Long userId) {
+        failedTwoFactorCodesByUser.record(userId.toString());
     }
 
     /** Counts a request that may send an email, rejecting it when the IP or the address made too many. */
@@ -99,5 +112,6 @@ public class AuthRateLimiter {
         emailRequestsByIp.resetAll();
         emailRequestsByAddress.resetAll();
         failedPasswordChecksByUser.resetAll();
+        failedTwoFactorCodesByUser.resetAll();
     }
 }
