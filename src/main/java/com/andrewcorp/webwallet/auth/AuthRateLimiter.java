@@ -86,7 +86,7 @@ public class AuthRateLimiter {
      * An IPv6 client usually gets a whole /64 network and could change its address within it at will, so it counts
      * as one client.
      */
-    static String clientKey(String ip) {
+    public static String clientKey(String ip) {
         if (ip == null || !ip.contains(":")) {
             return ip;
         }

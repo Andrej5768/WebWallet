@@ -465,10 +465,14 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [ ] Native Android (Kotlin) and iOS (Swift) apps with PIN / biometrics
 
 ### Phase 7 — Public release readiness
-- [ ] Google / Apple sign-in, TOTP two-factor authentication
-- [ ] Rate limiting, encryption of bank tokens at rest
-- [ ] User data export and deletion
-- [ ] Database backups and monitoring
+- [x] TOTP two-factor authentication with recovery codes and trusted browsers (90 days)
+- [x] Sign-in with Google (OpenID Connect with PKCE; a verified email links an existing account)
+- [ ] Sign-in with Apple — together with the iOS app, it needs the Apple Developer Program
+- [x] Rate limiting of the whole API per client address, encryption of bank tokens and 2FA secrets at rest
+- [x] Export of all data (ZIP: JSON of every owned table and transactions as CSV) and account deletion after a
+  14-day grace period with a cancel link
+- [x] Database backups; emails about logged errors (at most one per 15 minutes)
+- [x] Privacy policy and terms of service in the web client
 
 ## License
 

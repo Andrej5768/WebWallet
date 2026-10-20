@@ -4,6 +4,7 @@ import com.andrewcorp.webwallet.auth.AccessTokenValidator;
 import com.andrewcorp.webwallet.auth.TokenService;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.common.error.ProblemDetails;
+import com.andrewcorp.webwallet.monitoring.RequestRateLimitFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Base64;
@@ -12,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +37,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -56,7 +60,11 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(
-            HttpSecurity http, ProblemDetails problemDetails, LocaleResolver localeResolver, JsonMapper jsonMapper) {
+            HttpSecurity http,
+            ProblemDetails problemDetails,
+            LocaleResolver localeResolver,
+            JsonMapper jsonMapper,
+            RequestRateLimitFilter rateLimitFilter) {
         AuthenticationEntryPoint unauthorized = (request, response, ex) -> writeProblem(
                 response,
                 problemDetails.of(ErrorCode.UNAUTHORIZED, localeResolver.resolveLocale(request)),
@@ -92,9 +100,35 @@ public class SecurityConfig {
                         .authenticationEntryPoint(unauthorized)
                         .accessDeniedHandler(forbidden))
                 .exceptionHandling(exceptions ->
-                        exceptions.authenticationEntryPoint(unauthorized).accessDeniedHandler(forbidden));
+                        exceptions.authenticationEntryPoint(unauthorized).accessDeniedHandler(forbidden))
+                // Before the token is checked, so that a flood of requests costs as little as possible
+                .addFilterBefore(rateLimitFilter, BearerTokenAuthenticationFilter.class);
         // @formatter:on
         return http.build();
+    }
+
+    /** Limits the requests to the API per client address, see {@link RequestRateLimitFilter}. */
+    @Bean
+    public RequestRateLimitFilter requestRateLimitFilter(
+            @Value("${app.rate-limit.requests-per-minute}") int requestsPerMinute,
+            ProblemDetails problemDetails,
+            LocaleResolver localeResolver,
+            JsonMapper jsonMapper) {
+        return new RequestRateLimitFilter(
+                requestsPerMinute,
+                (request, response) -> writeProblem(
+                        response,
+                        problemDetails.of(ErrorCode.TOO_MANY_REQUESTS, localeResolver.resolveLocale(request)),
+                        jsonMapper,
+                        false));
+    }
+
+    /** The filter runs in the security chain only, not a second time as a servlet filter. */
+    @Bean
+    public FilterRegistrationBean<RequestRateLimitFilter> requestRateLimitRegistration(RequestRateLimitFilter filter) {
+        FilterRegistrationBean<RequestRateLimitFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     private static void writeProblem(
