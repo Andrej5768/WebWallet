@@ -25,8 +25,11 @@ class SecurityConfigTest {
                         5,
                         20,
                         Duration.ofHours(1),
+                        Duration.ofMinutes(5),
+                        Duration.ofDays(90),
                         "refresh_token",
-                        true));
+                        true),
+                new AppProperties.Google("", ""));
     }
 
     @Test

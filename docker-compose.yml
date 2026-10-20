@@ -52,6 +52,12 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172\.30\.0\.1|127\.\d+\.\d+\.\d+|0:0:0:0:0:0:0:1|::1}
       API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
       REFRESH_COOKIE_SECURE: ${REFRESH_COOKIE_SECURE:-true}
+      # Sign-in with Google and emails about errors; off while empty
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      ALERT_EMAIL: ${ALERT_EMAIL:-}
+      TWELVE_DATA_API_KEY: ${TWELVE_DATA_API_KEY:-}
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck:

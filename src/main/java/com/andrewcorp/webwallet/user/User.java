@@ -25,7 +25,8 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    /** Null for an account created with Google until the user sets a password. */
+    @Column(name = "password_hash")
     private String passwordHash;
 
     @Column(nullable = false)
@@ -61,6 +62,26 @@ public class User {
 
     @Column(nullable = false)
     private Instant updatedAt;
+
+    /** Encrypted TOTP secret; null while two-factor authentication is off. */
+    private String totpSecret;
+
+    /** Encrypted secret of a setup that no code has confirmed yet. */
+    private String totpPendingSecret;
+
+    /** The last accepted TOTP time step, so that a code cannot be used twice. */
+    private Long totpLastStep;
+
+    private Instant totpEnabledAt;
+
+    /** The Google account id ("sub" of the ID token) of a linked Google account. */
+    private String googleSubject;
+
+    /** Email of the linked Google account, shown in the settings. */
+    private String googleEmail;
+
+    /** Set when the user asked to delete the account: it is deleted at this moment unless the user cancels. */
+    private Instant deletionScheduledAt;
 
     protected User() {}
 
@@ -170,5 +191,66 @@ public class User {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public boolean hasPassword() {
+        return passwordHash != null;
+    }
+
+    public String getGoogleSubject() {
+        return googleSubject;
+    }
+
+    public String getGoogleEmail() {
+        return googleEmail;
+    }
+
+    /** Links a Google account, or unlinks it with nulls. */
+    public void setGoogleAccount(String subject, String email) {
+        this.googleSubject = subject;
+        this.googleEmail = email;
+    }
+
+    public Instant getDeletionScheduledAt() {
+        return deletionScheduledAt;
+    }
+
+    public void setDeletionScheduledAt(Instant deletionScheduledAt) {
+        this.deletionScheduledAt = deletionScheduledAt;
+    }
+
+    public boolean isTwoFactorEnabled() {
+        return totpSecret != null;
+    }
+
+    public String getTotpSecret() {
+        return totpSecret;
+    }
+
+    public String getTotpPendingSecret() {
+        return totpPendingSecret;
+    }
+
+    public void setTotpPendingSecret(String totpPendingSecret) {
+        this.totpPendingSecret = totpPendingSecret;
+    }
+
+    public Long getTotpLastStep() {
+        return totpLastStep;
+    }
+
+    public void setTotpLastStep(Long totpLastStep) {
+        this.totpLastStep = totpLastStep;
+    }
+
+    public Instant getTotpEnabledAt() {
+        return totpEnabledAt;
+    }
+
+    /** Turns two-factor authentication on with the confirmed secret, or off with null. */
+    public void setTotpSecret(String totpSecret, Instant now) {
+        this.totpSecret = totpSecret;
+        this.totpPendingSecret = null;
+        this.totpEnabledAt = totpSecret == null ? null : now;
     }
 }

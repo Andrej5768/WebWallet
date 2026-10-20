@@ -2,12 +2,18 @@ package com.andrewcorp.webwallet.auth;
 
 import com.andrewcorp.webwallet.auth.dto.EmailRequest;
 import com.andrewcorp.webwallet.auth.dto.LoginRequest;
+import com.andrewcorp.webwallet.auth.dto.LoginResponse;
 import com.andrewcorp.webwallet.auth.dto.RegisterRequest;
 import com.andrewcorp.webwallet.auth.dto.ResetPasswordRequest;
+import com.andrewcorp.webwallet.auth.dto.RestoreAccountRequest;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
+import com.andrewcorp.webwallet.auth.dto.TwoFactorLoginRequest;
 import com.andrewcorp.webwallet.auth.dto.VerifyEmailRequest;
+import com.andrewcorp.webwallet.auth.twofactor.TrustedDeviceCookie;
+import com.andrewcorp.webwallet.auth.twofactor.TwoFactorService;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.user.AccountDeletionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,11 +42,23 @@ public class AuthController {
     private final AuthService authService;
     private final TokenService tokenService;
     private final RefreshTokenCookie refreshTokenCookie;
+    private final TwoFactorService twoFactor;
+    private final TrustedDeviceCookie trustedDeviceCookie;
+    private final AccountDeletionService accountDeletion;
 
-    public AuthController(AuthService authService, TokenService tokenService, RefreshTokenCookie refreshTokenCookie) {
+    public AuthController(
+            AuthService authService,
+            TokenService tokenService,
+            RefreshTokenCookie refreshTokenCookie,
+            TwoFactorService twoFactor,
+            TrustedDeviceCookie trustedDeviceCookie,
+            AccountDeletionService accountDeletion) {
         this.authService = authService;
         this.tokenService = tokenService;
         this.refreshTokenCookie = refreshTokenCookie;
+        this.twoFactor = twoFactor;
+        this.trustedDeviceCookie = trustedDeviceCookie;
+        this.accountDeletion = accountDeletion;
     }
 
     @Operation(
@@ -69,11 +87,35 @@ public class AuthController {
     @Operation(
             summary = "Sign in with email and password",
             description = "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only"
-                    + " to /api/v1/auth")
+                    + " to /api/v1/auth. With two-factor authentication on, unless the browser is trusted, returns"
+                    + " twoFactorChallenge instead, to exchange with a code at /api/v1/auth/login/two-factor.")
     @PostMapping("/login")
-    public ResponseEntity<TokenResponse> login(
-            @Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        return refreshTokenCookie.respond(authService.login(request, httpRequest.getRemoteAddr()));
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request,
+            @Parameter(description = "Set when the browser was trusted at an earlier two-factor sign-in")
+                    @CookieValue(name = TrustedDeviceCookie.NAME, required = false)
+                    String trustedDevice,
+            HttpServletRequest httpRequest) {
+        return refreshTokenCookie.respond(authService.login(request, trustedDevice, httpRequest.getRemoteAddr()));
+    }
+
+    @Operation(
+            summary = "Finish signing in with a two-factor code",
+            description = "Exchanges the challenge of the login response and a code of the authenticator app or a"
+                    + " recovery code for a session. A wrong code keeps the challenge until it expires; an expired one"
+                    + " fails with TWO_FACTOR_EXPIRED. With trustDevice the browser gets a cookie that skips the code"
+                    + " for a while.")
+    @PostMapping("/login/two-factor")
+    public ResponseEntity<TokenResponse> loginTwoFactor(@Valid @RequestBody TwoFactorLoginRequest request) {
+        TwoFactorService.Login login =
+                twoFactor.completeLogin(request.challenge(), request.code(), request.trustDevice());
+        ResponseEntity.BodyBuilder response =
+                ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, refreshTokenCookie.of(login.tokens()));
+        if (login.trustedDeviceToken() != null) {
+            response.header(HttpHeaders.SET_COOKIE, trustedDeviceCookie.of(login.trustedDeviceToken()));
+        }
+        return response.body(TokenResponse.bearer(
+                login.tokens().accessToken(), login.tokens().expiresIn()));
     }
 
     @Operation(
@@ -105,6 +147,18 @@ public class AuthController {
             tokenService.revokeSession(refreshToken);
         }
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.cleared());
+    }
+
+    @Operation(
+            summary = "Cancel the deletion of the account",
+            description = "With restoreToken of an ACCOUNT_DELETION_SCHEDULED problem also signs in, like /login;"
+                    + " with the token of the emailed link only cancels, and the response has no tokens")
+    @PostMapping("/restore")
+    public ResponseEntity<LoginResponse> restore(@Valid @RequestBody RestoreAccountRequest request) {
+        IssuedTokens tokens = accountDeletion.restore(request.token());
+        return tokens == null
+                ? ResponseEntity.ok(new LoginResponse(null, null, null, null))
+                : refreshTokenCookie.respond(new AuthService.LoginResult(tokens, null));
     }
 
     @Operation(summary = "Send a password reset link")

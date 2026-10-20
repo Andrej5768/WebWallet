@@ -6,6 +6,7 @@ import com.andrewcorp.webwallet.auth.token.TokenHasher;
 import com.andrewcorp.webwallet.auth.token.UserToken;
 import com.andrewcorp.webwallet.auth.token.UserTokenRepository;
 import com.andrewcorp.webwallet.auth.token.UserTokenType;
+import com.andrewcorp.webwallet.auth.twofactor.TwoFactorService;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.common.util.Texts;
@@ -29,6 +30,7 @@ public class AuthService {
     private final UserRepository users;
     private final UserTokenRepository userTokens;
     private final TokenService tokenService;
+    private final TwoFactorService twoFactor;
     private final AuthRateLimiter rateLimiter;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher events;
@@ -42,6 +44,7 @@ public class AuthService {
             UserRepository users,
             UserTokenRepository userTokens,
             TokenService tokenService,
+            TwoFactorService twoFactor,
             AuthRateLimiter rateLimiter,
             PasswordEncoder passwordEncoder,
             ApplicationEventPublisher events,
@@ -51,6 +54,7 @@ public class AuthService {
         this.users = users;
         this.userTokens = userTokens;
         this.tokenService = tokenService;
+        this.twoFactor = twoFactor;
         this.rateLimiter = rateLimiter;
         this.passwordEncoder = passwordEncoder;
         this.events = events;
@@ -102,8 +106,15 @@ public class AuthService {
                 .ifPresent(user -> sendToken(user, UserTokenType.EMAIL_VERIFICATION));
     }
 
-    @Transactional
-    public IssuedTokens login(LoginRequest request, String clientIp) {
+    /** A session, or the challenge of the second step when two-factor authentication is on. */
+    public record LoginResult(IssuedTokens tokens, String twoFactorChallenge) {}
+
+    /**
+     * Checks the password and starts a session, or the second step when two-factor authentication is on and the
+     * browser is not trusted.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
+    public LoginResult login(LoginRequest request, String trustedDeviceToken, String clientIp) {
         String email = User.normalizeEmail(request.email());
         rateLimiter.checkLogin(clientIp, email);
         Optional<User> user = users.findByEmail(email);
@@ -119,7 +130,19 @@ public class AuthService {
         if (!user.get().isEmailVerified()) {
             throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
-        return tokenService.issueTokens(user.get());
+        return startSession(user.get(), trustedDeviceToken);
+    }
+
+    /**
+     * Starts a session for a user whose identity is proven, or the second step when two-factor authentication is on
+     * and the browser is not trusted.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
+    public LoginResult startSession(User user, String trustedDeviceToken) {
+        if (user.isTwoFactorEnabled() && !twoFactor.isTrusted(user, trustedDeviceToken)) {
+            return new LoginResult(null, twoFactor.startLogin(user));
+        }
+        return new LoginResult(tokenService.issueTokens(user), null);
     }
 
     /** Silently does nothing for unknown emails, so the response does not reveal accounts. */
@@ -146,7 +169,7 @@ public class AuthService {
     public IssuedTokens changePassword(Long userId, String currentPassword, String newPassword) {
         User user = users.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
         rateLimiter.checkPasswordChange(userId);
-        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+        if (!user.hasPassword() || !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
             rateLimiter.passwordCheckFailed(userId);
             throw new ApiException(ErrorCode.INVALID_CURRENT_PASSWORD);
         }
@@ -154,11 +177,12 @@ public class AuthService {
         return tokenService.issueTokens(user);
     }
 
-    /** Ends all sessions and voids reset links that were sent for the old password. */
+    /** Ends all sessions, forgets trusted browsers and voids reset links that were sent for the old password. */
     private void setPassword(User user, String newPassword) {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userTokens.deleteByUserAndType(user, UserTokenType.PASSWORD_RESET);
         tokenService.revokeAllSessions(user);
+        twoFactor.forgetDevices(user.getId());
     }
 
     private void sendToken(User user, UserTokenType type) {

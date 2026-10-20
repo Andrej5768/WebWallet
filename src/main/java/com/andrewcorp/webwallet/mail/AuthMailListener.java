@@ -1,6 +1,9 @@
 package com.andrewcorp.webwallet.mail;
 
+import com.andrewcorp.webwallet.common.util.Zones;
 import com.andrewcorp.webwallet.config.AppProperties;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +74,15 @@ public class AuthMailListener {
             case ACCOUNT_EXISTS -> {
                 prefix = "mail.accountExists";
                 arguments = new Object[] {link("/forgot-password", null)};
+            }
+            case ACCOUNT_DELETION -> {
+                prefix = "mail.accountDeletion";
+                arguments = new Object[] {
+                    link("/restore-account", event.token()),
+                    DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)
+                            .withLocale(event.locale())
+                            .format(event.at().atZone(Zones.KYIV))
+                };
             }
             default -> throw new IllegalArgumentException("Unknown mail type " + event.type());
         }

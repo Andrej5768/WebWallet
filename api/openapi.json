@@ -167,6 +167,15 @@
         "required" : [ "assigned" ],
         "type" : "object"
       },
+      "AuthOptionsResponse" : {
+        "properties" : {
+          "googleSignIn" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "googleSignIn" ],
+        "type" : "object"
+      },
       "BenchmarkInfo" : {
         "properties" : {
           "key" : {
@@ -863,6 +872,36 @@
         "required" : [ "amount" ],
         "type" : "object"
       },
+      "DeleteAccountRequest" : {
+        "properties" : {
+          "code" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "confirmEmail" : {
+            "maxLength" : 320,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "password" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "DeletionResponse" : {
+        "properties" : {
+          "deletionScheduledAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "deletionScheduledAt" ],
+        "type" : "object"
+      },
       "Destination" : {
         "properties" : {
           "accountId" : {
@@ -877,6 +916,22 @@
           }
         },
         "required" : [ "accountId", "amount", "name" ],
+        "type" : "object"
+      },
+      "DisableTwoFactorRequest" : {
+        "properties" : {
+          "code" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "password" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "code" ],
         "type" : "object"
       },
       "DividendDocumentRequest" : {
@@ -1343,6 +1398,17 @@
           }
         },
         "required" : [ "currency", "goals", "monthlyNeeded", "saved", "target", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "GoogleTicketRequest" : {
+        "properties" : {
+          "ticket" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "ticket" ],
         "type" : "object"
       },
       "HistoryPoint" : {
@@ -1838,6 +1904,25 @@
           }
         },
         "required" : [ "email", "password" ],
+        "type" : "object"
+      },
+      "LoginResponse" : {
+        "properties" : {
+          "accessToken" : {
+            "type" : [ "string", "null" ]
+          },
+          "expiresIn" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "tokenType" : {
+            "type" : [ "string", "null" ]
+          },
+          "twoFactorChallenge" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "accessToken", "expiresIn", "tokenType", "twoFactorChallenge" ],
         "type" : "object"
       },
       "LotResponse" : {
@@ -2953,6 +3038,18 @@
         },
         "type" : "object"
       },
+      "RecoveryCodesResponse" : {
+        "properties" : {
+          "recoveryCodes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "recoveryCodes" ],
+        "type" : "object"
+      },
       "RecurringRef" : {
         "properties" : {
           "dueDate" : {
@@ -3130,6 +3227,15 @@
         "required" : [ "accountId", "amount", "autoCreate", "categoryId", "comment", "currency", "endDate", "frequency", "id", "interval", "name", "nextDate", "payee", "startDate", "toAccountId", "toAmount", "toCurrency", "tolerance", "type", "variableAmount" ],
         "type" : "object"
       },
+      "RedirectResponse" : {
+        "properties" : {
+          "url" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "url" ],
+        "type" : "object"
+      },
       "RegisterRequest" : {
         "properties" : {
           "email" : {
@@ -3180,6 +3286,17 @@
             "type" : "boolean"
           }
         },
+        "type" : "object"
+      },
+      "RestoreAccountRequest" : {
+        "properties" : {
+          "token" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "token" ],
         "type" : "object"
       },
       "Returns" : {
@@ -4097,6 +4214,48 @@
         "required" : [ "average", "categories", "currency", "from", "months", "to", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "TwoFactorCodeRequest" : {
+        "properties" : {
+          "code" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "code" ],
+        "type" : "object"
+      },
+      "TwoFactorLoginRequest" : {
+        "properties" : {
+          "challenge" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "code" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "trustDevice" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "challenge", "code" ],
+        "type" : "object"
+      },
+      "TwoFactorSetupResponse" : {
+        "properties" : {
+          "otpauthUri" : {
+            "type" : "string"
+          },
+          "secret" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "otpauthUri", "secret" ],
+        "type" : "object"
+      },
       "UpdateProfileRequest" : {
         "properties" : {
           "baseCurrency" : {
@@ -4140,6 +4299,12 @@
           "firstName" : {
             "type" : "string"
           },
+          "googleEmail" : {
+            "type" : [ "string", "null" ]
+          },
+          "hasPassword" : {
+            "type" : "boolean"
+          },
           "id" : {
             "format" : "int64",
             "type" : "integer"
@@ -4150,12 +4315,19 @@
           "locale" : {
             "type" : "string"
           },
+          "recoveryCodesLeft" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
           "role" : {
             "enum" : [ "USER", "ADMIN" ],
             "type" : "string"
+          },
+          "twoFactorEnabled" : {
+            "type" : "boolean"
           }
         },
-        "required" : [ "baseCurrency", "createdAt", "email", "emailVerified", "firstName", "id", "lastName", "locale", "role" ],
+        "required" : [ "baseCurrency", "createdAt", "email", "emailVerified", "firstName", "googleEmail", "hasPassword", "id", "lastName", "locale", "recoveryCodesLeft", "role", "twoFactorEnabled" ],
         "type" : "object"
       },
       "VerifyEmailRequest" : {
@@ -4595,15 +4767,149 @@
         "tags" : [ "Authentication" ]
       }
     },
+    "/api/v1/auth/google/callback" : {
+      "get" : {
+        "description" : "Redirects to the web client: /auth/google#ticket=... to exchange at /google/complete, or #error=...; for linking, to the security settings with #google=linked or #error=...",
+        "operationId" : "callback",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "code",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "error",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Set by /google/start or /api/v1/me/google/link",
+          "in" : "cookie",
+          "name" : "oauth_state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Google redirects here after the user chose an account",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/google/complete" : {
+      "post" : {
+        "description" : "Exchanges the ticket of the callback for a session, like /login: the access token, or twoFactorChallenge when two-factor authentication is on. The ticket works once and briefly.",
+        "operationId" : "complete",
+        "parameters" : [ {
+          "description" : "Set when the browser was trusted at an earlier two-factor sign-in",
+          "in" : "cookie",
+          "name" : "trusted_device",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GoogleTicketRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Finish signing in with Google",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/google/start" : {
+      "get" : {
+        "description" : "A link for the browser: redirects to Google and sets a cookie that binds the sign-in to this browser. Not found when sign-in with Google is not configured.",
+        "operationId" : "start",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Start signing in with Google",
+        "tags" : [ "Authentication" ]
+      }
+    },
     "/api/v1/auth/login" : {
       "post" : {
-        "description" : "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only to /api/v1/auth",
+        "description" : "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only to /api/v1/auth. With two-factor authentication on, unless the browser is trusted, returns twoFactorChallenge instead, to exchange with a code at /api/v1/auth/login/two-factor.",
         "operationId" : "login",
+        "parameters" : [ {
+          "description" : "Set when the browser was trusted at an earlier two-factor sign-in",
+          "in" : "cookie",
+          "name" : "trusted_device",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Sign in with email and password",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/login/two-factor" : {
+      "post" : {
+        "description" : "Exchanges the challenge of the login response and a code of the authenticator app or a recovery code for a session. A wrong code keeps the challenge until it expires; an expired one fails with TWO_FACTOR_EXPIRED. With trustDevice the browser gets a cookie that skips the code for a while.",
+        "operationId" : "loginTwoFactor",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TwoFactorLoginRequest"
               }
             }
           },
@@ -4621,7 +4927,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Sign in with email and password",
+        "summary" : "Finish signing in with a two-factor code",
         "tags" : [ "Authentication" ]
       }
     },
@@ -4644,6 +4950,25 @@
           }
         },
         "summary" : "End the session of the refresh token cookie and delete the cookie",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/options" : {
+      "get" : {
+        "operationId" : "options",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AuthOptionsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Which ways of signing in this server offers besides the password",
         "tags" : [ "Authentication" ]
       }
     },
@@ -4740,6 +5065,36 @@
           }
         },
         "summary" : "Set a new password with the token from the password reset email",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/restore" : {
+      "post" : {
+        "description" : "With restoreToken of an ACCOUNT_DELETION_SCHEDULED problem also signs in, like /login; with the token of the emailed link only cancels, and the response has no tokens",
+        "operationId" : "restore",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RestoreAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Cancel the deletion of the account",
         "tags" : [ "Authentication" ]
       }
     },
@@ -6714,6 +7069,102 @@
         "tags" : [ "Current user" ]
       }
     },
+    "/api/v1/me/delete" : {
+      "post" : {
+        "description" : "The account is blocked at once and deleted with all its data after 14 days; all sessions end and an email with a link that cancels is sent. Needs the password (an account without one: confirmEmail) and, when two-factor authentication is on, a code.",
+        "operationId" : "delete_9",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeleteAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeletionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Delete the account",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/export" : {
+      "get" : {
+        "description" : "A ZIP archive: webwallet.json with the rows of every table the user owns, and transactions.csv for spreadsheets. Passwords, bank tokens and other secrets are left out.",
+        "operationId" : "export",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/zip" : {
+                "schema" : {
+                  "format" : "byte",
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Download all data of the user",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/google/link" : {
+      "post" : {
+        "description" : "Returns the Google page to send the browser to and sets the cookie that binds the link to this browser; Google then redirects to the security settings",
+        "operationId" : "link_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RedirectResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Start linking a Google account",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/google/unlink" : {
+      "post" : {
+        "description" : "CONFLICT for an account without a password, which could not sign in otherwise",
+        "operationId" : "unlink",
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Unlink the Google account",
+        "tags" : [ "Current user" ]
+      }
+    },
     "/api/v1/me/password" : {
       "post" : {
         "description" : "All sessions are ended, including the current one; a new session is started: the response contains a new access token and sets a new refresh token cookie",
@@ -6770,6 +7221,121 @@
           "bearer" : [ ]
         } ],
         "summary" : "Start over: delete all finance data",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/two-factor/disable" : {
+      "post" : {
+        "description" : "Needs the password (unless the account has none) and a code of the app or a recovery code. Recovery codes and trusted browsers are deleted.",
+        "operationId" : "disable",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DisableTwoFactorRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Turn off two-factor authentication",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/two-factor/enable" : {
+      "post" : {
+        "description" : "Returns the recovery codes; they are not shown again. Trusted browsers are forgotten.",
+        "operationId" : "enable",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TwoFactorCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RecoveryCodesResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Turn on two-factor authentication with a code of the new secret",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/two-factor/recovery-codes" : {
+      "post" : {
+        "description" : "Needs a code of the authenticator app; the old recovery codes stop working",
+        "operationId" : "regenerateRecoveryCodes",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TwoFactorCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RecoveryCodesResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Replace the recovery codes",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/two-factor/setup" : {
+      "post" : {
+        "description" : "Returns a new secret for the authenticator app; it becomes active once /enable gets a code of it. Fails with CONFLICT when two-factor authentication is already on.",
+        "operationId" : "setup",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoFactorSetupResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Start turning on two-factor authentication",
         "tags" : [ "Current user" ]
       }
     },

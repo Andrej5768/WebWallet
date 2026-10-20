@@ -14,6 +14,7 @@ import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.currency.NbuClient;
 import com.andrewcorp.webwallet.investment.market.ListingSearch;
 import com.andrewcorp.webwallet.mail.MailConfig;
+import com.andrewcorp.webwallet.monitoring.RequestRateLimitFilter;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
 import jakarta.servlet.http.Cookie;
@@ -78,6 +79,9 @@ public abstract class AbstractIntegrationTest {
     private AuthRateLimiter rateLimiter;
 
     @Autowired
+    private RequestRateLimitFilter requestRateLimit;
+
+    @Autowired
     private ExchangeRateService exchangeRates;
 
     @Autowired
@@ -111,6 +115,7 @@ public abstract class AbstractIntegrationTest {
         TestClock.INSTANCE.reset();
         clearInvocations(mailSender);
         rateLimiter.reset();
+        requestRateLimit.reset();
         exchangeRates.forgetMissingRates();
         listingSearch.reset();
     }

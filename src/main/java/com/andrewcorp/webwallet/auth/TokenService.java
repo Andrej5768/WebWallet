@@ -3,13 +3,18 @@ package com.andrewcorp.webwallet.auth;
 import com.andrewcorp.webwallet.auth.token.RefreshToken;
 import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
 import com.andrewcorp.webwallet.auth.token.TokenHasher;
+import com.andrewcorp.webwallet.auth.token.UserToken;
+import com.andrewcorp.webwallet.auth.token.UserTokenRepository;
+import com.andrewcorp.webwallet.auth.token.UserTokenType;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.config.AppProperties;
 import com.andrewcorp.webwallet.user.User;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,23 +37,45 @@ public class TokenService {
     public static final String TOKEN_VERSION_CLAIM = "ver";
 
     private static final Logger log = LoggerFactory.getLogger(TokenService.class);
+    /** Time to press "cancel the deletion" after signing in. */
+    private static final Duration RESTORE_TTL = Duration.ofMinutes(15);
 
     private final JwtEncoder jwtEncoder;
     private final RefreshTokenRepository refreshTokens;
+    private final UserTokenRepository userTokens;
     private final AppProperties.Jwt properties;
     private final Clock clock;
 
     public TokenService(
-            JwtEncoder jwtEncoder, RefreshTokenRepository refreshTokens, AppProperties properties, Clock clock) {
+            JwtEncoder jwtEncoder,
+            RefreshTokenRepository refreshTokens,
+            UserTokenRepository userTokens,
+            AppProperties properties,
+            Clock clock) {
         this.jwtEncoder = jwtEncoder;
         this.refreshTokens = refreshTokens;
+        this.userTokens = userTokens;
         this.properties = properties.jwt();
         this.clock = clock;
     }
 
-    /** Starts a new session (refresh token family) for the user. */
-    @Transactional
+    /**
+     * Starts a new session (refresh token family) for the user. An account that is to be deleted gets no session:
+     * the error carries a token that cancels the deletion and signs in.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
     public IssuedTokens issueTokens(User user) {
+        if (user.getDeletionScheduledAt() != null) {
+            String restoreToken = TokenHasher.newToken();
+            userTokens.save(new UserToken(
+                    user,
+                    UserTokenType.ACCOUNT_RESTORE_SESSION,
+                    TokenHasher.hash(restoreToken),
+                    clock.instant().plus(RESTORE_TTL)));
+            throw new ApiException(
+                    ErrorCode.ACCOUNT_DELETION_SCHEDULED,
+                    Map.of("restoreToken", restoreToken, "deletionScheduledAt", user.getDeletionScheduledAt()));
+        }
         return issueTokens(user, UUID.randomUUID());
     }
 

@@ -15,10 +15,11 @@ image_id() {
     docker image inspect -f '{{.Id}}' "$1" 2>/dev/null || true
 }
 
-# Backend: a dump before a new image runs its migrations
-before=$(image_id "$backend_image")
+# Backend: a dump before a new image runs its migrations, compared with the image of the running container
 docker pull -q "$backend_image" >/dev/null
-if [ -n "$before" ] && [ "$before" != "$(image_id "$backend_image")" ]; then
+container=$($compose ps -q backend)
+running=$([ -n "$container" ] && docker inspect -f '{{.Image}}' "$container" || true)
+if [ -n "$running" ] && [ "$running" != "$(image_id "$backend_image")" ]; then
     echo "New backend image, dumping the database"
     sh deploy/backup-db.sh pre-deploy
 fi
