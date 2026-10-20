@@ -16,11 +16,27 @@ public record AppProperties(
         @NotNull Mail mail,
         @NotNull Cors cors,
         @NotNull Jwt jwt,
-        @NotNull Auth auth) {
+        @NotNull Auth auth,
+        @NotNull Google google) {
 
     public record Mail(@NotBlank String from) {}
 
     public record Cors(List<String> allowedOrigins) {}
+
+    /**
+     * OAuth client of Google sign-in; sign-in with Google is off while the client id is blank.
+     *
+     * @param clientId of the web application client in Google Cloud
+     * @param clientSecret of that client
+     */
+    public record Google(
+            @DefaultValue("") String clientId,
+            @DefaultValue("") String clientSecret) {
+
+        public boolean enabled() {
+            return !clientId.isBlank() && !clientSecret.isBlank();
+        }
+    }
 
     public record Jwt(
             @NotBlank String secret,

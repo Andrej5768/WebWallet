@@ -1,5 +1,6 @@
 package com.andrewcorp.webwallet.auth;
 
+import com.andrewcorp.webwallet.auth.google.GoogleSignInService;
 import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
 import com.andrewcorp.webwallet.auth.token.UserTokenRepository;
 import com.andrewcorp.webwallet.auth.twofactor.TrustedDeviceRepository;
@@ -25,16 +26,19 @@ public class TokenCleanupTask {
     private final UserTokenRepository userTokens;
     private final RefreshTokenRepository refreshTokens;
     private final TrustedDeviceRepository trustedDevices;
+    private final GoogleSignInService googleSignIn;
     private final Clock clock;
 
     public TokenCleanupTask(
             UserTokenRepository userTokens,
             RefreshTokenRepository refreshTokens,
             TrustedDeviceRepository trustedDevices,
+            GoogleSignInService googleSignIn,
             Clock clock) {
         this.userTokens = userTokens;
         this.refreshTokens = refreshTokens;
         this.trustedDevices = trustedDevices;
+        this.googleSignIn = googleSignIn;
         this.clock = clock;
     }
 
@@ -45,6 +49,7 @@ public class TokenCleanupTask {
         int removedUserTokens = userTokens.deleteStale(before);
         int removedRefreshTokens = refreshTokens.deleteExpired(before);
         int removedDevices = trustedDevices.deleteExpired(clock.instant());
+        googleSignIn.purgeExpired(clock.instant());
         log.info(
                 "Removed {} stale email tokens, {} expired refresh tokens and {} expired trusted devices",
                 removedUserTokens,

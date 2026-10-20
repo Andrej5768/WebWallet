@@ -8,6 +8,8 @@ import java.time.Instant;
 /**
  * @param lastName null when not given
  * @param recoveryCodesLeft unused recovery codes, 0 while two-factor authentication is off
+ * @param hasPassword false for an account created with Google until a password is set
+ * @param googleEmail email of the linked Google account, null when none is linked
  */
 public record UserResponse(
         Long id,
@@ -20,7 +22,9 @@ public record UserResponse(
         String baseCurrency,
         Instant createdAt,
         boolean twoFactorEnabled,
-        long recoveryCodesLeft) {
+        long recoveryCodesLeft,
+        boolean hasPassword,
+        @Schema(nullable = true) String googleEmail) {
 
     public static UserResponse from(User user, long recoveryCodesLeft) {
         return new UserResponse(
@@ -34,6 +38,8 @@ public record UserResponse(
                 user.getBaseCurrency(),
                 user.getCreatedAt(),
                 user.isTwoFactorEnabled(),
-                recoveryCodesLeft);
+                recoveryCodesLeft,
+                user.hasPassword(),
+                user.getGoogleEmail());
     }
 }

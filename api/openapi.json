@@ -167,6 +167,15 @@
         "required" : [ "assigned" ],
         "type" : "object"
       },
+      "AuthOptionsResponse" : {
+        "properties" : {
+          "googleSignIn" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "googleSignIn" ],
+        "type" : "object"
+      },
       "BenchmarkInfo" : {
         "properties" : {
           "key" : {
@@ -1359,6 +1368,17 @@
           }
         },
         "required" : [ "currency", "goals", "monthlyNeeded", "saved", "target", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "GoogleTicketRequest" : {
+        "properties" : {
+          "ticket" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "ticket" ],
         "type" : "object"
       },
       "HistoryPoint" : {
@@ -3177,6 +3197,15 @@
         "required" : [ "accountId", "amount", "autoCreate", "categoryId", "comment", "currency", "endDate", "frequency", "id", "interval", "name", "nextDate", "payee", "startDate", "toAccountId", "toAmount", "toCurrency", "tolerance", "type", "variableAmount" ],
         "type" : "object"
       },
+      "RedirectResponse" : {
+        "properties" : {
+          "url" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "url" ],
+        "type" : "object"
+      },
       "RegisterRequest" : {
         "properties" : {
           "email" : {
@@ -4229,6 +4258,12 @@
           "firstName" : {
             "type" : "string"
           },
+          "googleEmail" : {
+            "type" : [ "string", "null" ]
+          },
+          "hasPassword" : {
+            "type" : "boolean"
+          },
           "id" : {
             "format" : "int64",
             "type" : "integer"
@@ -4251,7 +4286,7 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "baseCurrency", "createdAt", "email", "emailVerified", "firstName", "id", "lastName", "locale", "recoveryCodesLeft", "role", "twoFactorEnabled" ],
+        "required" : [ "baseCurrency", "createdAt", "email", "emailVerified", "firstName", "googleEmail", "hasPassword", "id", "lastName", "locale", "recoveryCodesLeft", "role", "twoFactorEnabled" ],
         "type" : "object"
       },
       "VerifyEmailRequest" : {
@@ -4691,6 +4726,101 @@
         "tags" : [ "Authentication" ]
       }
     },
+    "/api/v1/auth/google/callback" : {
+      "get" : {
+        "description" : "Redirects to the web client: /auth/google#ticket=... to exchange at /google/complete, or #error=...; for linking, to the security settings with #google=linked or #error=...",
+        "operationId" : "callback",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "code",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "error",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Set by /google/start or /api/v1/me/google/link",
+          "in" : "cookie",
+          "name" : "oauth_state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Google redirects here after the user chose an account",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/google/complete" : {
+      "post" : {
+        "description" : "Exchanges the ticket of the callback for a session, like /login: the access token, or twoFactorChallenge when two-factor authentication is on. The ticket works once and briefly.",
+        "operationId" : "complete",
+        "parameters" : [ {
+          "description" : "Set when the browser was trusted at an earlier two-factor sign-in",
+          "in" : "cookie",
+          "name" : "trusted_device",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GoogleTicketRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Finish signing in with Google",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/google/start" : {
+      "get" : {
+        "description" : "A link for the browser: redirects to Google and sets a cookie that binds the sign-in to this browser. Not found when sign-in with Google is not configured.",
+        "operationId" : "start",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Start signing in with Google",
+        "tags" : [ "Authentication" ]
+      }
+    },
     "/api/v1/auth/login" : {
       "post" : {
         "description" : "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only to /api/v1/auth. With two-factor authentication on, unless the browser is trusted, returns twoFactorChallenge instead, to exchange with a code at /api/v1/auth/login/two-factor.",
@@ -4779,6 +4909,25 @@
           }
         },
         "summary" : "End the session of the refresh token cookie and delete the cookie",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/options" : {
+      "get" : {
+        "operationId" : "options",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AuthOptionsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Which ways of signing in this server offers besides the password",
         "tags" : [ "Authentication" ]
       }
     },
@@ -6846,6 +6995,45 @@
           "bearer" : [ ]
         } ],
         "summary" : "Update the profile of the current user",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/google/link" : {
+      "post" : {
+        "description" : "Returns the Google page to send the browser to and sets the cookie that binds the link to this browser; Google then redirects to the security settings",
+        "operationId" : "link_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RedirectResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Start linking a Google account",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/google/unlink" : {
+      "post" : {
+        "description" : "CONFLICT for an account without a password, which could not sign in otherwise",
+        "operationId" : "unlink",
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Unlink the Google account",
         "tags" : [ "Current user" ]
       }
     },

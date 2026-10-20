@@ -91,14 +91,7 @@ public class AuthController {
                     @CookieValue(name = TrustedDeviceCookie.NAME, required = false)
                     String trustedDevice,
             HttpServletRequest httpRequest) {
-        AuthService.LoginResult result = authService.login(request, trustedDevice, httpRequest.getRemoteAddr());
-        if (result.tokens() == null) {
-            return ResponseEntity.ok(LoginResponse.challenge(result.twoFactorChallenge()));
-        }
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.of(result.tokens()))
-                .body(LoginResponse.session(
-                        result.tokens().accessToken(), result.tokens().expiresIn()));
+        return refreshTokenCookie.respond(authService.login(request, trustedDevice, httpRequest.getRemoteAddr()));
     }
 
     @Operation(

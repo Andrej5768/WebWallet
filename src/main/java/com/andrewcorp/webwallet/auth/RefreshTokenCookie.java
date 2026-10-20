@@ -1,5 +1,6 @@
 package com.andrewcorp.webwallet.auth;
 
+import com.andrewcorp.webwallet.auth.dto.LoginResponse;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.config.AppProperties;
 import java.time.Duration;
@@ -32,6 +33,17 @@ public class RefreshTokenCookie {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie(tokens.refreshToken(), maxAge))
                 .body(TokenResponse.bearer(tokens.accessToken(), tokens.expiresIn()));
+    }
+
+    /** Returns a session like {@link #respond(IssuedTokens)}, or the challenge of the second step without a cookie. */
+    public ResponseEntity<LoginResponse> respond(AuthService.LoginResult result) {
+        if (result.tokens() == null) {
+            return ResponseEntity.ok(LoginResponse.challenge(result.twoFactorChallenge()));
+        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, of(result.tokens()))
+                .body(LoginResponse.session(
+                        result.tokens().accessToken(), result.tokens().expiresIn()));
     }
 
     /** A {@code Set-Cookie} value with the refresh token of the session. */

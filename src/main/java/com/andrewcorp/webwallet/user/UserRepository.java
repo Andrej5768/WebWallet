@@ -9,6 +9,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** Expects an already normalized (lower case) email. */
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByGoogleSubject(String googleSubject);
+
     /** The token version of an enabled user, used to validate access tokens. */
     @Query("select u.tokenVersion from User u where u.id = :id and u.enabled = true")
     Optional<Integer> findActiveTokenVersion(Long id);

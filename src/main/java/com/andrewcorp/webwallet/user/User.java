@@ -25,7 +25,8 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    /** Null for an account created with Google until the user sets a password. */
+    @Column(name = "password_hash")
     private String passwordHash;
 
     @Column(nullable = false)
@@ -72,6 +73,12 @@ public class User {
     private Long totpLastStep;
 
     private Instant totpEnabledAt;
+
+    /** The Google account id ("sub" of the ID token) of a linked Google account. */
+    private String googleSubject;
+
+    /** Email of the linked Google account, shown in the settings. */
+    private String googleEmail;
 
     protected User() {}
 
@@ -181,6 +188,24 @@ public class User {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public boolean hasPassword() {
+        return passwordHash != null;
+    }
+
+    public String getGoogleSubject() {
+        return googleSubject;
+    }
+
+    public String getGoogleEmail() {
+        return googleEmail;
+    }
+
+    /** Links a Google account, or unlinks it with nulls. */
+    public void setGoogleAccount(String subject, String email) {
+        this.googleSubject = subject;
+        this.googleEmail = email;
     }
 
     public boolean isTwoFactorEnabled() {

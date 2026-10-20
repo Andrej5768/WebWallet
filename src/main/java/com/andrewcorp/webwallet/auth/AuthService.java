@@ -130,10 +130,19 @@ public class AuthService {
         if (!user.get().isEmailVerified()) {
             throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
-        if (user.get().isTwoFactorEnabled() && !twoFactor.isTrusted(user.get(), trustedDeviceToken)) {
-            return new LoginResult(null, twoFactor.startLogin(user.get()));
+        return startSession(user.get(), trustedDeviceToken);
+    }
+
+    /**
+     * Starts a session for a user whose identity is proven, or the second step when two-factor authentication is on
+     * and the browser is not trusted.
+     */
+    @Transactional
+    public LoginResult startSession(User user, String trustedDeviceToken) {
+        if (user.isTwoFactorEnabled() && !twoFactor.isTrusted(user, trustedDeviceToken)) {
+            return new LoginResult(null, twoFactor.startLogin(user));
         }
-        return new LoginResult(tokenService.issueTokens(user.get()), null);
+        return new LoginResult(tokenService.issueTokens(user), null);
     }
 
     /** Silently does nothing for unknown emails, so the response does not reveal accounts. */
@@ -160,7 +169,7 @@ public class AuthService {
     public IssuedTokens changePassword(Long userId, String currentPassword, String newPassword) {
         User user = users.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
         rateLimiter.checkPasswordChange(userId);
-        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+        if (!user.hasPassword() || !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
             rateLimiter.passwordCheckFailed(userId);
             throw new ApiException(ErrorCode.INVALID_CURRENT_PASSWORD);
         }
