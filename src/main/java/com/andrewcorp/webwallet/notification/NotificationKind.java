@@ -16,5 +16,9 @@ public enum NotificationKind {
     /** Monday: the spending of the month so far against the same days of the previous month. */
     WEEKLY,
     /** The 1st: the previous month against the month before it. */
-    MONTHLY
+    MONTHLY,
+    /** The weekly report by email. */
+    EMAIL_WEEKLY,
+    /** The monthly report by email. */
+    EMAIL_MONTHLY
 }

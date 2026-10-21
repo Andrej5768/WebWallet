@@ -4,7 +4,6 @@ import static com.andrewcorp.webwallet.telegram.BotTexts.escape;
 
 import com.andrewcorp.webwallet.analytics.AnalyticsDtos.CategoryChange;
 import com.andrewcorp.webwallet.analytics.AnalyticsDtos.CompareResponse;
-import com.andrewcorp.webwallet.analytics.AnalyticsService;
 import com.andrewcorp.webwallet.bank.BankConnection;
 import com.andrewcorp.webwallet.bank.BankConnectionRepository;
 import com.andrewcorp.webwallet.bank.BankProvider;
@@ -25,6 +24,7 @@ import com.andrewcorp.webwallet.notification.NotificationLog;
 import com.andrewcorp.webwallet.notification.NotificationSettings;
 import com.andrewcorp.webwallet.notification.NotificationSettingsService;
 import com.andrewcorp.webwallet.notification.SpendingCharts;
+import com.andrewcorp.webwallet.notification.SpendingReports;
 import com.andrewcorp.webwallet.planning.ForecastDtos.ForecastDay;
 import com.andrewcorp.webwallet.planning.ForecastService;
 import com.andrewcorp.webwallet.planning.OccurrenceStatus;
@@ -32,7 +32,6 @@ import com.andrewcorp.webwallet.planning.RecurringDtos.OccurrenceConfirmRequest;
 import com.andrewcorp.webwallet.planning.RecurringDtos.OccurrenceResponse;
 import com.andrewcorp.webwallet.planning.RecurringService;
 import com.andrewcorp.webwallet.report.ReportDtos.IncomeExpenseResponse;
-import com.andrewcorp.webwallet.report.ReportService;
 import com.andrewcorp.webwallet.tax.FopTaxService;
 import com.andrewcorp.webwallet.tax.TaxDtos.FopDeadline;
 import com.andrewcorp.webwallet.telegram.TelegramApi.Button;
@@ -42,13 +41,11 @@ import com.andrewcorp.webwallet.user.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
-import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.ZonedDateTime;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -71,11 +68,7 @@ public class TelegramNotifications {
     private static final LocalTime QUIET_TO = LocalTime.of(8, 0);
     private static final Duration LOG_RETENTION = Duration.ofDays(400);
     private static final int BUDGET_WARNING = 80;
-    private static final int TOP_CHANGES = 2;
-    private static final int CHART_CATEGORIES = 6;
     private static final int TAX_WARNING_DAYS = 7;
-    /** A weekly or monthly report not sent on its day, e.g. when Telegram failed, goes on this many days after. */
-    private static final int REPORT_CATCH_UP_DAYS = 2;
 
     private final TelegramClient client;
     private final TelegramLinkService linkService;
@@ -86,8 +79,7 @@ public class TelegramNotifications {
     private final FopTaxService fopTaxService;
     private final ForecastService forecastService;
     private final GoalService goalService;
-    private final AnalyticsService analyticsService;
-    private final ReportService reportService;
+    private final SpendingReports reports;
     private final BankConnectionRepository bankConnections;
     private final AccountRepository accounts;
     private final UserRepository users;
@@ -106,8 +98,7 @@ public class TelegramNotifications {
             FopTaxService fopTaxService,
             ForecastService forecastService,
             GoalService goalService,
-            AnalyticsService analyticsService,
-            ReportService reportService,
+            SpendingReports reports,
             BankConnectionRepository bankConnections,
             AccountRepository accounts,
             UserRepository users,
@@ -124,8 +115,7 @@ public class TelegramNotifications {
         this.fopTaxService = fopTaxService;
         this.forecastService = forecastService;
         this.goalService = goalService;
-        this.analyticsService = analyticsService;
-        this.reportService = reportService;
+        this.reports = reports;
         this.bankConnections = bankConnections;
         this.accounts = accounts;
         this.users = users;
@@ -240,7 +230,7 @@ public class TelegramNotifications {
             case GOALS -> goals(userId, today, locale);
             case WEEKLY -> weekly(userId, today, locale);
             case MONTHLY -> monthly(userId, today, locale);
-            case BANKS -> List.of();
+            case BANKS, EMAIL_WEEKLY, EMAIL_MONTHLY -> List.of();
         };
     }
 
@@ -447,28 +437,17 @@ public class TelegramNotifications {
 
     // Spending reports
 
-    /**
-     * On Mondays, except in the first week of a month: the spending from the 1st to Sunday against the same days of
-     * the previous month, with the categories that changed most and a chart. A report that could not be sent goes
-     * on the next days, until Wednesday.
-     */
+    /** The weekly report with its chart; see {@link SpendingReports#weekly}. */
     List<Notice> weekly(Long userId, LocalDate today, Locale locale) {
-        LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        if (today.isAfter(monday.plusDays(REPORT_CATCH_UP_DAYS)) || monday.getDayOfMonth() <= 7) {
-            return List.of();
-        }
-        LocalDate to = monday.minusDays(1);
-        LocalDate from = to.withDayOfMonth(1);
-        LocalDate previousFrom = from.minusMonths(1);
-        LocalDate previousTo = previousFrom.withDayOfMonth(
-                Math.min(to.getDayOfMonth(), YearMonth.from(previousFrom).lengthOfMonth()));
-        CompareResponse compare = analyticsService.compare(userId, from, to, previousFrom, previousTo);
-        if (compare.totalA().signum() == 0 && compare.totalB().signum() == 0) {
-            return List.of();
-        }
+        return reports.weekly(userId, today).map(weekly -> weeklyNotice(weekly, locale)).stream()
+                .toList();
+    }
+
+    private Notice weeklyNotice(SpendingReports.Weekly weekly, Locale locale) {
+        CompareResponse compare = weekly.compare();
         String currency = compare.currency();
-        String period = period(from, to, locale);
-        String previousPeriod = period(previousFrom, previousTo, locale);
+        String period = BotTexts.period(weekly.from(), weekly.to(), locale);
+        String previousPeriod = BotTexts.period(weekly.previousFrom(), weekly.previousTo(), locale);
         String total = BotTexts.wholeMoney(compare.totalA(), currency, locale);
         String summary;
         if (compare.totalB().signum() == 0) {
@@ -480,57 +459,46 @@ public class TelegramNotifications {
                     locale,
                     compare.change().signum() > 0 ? "notify.weekly.more" : "notify.weekly.less",
                     total,
-                    percent(compare.changeShare()),
+                    SpendingReports.percent(compare.changeShare()),
                     previousPeriod,
                     BotTexts.wholeMoney(compare.totalB(), currency, locale));
         }
         StringBuilder html = new StringBuilder(texts.get(locale, "notify.weekly.title", period))
                 .append('\n')
                 .append(summary);
-        changes(html, compare, locale);
-        BigDecimal assigned = budgetService.month(userId, YearMonth.from(from)).assigned();
-        if (assigned.signum() > 0) {
-            int spent = compare.totalA()
-                    .multiply(BigDecimal.valueOf(100))
-                    .divide(assigned, 0, RoundingMode.HALF_UP)
-                    .intValue();
-            int passed = to.getDayOfMonth() * 100 / YearMonth.from(from).lengthOfMonth();
+        changeGroup(html, "notify.change.more", weekly.more(), currency, locale);
+        changeGroup(html, "notify.change.less", weekly.less(), currency, locale);
+        if (weekly.budgetUsed() != null) {
             html.append("\n\n<i>")
-                    .append(texts.get(locale, "notify.weekly.budget", spent, passed))
+                    .append(texts.get(locale, "notify.weekly.budget", weekly.budgetUsed(), weekly.monthPassed()))
                     .append("</i>");
         }
         byte[] chart = SpendingCharts.cumulative(
                 texts.get(locale, "notify.weekly.chart") + ", " + BotTexts.symbol(currency),
-                BotTexts.month(YearMonth.from(from), locale),
-                BotTexts.month(YearMonth.from(previousFrom), locale),
-                compare.days().stream()
-                        .map(day -> new SpendingCharts.Day(day.day(), day.a(), day.b()))
-                        .toList(),
+                BotTexts.month(YearMonth.from(weekly.from()), locale),
+                BotTexts.month(YearMonth.from(weekly.previousFrom()), locale),
+                weekly.days(),
                 locale);
-        return List.of(new Notice(
-                NotificationKind.WEEKLY, monday.toString(), html.toString(), openKeyboard(locale, "/reports"), chart));
+        return new Notice(
+                NotificationKind.WEEKLY,
+                weekly.monday().toString(),
+                html.toString(),
+                openKeyboard(locale, "/reports"),
+                chart);
     }
 
-    /**
-     * On the 1st: the previous month against the month before it, with a chart of the categories; until the 3rd when
-     * it could not be sent.
-     */
+    /** The monthly report with a chart of the categories; see {@link SpendingReports#monthly}. */
     List<Notice> monthly(Long userId, LocalDate today, Locale locale) {
-        if (today.getDayOfMonth() > 1 + REPORT_CATCH_UP_DAYS) {
-            return List.of();
-        }
-        YearMonth month = YearMonth.from(today).minusMonths(1);
-        YearMonth before = month.minusMonths(1);
-        CompareResponse compare = analyticsService.compare(
-                userId, month.atDay(1), month.atEndOfMonth(), before.atDay(1), before.atEndOfMonth());
-        IncomeExpenseResponse current = reportService.incomeExpense(userId, month.atDay(1), month.atEndOfMonth());
-        IncomeExpenseResponse previous = reportService.incomeExpense(userId, before.atDay(1), before.atEndOfMonth());
-        if (current.income().signum() == 0 && current.expense().signum() == 0) {
-            return List.of();
-        }
+        return reports.monthly(userId, today).map(monthly -> monthlyNotice(monthly, locale)).stream()
+                .toList();
+    }
+
+    private Notice monthlyNotice(SpendingReports.Monthly monthly, Locale locale) {
+        IncomeExpenseResponse current = monthly.current();
+        IncomeExpenseResponse previous = monthly.previous();
         String currency = current.currency();
         StringBuilder html =
-                new StringBuilder(texts.get(locale, "notify.monthly.title", BotTexts.month(month, locale)));
+                new StringBuilder(texts.get(locale, "notify.monthly.title", BotTexts.month(monthly.month(), locale)));
         html.append("\n")
                 .append(texts.get(locale, "notify.monthly.income"))
                 .append(" — ")
@@ -544,49 +512,28 @@ public class TelegramNotifications {
                 .append(" — ")
                 .append(BotTexts.wholeMoney(current.net(), currency, locale));
         if (current.savingsRate() != null) {
-            html.append(" · ").append(percent(current.savingsRate())).append(" %");
+            html.append(" · ")
+                    .append(SpendingReports.percent(current.savingsRate()))
+                    .append(" %");
         }
-        changes(html, compare, locale);
-
-        List<CategoryChange> categories = compare.categories().stream()
-                .sorted((a, b) -> b.a().compareTo(a.a()))
-                .toList();
-        List<SpendingCharts.Bar> bars = new ArrayList<>();
-        int shown = categories.size() > CHART_CATEGORIES ? CHART_CATEGORIES - 1 : categories.size();
-        for (CategoryChange category : categories.subList(0, shown)) {
-            bars.add(new SpendingCharts.Bar(name(category, locale), category.a(), category.b()));
-        }
-        if (shown < categories.size()) {
-            List<CategoryChange> rest = categories.subList(shown, categories.size());
-            bars.add(new SpendingCharts.Bar(
-                    texts.get(locale, "bot.other"),
-                    rest.stream().map(CategoryChange::a).reduce(BigDecimal.ZERO, BigDecimal::add),
-                    rest.stream().map(CategoryChange::b).reduce(BigDecimal.ZERO, BigDecimal::add)));
-        }
+        changeGroup(html, "notify.change.more", monthly.more(), currency, locale);
+        changeGroup(html, "notify.change.less", monthly.less(), currency, locale);
+        List<SpendingCharts.Bar> bars =
+                monthly.bars(texts.get(locale, "bot.other"), texts.get(locale, "bot.uncategorized"));
         byte[] chart = bars.isEmpty()
                 ? null
                 : SpendingCharts.categories(
-                        texts.get(locale, "notify.monthly.chart") + ", " + BotTexts.symbol(compare.currency()),
-                        BotTexts.month(month, locale),
-                        BotTexts.month(before, locale),
+                        texts.get(locale, "notify.monthly.chart") + ", " + BotTexts.symbol(currency),
+                        BotTexts.month(monthly.month(), locale),
+                        BotTexts.month(monthly.before(), locale),
                         bars,
                         locale);
-        return List.of(new Notice(
-                NotificationKind.MONTHLY, month.toString(), html.toString(), openKeyboard(locale, "/reports"), chart));
-    }
-
-    /** The categories that grew and shrank most, two of each. */
-    private void changes(StringBuilder html, CompareResponse compare, Locale locale) {
-        List<CategoryChange> more = compare.categories().stream()
-                .filter(change -> change.change().signum() > 0)
-                .limit(TOP_CHANGES)
-                .toList();
-        List<CategoryChange> less = compare.categories().stream()
-                .filter(change -> change.change().signum() < 0)
-                .limit(TOP_CHANGES)
-                .toList();
-        changeGroup(html, "notify.change.more", more, compare.currency(), locale);
-        changeGroup(html, "notify.change.less", less, compare.currency(), locale);
+        return new Notice(
+                NotificationKind.MONTHLY,
+                monthly.month().toString(),
+                html.toString(),
+                openKeyboard(locale, "/reports"),
+                chart);
     }
 
     private void changeGroup(
@@ -604,7 +551,7 @@ public class TelegramNotifications {
             if (change.changeShare() != null) {
                 html.append(" · ")
                         .append(change.changeShare().signum() > 0 ? "+" : "−")
-                        .append(percent(change.changeShare()))
+                        .append(SpendingReports.percent(change.changeShare()))
                         .append(" %");
             }
         }
@@ -612,29 +559,16 @@ public class TelegramNotifications {
 
     private String withChange(BigDecimal current, BigDecimal previous, String currency, Locale locale) {
         String amount = BotTexts.wholeMoney(current, currency, locale);
-        if (previous.signum() == 0) {
+        BigDecimal share = SpendingReports.change(current, previous);
+        if (share == null) {
             return amount;
         }
-        BigDecimal share = current.subtract(previous).divide(previous, 4, RoundingMode.HALF_UP);
-        return amount + " · " + (share.signum() > 0 ? "+" : share.signum() < 0 ? "−" : "") + percent(share) + " %";
+        return amount + " · " + (share.signum() > 0 ? "+" : share.signum() < 0 ? "−" : "")
+                + SpendingReports.percent(share) + " %";
     }
 
     private String name(CategoryChange change, Locale locale) {
         return change.name() != null ? change.name() : texts.get(locale, "bot.uncategorized");
-    }
-
-    /** E.g. {@code 1–19 жовтня}. */
-    private static String period(LocalDate from, LocalDate to, Locale locale) {
-        String end = BotTexts.date(to, locale);
-        return from.equals(to) ? end : from.getDayOfMonth() + "–" + end;
-    }
-
-    /** A share as whole percent without a sign. */
-    private static int percent(BigDecimal share) {
-        return share.abs()
-                .multiply(BigDecimal.valueOf(100))
-                .setScale(0, RoundingMode.HALF_UP)
-                .intValue();
     }
 
     private Keyboard openKeyboard(Locale locale, String path) {

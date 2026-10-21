@@ -14,7 +14,11 @@ public class NotificationSettingsService {
         this.settings = settings;
     }
 
-    /** @param hour of Kyiv time when the reminders and the reports are sent */
+    /**
+     * @param hour         of Kyiv time when the reminders and the reports are sent
+     * @param emailWeekly  the weekly report by email
+     * @param emailMonthly the monthly report by email
+     */
     public record NotificationSettingsDto(
             @Min(0) @Max(23) int hour,
             boolean recurring,
@@ -24,7 +28,9 @@ public class NotificationSettingsService {
             boolean forecast,
             boolean goals,
             boolean weekly,
-            boolean monthly) {
+            boolean monthly,
+            boolean emailWeekly,
+            boolean emailMonthly) {
 
         static NotificationSettingsDto from(NotificationSettings settings) {
             return new NotificationSettingsDto(
@@ -36,7 +42,9 @@ public class NotificationSettingsService {
                     settings.isForecast(),
                     settings.isGoals(),
                     settings.isWeekly(),
-                    settings.isMonthly());
+                    settings.isMonthly(),
+                    settings.isEmailWeekly(),
+                    settings.isEmailMonthly());
         }
     }
 
@@ -51,6 +59,15 @@ public class NotificationSettingsService {
         return NotificationSettingsDto.from(of(userId));
     }
 
+    /** Switches the email digest off or on again, by the link of a digest email. */
+    @Transactional
+    public void setDigest(Long userId, boolean on) {
+        NotificationSettings current = settings.findById(userId).orElseGet(() -> new NotificationSettings(userId));
+        current.setEmailWeekly(on);
+        current.setEmailMonthly(on);
+        settings.save(current);
+    }
+
     @Transactional
     public NotificationSettingsDto update(Long userId, NotificationSettingsDto request) {
         NotificationSettings current = settings.findById(userId).orElseGet(() -> new NotificationSettings(userId));
@@ -63,6 +80,8 @@ public class NotificationSettingsService {
         current.setGoals(request.goals());
         current.setWeekly(request.weekly());
         current.setMonthly(request.monthly());
+        current.setEmailWeekly(request.emailWeekly());
+        current.setEmailMonthly(request.emailMonthly());
         return NotificationSettingsDto.from(settings.save(current));
     }
 }
