@@ -8,6 +8,7 @@ import com.andrewcorp.webwallet.telegram.TelegramApi.Update;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.ByteArrayResource;
@@ -15,13 +16,15 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Client of the Telegram Bot API. Texts are HTML (parse mode {@code HTML}), so the callers escape user input with
- * {@link BotTexts#escape}.
+ * {@link BotTexts#escape}. Failures are {@link TelegramException}s: the token of the bot is part of every URL, so the
+ * exceptions of the HTTP client, whose messages name the URL, never leave this class.
  */
 @Component
 public class TelegramClient {
@@ -40,17 +43,44 @@ public class TelegramClient {
                 .build();
     }
 
+    /** A failed call of the Bot API, without the URL. */
+    public static class TelegramException extends RuntimeException {
+
+        private final int status;
+
+        public TelegramException(String method, int status, String detail) {
+            super(
+                    "Telegram " + method + " failed" + (status > 0 ? " with " + status : "") + ": " + detail,
+                    null,
+                    false,
+                    false);
+            this.status = status;
+        }
+
+        /** The HTTP status, or 0 when Telegram was not reached. */
+        public int status() {
+            return status;
+        }
+
+        /** The user blocked the bot or deleted the chat. */
+        public boolean chatGone() {
+            return status == 403;
+        }
+    }
+
     /** Waits up to {@code timeoutSeconds} for updates after the last one handled. */
     public List<Update> getUpdates(long offset, int timeoutSeconds) {
-        Response<List<Update>> response = restClient
-                .post()
-                .uri("/getUpdates")
-                .body(Map.of(
-                        "offset", offset,
-                        "timeout", timeoutSeconds,
-                        "allowed_updates", List.of("message", "callback_query")))
-                .retrieve()
-                .body(new ParameterizedTypeReference<Response<List<Update>>>() {});
+        Response<List<Update>> response = call(
+                "getUpdates",
+                () -> restClient
+                        .post()
+                        .uri("/getUpdates")
+                        .body(Map.of(
+                                "offset", offset,
+                                "timeout", timeoutSeconds,
+                                "allowed_updates", List.of("message", "callback_query")))
+                        .retrieve()
+                        .body(new ParameterizedTypeReference<Response<List<Update>>>() {}));
         return response != null && response.result() != null ? response.result() : List.of();
     }
 
@@ -60,12 +90,14 @@ public class TelegramClient {
         if (replyTo != null) {
             body.put("reply_parameters", Map.of("message_id", replyTo, "allow_sending_without_reply", true));
         }
-        Response<Message> response = restClient
-                .post()
-                .uri("/sendMessage")
-                .body(body)
-                .retrieve()
-                .body(new ParameterizedTypeReference<Response<Message>>() {});
+        Response<Message> response = call(
+                "sendMessage",
+                () -> restClient
+                        .post()
+                        .uri("/sendMessage")
+                        .body(body)
+                        .retrieve()
+                        .body(new ParameterizedTypeReference<Response<Message>>() {}));
         return response != null ? response.result() : null;
     }
 
@@ -74,9 +106,16 @@ public class TelegramClient {
         Map<String, Object> body = textBody(chatId, html, keyboard);
         body.put("message_id", messageId);
         try {
-            restClient.post().uri("/editMessageText").body(body).retrieve().toBodilessEntity();
-        } catch (HttpClientErrorException.BadRequest e) {
-            if (!e.getResponseBodyAsString().contains("message is not modified")) {
+            call(
+                    "editMessageText",
+                    () -> restClient
+                            .post()
+                            .uri("/editMessageText")
+                            .body(body)
+                            .retrieve()
+                            .toBodilessEntity());
+        } catch (TelegramException e) {
+            if (!e.getMessage().contains("message is not modified")) {
                 throw e;
             }
         }
@@ -98,13 +137,15 @@ public class TelegramClient {
             // A multipart field is a string, so the keyboard goes there as JSON text
             parts.add("reply_markup", jsonMapper.writeValueAsString(keyboard.json()));
         }
-        restClient
-                .post()
-                .uri("/sendPhoto")
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(parts)
-                .retrieve()
-                .toBodilessEntity();
+        call(
+                "sendPhoto",
+                () -> restClient
+                        .post()
+                        .uri("/sendPhoto")
+                        .contentType(MediaType.MULTIPART_FORM_DATA)
+                        .body(parts)
+                        .retrieve()
+                        .toBodilessEntity());
     }
 
     /** Stops the spinner on the pressed button, optionally with a short notice. */
@@ -114,24 +155,40 @@ public class TelegramClient {
         if (text != null) {
             body.put("text", text);
         }
-        restClient.post().uri("/answerCallbackQuery").body(body).retrieve().toBodilessEntity();
+        call(
+                "answerCallbackQuery",
+                () -> restClient
+                        .post()
+                        .uri("/answerCallbackQuery")
+                        .body(body)
+                        .retrieve()
+                        .toBodilessEntity());
     }
 
     public void setWebhook(String url, String secret) {
-        restClient
-                .post()
-                .uri("/setWebhook")
-                .body(Map.of(
-                        "url", url,
-                        "secret_token", secret,
-                        "allowed_updates", List.of("message", "callback_query")))
-                .retrieve()
-                .toBodilessEntity();
+        call(
+                "setWebhook",
+                () -> restClient
+                        .post()
+                        .uri("/setWebhook")
+                        .body(Map.of(
+                                "url", url,
+                                "secret_token", secret,
+                                "allowed_updates", List.of("message", "callback_query")))
+                        .retrieve()
+                        .toBodilessEntity());
     }
 
     /** Needed before polling: Telegram does not give updates by polling while a webhook is set. */
     public void deleteWebhook() {
-        restClient.post().uri("/deleteWebhook").body(Map.of()).retrieve().toBodilessEntity();
+        call(
+                "deleteWebhook",
+                () -> restClient
+                        .post()
+                        .uri("/deleteWebhook")
+                        .body(Map.of())
+                        .retrieve()
+                        .toBodilessEntity());
     }
 
     /** The command menu of the bot; {@code languageCode} empty for the default one. */
@@ -145,7 +202,25 @@ public class TelegramClient {
         if (!languageCode.isEmpty()) {
             body.put("language_code", languageCode);
         }
-        restClient.post().uri("/setMyCommands").body(body).retrieve().toBodilessEntity();
+        call(
+                "setMyCommands",
+                () -> restClient
+                        .post()
+                        .uri("/setMyCommands")
+                        .body(body)
+                        .retrieve()
+                        .toBodilessEntity());
+    }
+
+    /** The response of Telegram says what went wrong; any other failure only by its type. */
+    private static <T> T call(String method, Supplier<T> request) {
+        try {
+            return request.get();
+        } catch (RestClientResponseException e) {
+            throw new TelegramException(method, e.getStatusCode().value(), e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            throw new TelegramException(method, 0, e.getClass().getSimpleName());
+        }
     }
 
     private static Map<String, Object> textBody(long chatId, String html, Keyboard keyboard) {

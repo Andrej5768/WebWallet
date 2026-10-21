@@ -72,10 +72,6 @@ class FreedomImportTest extends AbstractIntegrationTest {
         return list.stream().collect(Collectors.toMap(item -> (String) item.get(key), Function.identity()));
     }
 
-    private static double number(Object value) {
-        return ((Number) value).doubleValue();
-    }
-
     @Test
     void previewsAndImportsTheReports() throws Exception {
         Map<String, Object> preview = json(preview(FreedomReports.trades(), FreedomReports.cashFlows()), 200);

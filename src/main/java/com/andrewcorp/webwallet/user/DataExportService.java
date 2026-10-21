@@ -40,6 +40,9 @@ public class DataExportService {
 
     static final int FORMAT_VERSION = 1;
 
+    private static final String FORMULA_START = "=+-@\t\r";
+    private static final Pattern NUMBER = Pattern.compile("-?\\d+(\\.\\d+)?");
+
     /** Sign-in data, temporary data and the migration history. */
     private static final Set<String> SKIPPED_TABLES = Set.of(
             "users",
@@ -240,7 +243,16 @@ public class DataExportService {
         }
     }
 
+    /**
+     * A text that a spreadsheet would run as a formula, e.g. a comment «=HYPERLINK(…)» of a transfer from someone
+     * else, gets an apostrophe in front; numbers such as {@code -150.00} stay numbers.
+     */
     static String csvCell(String value) {
+        if (!value.isEmpty()
+                && FORMULA_START.indexOf(value.charAt(0)) >= 0
+                && !NUMBER.matcher(value).matches()) {
+            value = "'" + value;
+        }
         boolean quote = value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r");
         return quote ? "\"" + value.replace("\"", "\"\"") + "\"" : value;
     }

@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.imports.freedom;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.common.util.Amounts;
 import com.andrewcorp.webwallet.imports.XlsxReader;
 import com.andrewcorp.webwallet.imports.freedom.FreedomReport.CashFlow;
 import com.andrewcorp.webwallet.imports.freedom.FreedomReport.Trade;
@@ -126,7 +127,7 @@ public class FreedomReportParser {
     private static BigDecimal decimal(List<String> row, Map<String, Integer> header, String column) {
         String value = text(row, header, column);
         try {
-            return value.isEmpty() ? BigDecimal.ZERO : new BigDecimal(value.replace(',', '.'));
+            return value.isEmpty() ? BigDecimal.ZERO : Amounts.parse(value);
         } catch (NumberFormatException e) {
             throw new ApiException(ErrorCode.INVALID_IMPORT_FILE);
         }

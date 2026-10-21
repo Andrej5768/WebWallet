@@ -213,7 +213,7 @@ class GoogleSignInTest extends AbstractIntegrationTest {
         User user = createVerifiedUser();
         String auth = bearer(login(user.getEmail(), PASSWORD));
         MockHttpServletResponse linkResponse = mockMvc.perform(
-                        post("/api/v1/me/google/link").header("Authorization", auth))
+                        postJson("/api/v1/me/google/link", Map.of("password", PASSWORD), auth))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse();

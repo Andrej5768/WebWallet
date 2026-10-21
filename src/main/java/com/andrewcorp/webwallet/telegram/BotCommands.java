@@ -15,8 +15,7 @@ import com.andrewcorp.webwallet.report.ReportDtos.CategorySpending;
 import com.andrewcorp.webwallet.report.ReportDtos.SpendingResponse;
 import com.andrewcorp.webwallet.report.ReportService;
 import com.andrewcorp.webwallet.tax.FopTaxService;
-import com.andrewcorp.webwallet.tax.TaxDtos.FopQuarter;
-import com.andrewcorp.webwallet.tax.TaxDtos.FopReport;
+import com.andrewcorp.webwallet.tax.TaxDtos.FopDeadline;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -25,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 /** The reports of the commands /balance, /today, /month and /planned. */
@@ -143,7 +141,16 @@ class BotCommands {
                     : occurrence.amount().negate();
             items.add(new PlannedItem(occurrence.date(), occurrence.name(), amount, occurrence.currency()));
         }
-        items.addAll(taxes(userId, today, last, locale));
+        for (FopDeadline deadline : fopTaxService.deadlines(userId, today, last)) {
+            if (deadline.amount() != null) {
+                String key = deadline.kind() == FopDeadline.Kind.ESV ? "bot.planned.esv" : "bot.planned.singleTax";
+                items.add(new PlannedItem(
+                        deadline.date(),
+                        texts.get(locale, key, roman(deadline.quarter())),
+                        deadline.amount().negate(),
+                        "UAH"));
+            }
+        }
         items.sort(Comparator.comparing(PlannedItem::date).thenComparing(PlannedItem::name));
 
         StringBuilder text = new StringBuilder(
@@ -169,7 +176,9 @@ class BotCommands {
             }
             totals(text, items, locale);
         }
-        firstNegativeDay(userId, last)
+        forecastService
+                .firstNegativeDay(userId, last)
+                .map(ForecastDay::date)
                 .ifPresent(day -> text.append("\n\n<b>")
                         .append(texts.get(locale, "bot.planned.forecast", BotTexts.date(day, locale)))
                         .append("</b>"));
@@ -206,46 +215,6 @@ class BotCommands {
                         item.currency().equals(currency) && item.amount().signum() == sign)
                 .map(PlannedItem::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    /** The unpaid taxes of the sole proprietor due in the period; only for a user with a sole proprietor account. */
-    private List<PlannedItem> taxes(Long userId, LocalDate from, LocalDate to, Locale locale) {
-        List<PlannedItem> items = new ArrayList<>();
-        // The quarters of the previous year are due early in the next one
-        for (int year = from.getYear() - 1; year <= to.getYear(); year++) {
-            FopReport report = fopTaxService.report(userId, year);
-            if (report.fopAccountIds().isEmpty()) {
-                return items;
-            }
-            for (FopQuarter quarter : report.quarters()) {
-                if (quarter.paid()) {
-                    continue;
-                }
-                BigDecimal tax = quarter.singleTax().add(quarter.military());
-                if (tax.signum() > 0 && within(quarter.taxDue(), from, to)) {
-                    items.add(new PlannedItem(
-                            quarter.taxDue(),
-                            texts.get(locale, "bot.planned.singleTax", roman(quarter.quarter())),
-                            tax.negate(),
-                            "UAH"));
-                }
-                if (quarter.esv().signum() > 0 && within(quarter.esvDue(), from, to)) {
-                    items.add(new PlannedItem(
-                            quarter.esvDue(),
-                            texts.get(locale, "bot.planned.esv", roman(quarter.quarter())),
-                            quarter.esv().negate(),
-                            "UAH"));
-                }
-            }
-        }
-        return items;
-    }
-
-    private Optional<LocalDate> firstNegativeDay(Long userId, LocalDate to) {
-        return forecastService.forecast(userId, to).days().stream()
-                .filter(day -> !day.actual() && day.balance().signum() < 0)
-                .map(ForecastDay::date)
-                .findFirst();
     }
 
     /** The top-level categories, the largest first; with {@code collapse} the smaller ones become «Інше». */

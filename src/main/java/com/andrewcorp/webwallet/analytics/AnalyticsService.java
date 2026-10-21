@@ -20,9 +20,11 @@ import com.andrewcorp.webwallet.budget.BudgetService;
 import com.andrewcorp.webwallet.common.util.Money;
 import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.ledger.category.Category;
+import com.andrewcorp.webwallet.ledger.account.Account;
+import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
+import com.andrewcorp.webwallet.ledger.category.CategoryTree;
 import com.andrewcorp.webwallet.ledger.category.Necessity;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.planning.OccurrenceStatus;
@@ -50,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -77,6 +80,7 @@ public class AnalyticsService {
     private final BudgetService budgetService;
     private final RecurringService recurringService;
     private final PlanningRepository planning;
+    private final AccountRepository accounts;
     private final Clock clock;
 
     public AnalyticsService(
@@ -86,6 +90,7 @@ public class AnalyticsService {
             BudgetService budgetService,
             RecurringService recurringService,
             PlanningRepository planning,
+            AccountRepository accounts,
             Clock clock) {
         this.converters = converters;
         this.reports = reports;
@@ -93,6 +98,7 @@ public class AnalyticsService {
         this.budgetService = budgetService;
         this.recurringService = recurringService;
         this.planning = planning;
+        this.accounts = accounts;
         this.clock = clock;
     }
 
@@ -113,11 +119,17 @@ public class AnalyticsService {
         if (month.equals(current)) {
             CurrencyConverter converter = converter(userId);
             LocalDate today = LocalDate.now(clock);
+            Set<Long> budgetAccounts = accounts.findByUserIdOrderBySortOrderAscIdAsc(userId).stream()
+                    .filter(Account::isInBudget)
+                    .map(Account::getId)
+                    .collect(Collectors.toSet());
             for (OccurrenceResponse occurrence :
                     recurringService.occurrences(userId, month.atDay(1), month.atEndOfMonth())) {
+                // Only payments of the budget accounts count against the envelopes
                 if (occurrence.status() == OccurrenceStatus.PENDING
                         && occurrence.type() == TransactionType.EXPENSE
-                        && occurrence.categoryId() != null) {
+                        && occurrence.categoryId() != null
+                        && budgetAccounts.contains(occurrence.accountId())) {
                     plannedRemaining.merge(
                             occurrence.categoryId(),
                             converter.convert(occurrence.amount(), occurrence.currency(), today),
@@ -155,7 +167,7 @@ public class AnalyticsService {
     @Transactional(readOnly = true)
     public CompareResponse compare(Long userId, LocalDate fromA, LocalDate toA, LocalDate fromB, LocalDate toB) {
         CurrencyConverter converter = converter(userId);
-        CategoryTree tree = new CategoryTree(userId);
+        CategoryTree tree = categories.tree(userId);
         PeriodSpending a = spending(userId, fromA, toA, converter, tree);
         PeriodSpending b = spending(userId, fromB, toB, converter, tree);
 
@@ -200,7 +212,7 @@ public class AnalyticsService {
     @Transactional(readOnly = true)
     public TrendsResponse trends(Long userId, YearMonth from, YearMonth to) {
         CurrencyConverter converter = converter(userId);
-        CategoryTree tree = new CategoryTree(userId);
+        CategoryTree tree = categories.tree(userId);
         List<YearMonth> months = months(from, to);
         int count = months.size();
         Map<Long, BigDecimal[]> byCategory = new HashMap<>();
@@ -319,7 +331,7 @@ public class AnalyticsService {
     @Transactional(readOnly = true)
     public NeedsWantsResponse needsWants(Long userId, LocalDate from, LocalDate to) {
         CurrencyConverter converter = converter(userId);
-        CategoryTree tree = new CategoryTree(userId);
+        CategoryTree tree = categories.tree(userId);
         BigDecimal income = BigDecimal.ZERO;
         BigDecimal needs = BigDecimal.ZERO;
         BigDecimal wants = BigDecimal.ZERO;
@@ -468,42 +480,6 @@ public class AnalyticsService {
     }
 
     /** The expense categories of the user: the top level of each, names and necessities. */
-    private final class CategoryTree {
-
-        private final Map<Long, Category> byId = new HashMap<>();
-
-        CategoryTree(Long userId) {
-            categories.findByUserIdOrderBySortOrderAscNameAsc(userId).forEach(c -> byId.put(c.getId(), c));
-        }
-
-        /** The top-level category of the category; null for no category. */
-        Long topLevel(Long categoryId) {
-            if (categoryId == null) {
-                return null;
-            }
-            Category category = byId.get(categoryId);
-            return category != null && category.getParentId() != null ? category.getParentId() : categoryId;
-        }
-
-        String name(Long categoryId) {
-            Category category = categoryId != null ? byId.get(categoryId) : null;
-            return category != null ? category.getName() : null;
-        }
-
-        /** The necessity of the category, or of its parent when it has none. */
-        Necessity necessity(Long categoryId) {
-            Category category = categoryId != null ? byId.get(categoryId) : null;
-            if (category == null) {
-                return null;
-            }
-            if (category.getNecessity() != null || category.getParentId() == null) {
-                return category.getNecessity();
-            }
-            Category parent = byId.get(category.getParentId());
-            return parent != null ? parent.getNecessity() : null;
-        }
-    }
-
     private CurrencyConverter converter(Long userId) {
         return converters.base(userId);
     }

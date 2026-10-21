@@ -84,9 +84,9 @@ public class TransactionService {
     @Transactional
     public TransactionResponse update(Long userId, Long id, TransactionRequest request) {
         Transaction transaction = find(userId, id);
-        Category before = singleCategory(transaction);
+        Category before = transaction.singleCategory();
         apply(userId, transaction, request);
-        Category after = singleCategory(transaction);
+        Category after = transaction.singleCategory();
         // A corrected category of a payee is applied to its later imported operations
         if (after != null
                 && transaction.getPayee() != null
@@ -119,12 +119,6 @@ public class TransactionService {
                                 occurrence.getRecurring().getId(),
                                 occurrence.getRecurring().getName(),
                                 occurrence.getDueDate())));
-    }
-
-    private static Category singleCategory(Transaction transaction) {
-        return transaction.getSplits().size() == 1
-                ? transaction.getSplits().get(0).getCategory()
-                : null;
     }
 
     /**
@@ -208,6 +202,8 @@ public class TransactionService {
                 && !transaction.getToAccount().getId().equals(toAccount.getId())) {
             releaseBankId(transaction, transaction.getToBankId());
             transaction.setToBankId(null);
+            // The incoming half of another account can be imported again
+            transaction.setToExternalId(null);
         }
         transaction.setToAccount(toAccount);
         transaction.setToAmount(toAmount);
@@ -245,6 +241,7 @@ public class TransactionService {
         // No longer a transfer: the incoming half is a separate operation again
         releaseBankId(transaction, transaction.getToBankId());
         transaction.setToBankId(null);
+        transaction.setToExternalId(null);
         transaction.replaceSplits(splits);
     }
 }

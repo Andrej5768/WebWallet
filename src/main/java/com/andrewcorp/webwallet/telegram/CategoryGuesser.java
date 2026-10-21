@@ -9,7 +9,6 @@ import com.andrewcorp.webwallet.ledger.rule.CategorySuggester;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -83,10 +82,8 @@ class CategoryGuesser {
                 .min(subcategoriesFirst);
     }
 
+    /** Compared like account names, so that a Latin «i» typed among Cyrillic letters still matches. */
     private static String normalize(String text) {
-        return text.toLowerCase(Locale.ROOT)
-                .replace('ё', 'е')
-                .replaceAll("['’ʼ]", "")
-                .trim();
+        return AccountNames.normalize(text);
     }
 }

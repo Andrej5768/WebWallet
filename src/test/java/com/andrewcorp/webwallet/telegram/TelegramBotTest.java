@@ -53,7 +53,8 @@ class TelegramBotTest extends AbstractIntegrationTest {
     private JdbcTemplate jdbc;
 
     private final AtomicLong updateIds = new AtomicLong();
-    private final AtomicLong messageIds = new AtomicLong(100);
+    // Message ids differ between the tests: the bot remembers the answered questions by them
+    private final AtomicLong messageIds = new AtomicLong(System.nanoTime() % 1_000_000_000);
 
     private String auth;
     private User user;
@@ -76,7 +77,7 @@ class TelegramBotTest extends AbstractIntegrationTest {
 
     @Test
     void linksTheChatByTheCodeOfTheLink() throws Exception {
-        Map<String, Object> link = json(post("/api/v1/telegram/link").header("Authorization", auth), 200);
+        Map<String, Object> link = json(postJson("/api/v1/telegram/link", Map.of("password", PASSWORD), auth), 200);
         String url = (String) link.get("url");
         assertThat(url).startsWith("https://t.me/TestWalletBot?start=");
 
@@ -88,6 +89,27 @@ class TelegramBotTest extends AbstractIntegrationTest {
                 .containsEntry("enabled", true)
                 .containsEntry("linked", true)
                 .containsEntry("username", "olena");
+    }
+
+    @Test
+    void linkNeedsThePassword() throws Exception {
+        mockMvc.perform(postJson("/api/v1/telegram/link", Map.of(), auth)).andExpect(status().isBadRequest());
+        mockMvc.perform(postJson("/api/v1/telegram/link", Map.of("password", "wrong-password"), auth))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void newPasswordDisconnectsTheChat() throws Exception {
+        link();
+
+        mockMvc.perform(postJson(
+                        "/api/v1/me/password",
+                        Map.of("currentPassword", PASSWORD, "newPassword", "newPassword123"),
+                        auth))
+                .andExpect(status().isOk());
+
+        assertThat(count("select count(*) from telegram_links")).isZero();
+        assertThat(lastText()).contains("disconnected");
     }
 
     @Test
@@ -106,7 +128,8 @@ class TelegramBotTest extends AbstractIntegrationTest {
         link();
         User other = createVerifiedUser();
         String otherAuth = bearer(login(other.getEmail(), PASSWORD));
-        Map<String, Object> link = json(post("/api/v1/telegram/link").header("Authorization", otherAuth), 200);
+        Map<String, Object> link =
+                json(postJson("/api/v1/telegram/link", Map.of("password", PASSWORD), otherAuth), 200);
         String url = (String) link.get("url");
 
         message("/start " + url.substring(url.indexOf('=') + 1));
@@ -165,6 +188,56 @@ class TelegramBotTest extends AbstractIntegrationTest {
         callback(question, pick.callbackData(), "300 моно таксі");
 
         assertThat(((Number) onlyTransaction().get("accountId")).longValue()).isEqualTo(white);
+    }
+
+    @Test
+    void secondPressOfTheAccountChoiceRecordsNothing() throws Exception {
+        link();
+        account("Monobank Біла", "CARD", "UAH");
+        long question = message("300 моно таксі");
+        String data = lastKeyboard().rows().get(0).get(0).callbackData();
+
+        callback(question, data, "300 моно таксі");
+        callback(question, data, "300 моно таксі");
+
+        assertThat(count("select count(*) from transactions")).isEqualTo(1);
+    }
+
+    @Test
+    void transferDirectionFromTheWords() throws Exception {
+        link();
+
+        message("2000 на готівку з моно");
+
+        Map<String, Object> transaction = onlyTransaction();
+        assertThat(((Number) transaction.get("accountId")).longValue()).isEqualTo(card);
+        assertThat(((Number) transaction.get("to_account_id")).longValue()).isEqualTo(cash);
+    }
+
+    @Test
+    void amountInAnotherCurrencyIsNotRecordedOnTheAccount() throws Exception {
+        link();
+
+        message("20 usd обід");
+        assertThat(lastText()).contains("no account in USD");
+
+        Long dollars = account("Wise", "CARD", "USD");
+        message("20 usd обід");
+        assertThat(((Number) onlyTransaction().get("accountId")).longValue()).isEqualTo(dollars);
+
+        message("100 грн wise");
+        assertThat(lastText()).contains("is in USD, but the amount is in UAH");
+    }
+
+    @Test
+    void disabledUserGetsNothing() throws Exception {
+        link();
+        jdbcUpdate("update users set enabled = false");
+
+        message("150 кава");
+
+        assertThat(count("select count(*) from transactions")).isZero();
+        assertThat(lastText()).contains("not connected");
     }
 
     @Test
@@ -317,7 +390,7 @@ class TelegramBotTest extends AbstractIntegrationTest {
     }
 
     private String code() throws Exception {
-        String url = (String) json(post("/api/v1/telegram/link").header("Authorization", auth), 200)
+        String url = (String) json(postJson("/api/v1/telegram/link", Map.of("password", PASSWORD), auth), 200)
                 .get("url");
         return url.substring(url.indexOf('=') + 1);
     }
@@ -399,17 +472,10 @@ class TelegramBotTest extends AbstractIntegrationTest {
     }
 
     private Long account(String name, String type, String currency) throws Exception {
-        return id(json(
-                postJson(
-                        "/api/v1/accounts",
-                        Map.of("name", name, "type", type, "currency", currency, "openingBalance", 1000),
-                        auth),
-                201));
+        return createAccount(auth, name, type, currency, 1000);
     }
 
     private Long category(String name, String kind, Long parentId) throws Exception {
-        Map<String, Object> body = new HashMap<>(Map.of("name", name, "kind", kind));
-        body.put("parentId", parentId);
-        return id(json(postJson("/api/v1/categories", body, auth), 201));
+        return createCategory(auth, name, kind, parentId);
     }
 }

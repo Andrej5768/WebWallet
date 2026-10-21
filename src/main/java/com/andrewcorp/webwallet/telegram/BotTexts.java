@@ -1,5 +1,8 @@
 package com.andrewcorp.webwallet.telegram;
 
+import com.andrewcorp.webwallet.config.AppProperties;
+import com.andrewcorp.webwallet.config.WebConfig;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
@@ -8,6 +11,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +19,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class BotTexts {
 
-    private static final Locale UKRAINIAN = Locale.forLanguageTag("uk");
     private static final Map<String, String> SYMBOLS =
             Map.of("UAH", "₴", "USD", "$", "EUR", "€", "GBP", "£", "PLN", "zł");
     private static final char MINUS = '−';
@@ -33,7 +36,7 @@ public class BotTexts {
     /** The language of the bot: Ukrainian for {@code uk}, English otherwise. */
     public static Locale locale(String languageTag) {
         return languageTag != null && languageTag.toLowerCase(Locale.ROOT).startsWith("uk")
-                ? UKRAINIAN
+                ? WebConfig.UKRAINIAN
                 : Locale.ENGLISH;
     }
 
@@ -66,6 +69,21 @@ public class BotTexts {
 
     public static String symbol(String currency) {
         return SYMBOLS.getOrDefault(currency, currency);
+    }
+
+    /** An expense with a minus, an income with a plus, a transfer without a sign. */
+    public static String amount(TransactionType type, BigDecimal amount, String currency, Locale locale) {
+        return switch (type) {
+            case EXPENSE -> money(amount.negate(), currency, locale);
+            case INCOME -> signedMoney(amount, currency, locale);
+            case TRANSFER -> money(amount, currency, locale);
+        };
+    }
+
+    /** A link to a page of the web client for a button; Telegram accepts only public links there. */
+    public static Optional<String> buttonUrl(AppProperties properties, String path) {
+        String url = properties.frontendUrl(path);
+        return url.startsWith("https://") ? Optional.of(url) : Optional.empty();
     }
 
     /** E.g. {@code 21 жовтня}, {@code 21 October}. */

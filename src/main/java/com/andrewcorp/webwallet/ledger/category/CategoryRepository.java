@@ -9,6 +9,11 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     List<Category> findByUserIdOrderBySortOrderAscNameAsc(Long userId);
 
+    /** All categories of the user with their levels. */
+    default CategoryTree tree(Long userId) {
+        return CategoryTree.of(findByUserIdOrderBySortOrderAscNameAsc(userId));
+    }
+
     Optional<Category> findByIdAndUserId(Long id, Long userId);
 
     boolean existsByParentId(Long parentId);

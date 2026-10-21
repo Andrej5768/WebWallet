@@ -44,6 +44,9 @@ public class Transaction {
      * Range of plausible dates. Older dates are rejected: converting them would make the exchange rates be requested
      * for decades the NBU has no data for.
      */
+    /** Longest comment kept; longer ones of imported operations are cut. */
+    public static final int MAX_COMMENT_LENGTH = 1000;
+
     public static final LocalDate MIN_DATE = LocalDate.of(1990, 1, 1);
 
     public static final LocalDate MAX_DATE = LocalDate.of(2100, 1, 1);
@@ -149,6 +152,42 @@ public class Transaction {
         splits.clear();
         newSplits.forEach(
                 split -> splits.add(new TransactionSplit(this, split.category(), split.amount(), split.comment())));
+    }
+
+    /**
+     * Makes this expense a transfer to the account of the other half, or this income a transfer from it. Each half
+     * keeps its amount, bank id and import id, so that neither is imported again. A category, a payee, a hold and an
+     * amount in a foreign currency do not belong to a transfer.
+     */
+    public void becomeTransfer(Account other, BigDecimal otherAmount, String otherBankId, String otherExternalId) {
+        if (type == TransactionType.INCOME) {
+            toAccount = account;
+            toAmount = amount;
+            toBankId = bankId;
+            toExternalId = externalId;
+            account = other;
+            amount = otherAmount;
+            bankId = otherBankId;
+            externalId = otherExternalId;
+        } else if (type == TransactionType.EXPENSE) {
+            toAccount = other;
+            toAmount = otherAmount;
+            toBankId = otherBankId;
+            toExternalId = otherExternalId;
+        } else {
+            throw new IllegalStateException("Only an expense or an income becomes a transfer");
+        }
+        type = TransactionType.TRANSFER;
+        hold = false;
+        originalAmount = null;
+        originalCurrency = null;
+        payee = null;
+        splits.clear();
+    }
+
+    /** The category of a transaction that is not split, otherwise null. */
+    public Category singleCategory() {
+        return splits.size() == 1 ? splits.get(0).getCategory() : null;
     }
 
     public void replaceTags(Set<Tag> newTags) {

@@ -19,6 +19,7 @@ import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionRequest;
 import com.andrewcorp.webwallet.telegram.QuickEntryParser.AccountName;
 import com.andrewcorp.webwallet.telegram.QuickEntryParser.Mention;
 import com.andrewcorp.webwallet.telegram.QuickEntryParser.Parsed;
+import com.andrewcorp.webwallet.telegram.QuickEntryParser.Role;
 import com.andrewcorp.webwallet.telegram.TelegramApi.Button;
 import com.andrewcorp.webwallet.telegram.TelegramApi.Keyboard;
 import java.time.Clock;
@@ -118,8 +119,11 @@ class QuickEntryService {
         Account to = null;
         TransactionType type;
         if (resolved.size() == 2) {
-            account = find(open, resolved.get(0));
-            to = find(open, resolved.get(1));
+            // «на готівку з моно»: the words before the accounts say the direction, otherwise their order does
+            boolean reversed = entry.mentions().get(0).role() == Role.TO
+                    || entry.mentions().get(1).role() == Role.FROM;
+            account = find(open, resolved.get(reversed ? 1 : 0));
+            to = find(open, resolved.get(reversed ? 0 : 1));
             if (account.getId().equals(to.getId())) {
                 return BotReply.text(texts.get(locale, "bot.entry.sameAccount"));
             }
@@ -128,14 +132,31 @@ class QuickEntryService {
             }
             type = TransactionType.TRANSFER;
         } else {
-            account = resolved.size() == 1 ? find(open, resolved.get(0)) : defaultAccount(link, open);
+            // «100 грн»: without an account named, the default one in that currency
+            List<Account> candidates = entry.currency() == null
+                    ? open
+                    : open.stream()
+                            .filter(candidate -> candidate.getCurrency().equals(entry.currency()))
+                            .toList();
+            account = resolved.size() == 1 ? find(open, resolved.get(0)) : defaultAccount(link, candidates);
             if (account == null) {
-                return BotReply.text(texts.get(locale, "bot.entry.noAccount"));
+                return BotReply.text(
+                        entry.currency() == null
+                                ? texts.get(locale, "bot.entry.noAccount")
+                                : texts.get(locale, "bot.entry.noAccountInCurrency", entry.currency()));
             }
             type = entry.income() ? TransactionType.INCOME : TransactionType.EXPENSE;
         }
+        if (entry.currency() != null && !account.getCurrency().equals(entry.currency())) {
+            return BotReply.text(texts.get(
+                    locale,
+                    "bot.entry.otherCurrency",
+                    escape(account.getName()),
+                    account.getCurrency(),
+                    entry.currency()));
+        }
 
-        String description = Texts.truncate(entry.description(), 1000);
+        String description = Texts.truncate(entry.description(), Transaction.MAX_COMMENT_LENGTH);
         CategoryGuesser.Guess guess = type == TransactionType.TRANSFER || description == null
                 ? new CategoryGuesser.Guess(null, null)
                 : guesser.guess(userId, description, kind(type));
@@ -267,7 +288,7 @@ class QuickEntryService {
                 text.append(" · ").append(escape(transaction.getComment()));
             }
         } else {
-            Category category = singleCategory(transaction);
+            Category category = transaction.singleCategory();
             String categoryName = category != null ? path(category) : texts.get(locale, "bot.uncategorized");
             text.append(escape(categoryName));
             if (transaction.getComment() != null
@@ -297,7 +318,7 @@ class QuickEntryService {
             return Keyboard.of(List.of(List.of(cancel)));
         }
         String categoryLabel =
-                singleCategory(transaction) != null ? "bot.button.category" : "bot.button.chooseCategory";
+                transaction.singleCategory() != null ? "bot.button.category" : "bot.button.chooseCategory";
         Button category = Button.callback(texts.get(locale, categoryLabel), "c:" + id);
         Button account = Button.callback(texts.get(locale, "bot.button.account"), "a:" + id);
         if (transaction.getType() == TransactionType.INCOME) {
@@ -434,43 +455,28 @@ class QuickEntryService {
     }
 
     private String amount(Transaction transaction, Locale locale) {
-        String currency = transaction.getAccount().getCurrency();
-        return switch (transaction.getType()) {
-            case EXPENSE -> BotTexts.money(transaction.getAmount().negate(), currency, locale);
-            case INCOME -> BotTexts.signedMoney(transaction.getAmount(), currency, locale);
-            case TRANSFER -> BotTexts.money(transaction.getAmount(), currency, locale);
-        };
+        return BotTexts.amount(
+                transaction.getType(),
+                transaction.getAmount(),
+                transaction.getAccount().getCurrency(),
+                locale);
     }
 
     private String path(Category category) {
-        if (category.getParentId() == null) {
-            return category.getName();
-        }
-        return categories
-                .findById(category.getParentId())
-                .map(parent -> parent.getName() + " › " + category.getName())
-                .orElse(category.getName());
+        return categories.tree(category.getUserId()).path(category);
     }
 
     private Optional<String> transactionsUrl() {
-        String url = properties.frontendUrl().replaceAll("/+$", "") + "/transactions";
-        // Telegram accepts only public links on buttons
-        return url.startsWith("https://") ? Optional.of(url) : Optional.empty();
-    }
-
-    private static Category singleCategory(Transaction transaction) {
-        return transaction.getSplits().size() == 1
-                ? transaction.getSplits().get(0).getCategory()
-                : null;
+        return BotTexts.buttonUrl(properties, "/transactions");
     }
 
     private static Long categoryId(Transaction transaction) {
-        Category category = singleCategory(transaction);
+        Category category = transaction.singleCategory();
         return category != null ? category.getId() : null;
     }
 
     private static CategoryKind kind(TransactionType type) {
-        return type == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
+        return CategoryKind.of(type);
     }
 
     private static Outcome reply(BotReply reply) {

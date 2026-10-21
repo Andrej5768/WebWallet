@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.andrewcorp.webwallet.telegram.QuickEntryParser.AccountName;
 import com.andrewcorp.webwallet.telegram.QuickEntryParser.Mention;
 import com.andrewcorp.webwallet.telegram.QuickEntryParser.Parsed;
+import com.andrewcorp.webwallet.telegram.QuickEntryParser.Role;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -89,6 +90,42 @@ class QuickEntryParserTest {
     void wordsThatNameNoAccountStayInTheDescription() {
         assertThat(parse("150 кава з молоком").description()).isEqualTo("кава з молоком");
         assertThat(parse("2000 банкомат").mentions()).isEmpty();
+    }
+
+    @Test
+    void amountWrittenWithSpaces() {
+        assertThat(parse("1 500 продукти").amount()).isEqualByComparingTo("1500");
+        assertThat(parse("1 500 продукти").description()).isEqualTo("продукти");
+        assertThat(parse("+12 000,50 зарплата").amount()).isEqualByComparingTo("12000.50");
+    }
+
+    @Test
+    void dateBeforeTheAmount() {
+        Parsed parsed = parse("12.10 150 кава");
+
+        assertThat(parsed.amount()).isEqualByComparingTo("150");
+        assertThat(parsed.date()).isEqualTo(LocalDate.of(2026, 10, 12));
+        // A single number is the amount, even when it looks like a date
+        assertThat(parse("20.10 таксі").amount()).isEqualByComparingTo("20.10");
+    }
+
+    @Test
+    void currencyOfTheAmount() {
+        assertThat(parse("100 грн таксі").currency()).isEqualTo("UAH");
+        assertThat(parse("100 грн таксі").description()).isEqualTo("таксі");
+        assertThat(parse("20$ обід").currency()).isEqualTo("USD");
+        assertThat(parse("$20 обід").currency()).isEqualTo("USD");
+        assertThat(parse("150 кава").currency()).isNull();
+    }
+
+    @Test
+    void wordsBeforeTheAccountsSayTheDirection() {
+        Parsed parsed = parse("500 на готівку з привату");
+
+        assertThat(parsed.mentions()).extracting(Mention::role).containsExactly(Role.TO, Role.FROM);
+        assertThat(parse("500 приват готівка").mentions())
+                .extracting(Mention::role)
+                .containsExactly(Role.UNSAID, Role.UNSAID);
     }
 
     @Test

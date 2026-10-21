@@ -763,6 +763,21 @@
         "required" : [ "categories", "change", "changeShare", "currency", "days", "fromA", "fromB", "toA", "toB", "totalA", "totalB", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "ConfirmIdentityRequest" : {
+        "properties" : {
+          "code" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "password" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
       "ConfirmRequest" : {
         "properties" : {
           "operations" : {
@@ -7306,8 +7321,18 @@
     },
     "/api/v1/me/google/link" : {
       "post" : {
-        "description" : "Returns the Google page to send the browser to and sets the cookie that binds the link to this browser; Google then redirects to the security settings",
+        "description" : "Returns the Google page to send the browser to and sets the cookie that binds the link to this browser; Google then redirects to the security settings. Needs the current password, or for an account without one a two-factor code when it is on.",
         "operationId" : "link_3",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConfirmIdentityRequest"
+              }
+            }
+          },
+          "required" : true
+        },
         "responses" : {
           "200" : {
             "content" : {
@@ -7496,8 +7521,18 @@
     },
     "/api/v1/me/two-factor/setup" : {
       "post" : {
-        "description" : "Returns a new secret for the authenticator app; it becomes active once /enable gets a code of it. Fails with CONFLICT when two-factor authentication is already on.",
+        "description" : "Returns a new secret for the authenticator app; it becomes active once /enable gets a code of it. Needs the current password when the account has one (INVALID_CURRENT_PASSWORD). Fails with CONFLICT when two-factor authentication is already on.",
         "operationId" : "setup",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConfirmIdentityRequest"
+              }
+            }
+          },
+          "required" : true
+        },
         "responses" : {
           "200" : {
             "content" : {
@@ -8869,8 +8904,18 @@
     },
     "/api/v1/telegram/link" : {
       "post" : {
-        "description" : "The link opens the bot; pressing Start there connects the chat. It works once, for 15 minutes; a new link replaces the previous one. NOT_FOUND when the bot is not configured.",
+        "description" : "The link opens the bot; pressing Start there connects the chat. It works once, for 15 minutes; a new link replaces the previous one. Needs the current password, or for an account without one a two-factor code when it is on. NOT_FOUND when the bot is not configured.",
         "operationId" : "link_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConfirmIdentityRequest"
+              }
+            }
+          },
+          "required" : true
+        },
         "responses" : {
           "200" : {
             "content" : {

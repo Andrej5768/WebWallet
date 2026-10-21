@@ -9,9 +9,7 @@ import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import javax.xml.stream.XMLInputFactory;
@@ -28,6 +26,8 @@ public final class XlsxReader {
 
     /** Unpacked size allowed per part of the file, against zip bombs. */
     private static final long MAX_PART_BYTES = 50L * 1024 * 1024;
+    /** A workbook has a few dozen parts; many more is not a report of a broker. */
+    private static final int MAX_ENTRIES = 1000;
 
     private static final String SHARED_STRINGS = "xl/sharedStrings.xml";
     private static final String FIRST_SHEET = "xl/worksheets/sheet1.xml";
@@ -51,29 +51,36 @@ public final class XlsxReader {
      * @throws ApiException {@link ErrorCode#INVALID_IMPORT_FILE} when the file is not a readable .xlsx
      */
     public static List<List<String>> firstSheet(byte[] file) {
-        Map<String, byte[]> parts = new HashMap<>();
+        // Only the shared strings and one sheet are unpacked: a file of many large sheets must not fill the memory
+        byte[] strings = null;
+        byte[] sheet = null;
+        boolean firstSheetFound = false;
+        int entries = 0;
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(file))) {
             for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+                if (++entries > MAX_ENTRIES) {
+                    throw invalid();
+                }
                 String name = entry.getName();
-                if (name.equals(SHARED_STRINGS) || (name.startsWith(SHEETS) && name.endsWith(".xml"))) {
-                    parts.put(name, read(zip));
+                if (name.equals(SHARED_STRINGS) && strings == null) {
+                    strings = read(zip);
+                } else if (name.equals(FIRST_SHEET)) {
+                    sheet = read(zip);
+                    firstSheetFound = true;
+                } else if (!firstSheetFound && sheet == null && name.startsWith(SHEETS) && name.endsWith(".xml")) {
+                    // Another sheet stands for the first one when the file has no sheet1.xml
+                    sheet = read(zip);
                 }
             }
         } catch (IOException e) {
             throw invalid();
         }
-        byte[] sheet = parts.get(FIRST_SHEET);
         if (sheet == null) {
-            sheet = parts.entrySet().stream()
-                    .filter(part -> part.getKey().startsWith(SHEETS))
-                    .map(Map.Entry::getValue)
-                    .findFirst()
-                    .orElseThrow(XlsxReader::invalid);
+            throw invalid();
         }
         try {
-            List<String> strings =
-                    parts.containsKey(SHARED_STRINGS) ? sharedStrings(parts.get(SHARED_STRINGS)) : List.of();
-            return rows(sheet, strings);
+            List<String> sharedStrings = strings != null ? sharedStrings(strings) : List.of();
+            return rows(sheet, sharedStrings);
         } catch (XMLStreamException | RuntimeException e) {
             if (e instanceof ApiException api) {
                 throw api;

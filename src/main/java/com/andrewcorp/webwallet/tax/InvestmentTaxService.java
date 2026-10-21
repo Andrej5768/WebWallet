@@ -1,6 +1,7 @@
 package com.andrewcorp.webwallet.tax;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.util.Money;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
 import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.investment.Instrument;
@@ -13,7 +14,6 @@ import com.andrewcorp.webwallet.tax.TaxDtos.DividendTax;
 import com.andrewcorp.webwallet.tax.TaxDtos.InvestmentTaxReport;
 import com.andrewcorp.webwallet.tax.TaxDtos.SaleTax;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -171,7 +171,7 @@ public class InvestmentTaxService {
                 documentSet,
                 credit,
                 fullPdfo.subtract(credit),
-                TaxRates.share(amountUah, rates.investmentMilitaryRate()));
+                TaxRates.share(amountUah, TaxDefaults.investmentMilitaryRate(rates, operation.getDate())));
     }
 
     private static SaleTax sale(LotLedger.Sale sale, InvestmentOperation any, CurrencyConverter converter) {
@@ -225,6 +225,6 @@ public class InvestmentTaxService {
     }
 
     private static BigDecimal money(BigDecimal amount) {
-        return amount.setScale(2, RoundingMode.HALF_UP);
+        return Money.round2(amount);
     }
 }

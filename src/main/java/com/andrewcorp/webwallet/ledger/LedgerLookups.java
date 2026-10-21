@@ -3,6 +3,7 @@ package com.andrewcorp.webwallet.ledger;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
+import com.andrewcorp.webwallet.ledger.account.AccountType;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
@@ -36,6 +37,15 @@ public class LedgerLookups {
 
     public Account account(Long userId, Long id, String field) {
         return accounts.findByIdAndUserId(id, userId).orElseThrow(() -> ApiException.invalid(field, "error.notFound"));
+    }
+
+    /** A brokerage account of the user; another account is refused. */
+    public Account investmentAccount(Long userId, Long id, String field) {
+        Account account = account(userId, id, field);
+        if (account.getType() != AccountType.INVESTMENT) {
+            throw ApiException.invalid(field, "error.investment.account");
+        }
+        return account;
     }
 
     /** Null id means uncategorized. An income may have an expense category: it is a refund of that spending. */

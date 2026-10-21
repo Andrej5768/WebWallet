@@ -1,6 +1,7 @@
 package com.andrewcorp.webwallet.tax;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.util.Money;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
 import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.ledger.account.Account;
@@ -12,6 +13,7 @@ import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSplit;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
+import com.andrewcorp.webwallet.tax.TaxDtos.FopDeadline;
 import com.andrewcorp.webwallet.tax.TaxDtos.FopIncome;
 import com.andrewcorp.webwallet.tax.TaxDtos.FopQuarter;
 import com.andrewcorp.webwallet.tax.TaxDtos.FopReport;
@@ -19,7 +21,6 @@ import com.andrewcorp.webwallet.tax.TaxDtos.FopTotals;
 import com.andrewcorp.webwallet.tax.TaxDtos.IncomeReason;
 import com.andrewcorp.webwallet.tax.TaxDtos.TransactionTaxResponse;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -68,6 +69,45 @@ public class FopTaxService {
         this.categories = categories;
         this.transactions = transactions;
         this.exchangeRates = exchangeRates;
+    }
+
+    /**
+     * The payments and declarations of the quarters not marked as paid, due between the dates, by date; none for a
+     * user without a sole proprietor account. The quarters of the previous year are due early in the next one.
+     */
+    @Transactional(readOnly = true)
+    public List<FopDeadline> deadlines(Long userId, LocalDate from, LocalDate to) {
+        List<FopDeadline> deadlines = new ArrayList<>();
+        for (int year = from.getYear() - 1; year <= to.getYear(); year++) {
+            FopReport report = report(userId, year);
+            if (report.fopAccountIds().isEmpty()) {
+                return deadlines;
+            }
+            for (FopQuarter quarter : report.quarters()) {
+                if (quarter.paid()) {
+                    continue;
+                }
+                BigDecimal tax = quarter.singleTax().add(quarter.military());
+                if (tax.signum() > 0 && within(quarter.taxDue(), from, to)) {
+                    deadlines.add(new FopDeadline(
+                            quarter.taxDue(), year, quarter.quarter(), FopDeadline.Kind.SINGLE_TAX, tax));
+                }
+                if (quarter.esv().signum() > 0 && within(quarter.esvDue(), from, to)) {
+                    deadlines.add(new FopDeadline(
+                            quarter.esvDue(), year, quarter.quarter(), FopDeadline.Kind.ESV, quarter.esv()));
+                }
+                if (within(quarter.declarationDue(), from, to)) {
+                    deadlines.add(new FopDeadline(
+                            quarter.declarationDue(), year, quarter.quarter(), FopDeadline.Kind.DECLARATION, null));
+                }
+            }
+        }
+        deadlines.sort(Comparator.comparing(FopDeadline::date));
+        return deadlines;
+    }
+
+    private static boolean within(LocalDate date, LocalDate from, LocalDate to) {
+        return date != null && !date.isBefore(from) && !date.isAfter(to);
     }
 
     @Transactional(readOnly = true)
@@ -122,8 +162,8 @@ public class FopTaxService {
                     transaction.getComment(),
                     amount,
                     currency,
-                    rate != null ? rate.setScale(4, RoundingMode.HALF_UP) : null,
-                    amountUah != null ? amountUah.setScale(2, RoundingMode.HALF_UP) : null,
+                    rate != null ? Money.round4(rate) : null,
+                    amountUah != null ? Money.round2(amountUah) : null,
                     included,
                     reason));
         }
@@ -137,7 +177,7 @@ public class FopTaxService {
         List<FopQuarter> quarters = new ArrayList<>();
         BigDecimal[] totals = {BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO};
         for (int quarter = 1; quarter <= 4; quarter++) {
-            BigDecimal amount = quarterIncome[quarter - 1].setScale(2, RoundingMode.HALF_UP);
+            BigDecimal amount = Money.round2(quarterIncome[quarter - 1]);
             boolean group3 = rates.fopGroup() == 3;
             BigDecimal single = group3
                     ? TaxRates.share(amount, rates.singleTaxRate())
@@ -152,7 +192,8 @@ public class FopTaxService {
             LocalDate taxDue;
             if (group3) {
                 declaration = workday(end.plusDays(DECLARATION_DAYS_GROUP_3));
-                taxDue = workday(declaration.plusDays(PAYMENT_DAYS_AFTER_DECLARATION));
+                // Ten days after the deadline of the declaration as the law sets it, before a weekend moves it
+                taxDue = workday(end.plusDays(DECLARATION_DAYS_GROUP_3 + PAYMENT_DAYS_AFTER_DECLARATION));
             } else {
                 declaration = quarter == 4 ? workday(end.plusDays(DECLARATION_DAYS_GROUPS_1_2)) : null;
                 taxDue = workday(LocalDate.of(year, quarter * 3 - 2, 20));
@@ -241,16 +282,7 @@ public class FopTaxService {
 
     /** The chosen categories and their subcategories. */
     private Set<Long> withSubcategories(Long userId, Set<Long> chosen) {
-        Set<Long> all = new HashSet<>(chosen);
-        if (chosen.isEmpty()) {
-            return all;
-        }
-        for (Category category : categories.findByUserIdOrderBySortOrderAscNameAsc(userId)) {
-            if (category.getParentId() != null && chosen.contains(category.getParentId())) {
-                all.add(category.getId());
-            }
-        }
-        return all;
+        return chosen.isEmpty() ? new HashSet<>() : categories.tree(userId).withSubcategories(chosen);
     }
 
     /** A deadline on a weekend moves to the next Monday; public holidays are not known. */

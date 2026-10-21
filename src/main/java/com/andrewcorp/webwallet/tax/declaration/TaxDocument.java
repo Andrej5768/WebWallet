@@ -1,8 +1,8 @@
 package com.andrewcorp.webwallet.tax.declaration;
 
+import com.andrewcorp.webwallet.common.util.Money;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -152,9 +152,7 @@ final class TaxDocument {
     }
 
     TaxDocument money(String name, BigDecimal value) {
-        return value == null
-                ? this
-                : text(name, value.setScale(2, RoundingMode.HALF_UP).toPlainString());
+        return value == null ? this : text(name, Money.round2(value).toPlainString());
     }
 
     TaxDocument row(String name, int number, String value) {
@@ -173,7 +171,7 @@ final class TaxDocument {
     }
 
     TaxDocument moneyRow(String name, int number, BigDecimal value) {
-        return row(name, number, value.setScale(2, RoundingMode.HALF_UP).toPlainString());
+        return row(name, number, Money.round2(value).toPlainString());
     }
 
     /** Ends the body and the document. */

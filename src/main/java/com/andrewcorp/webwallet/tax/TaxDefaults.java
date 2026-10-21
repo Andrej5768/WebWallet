@@ -1,6 +1,7 @@
 package com.andrewcorp.webwallet.tax;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Map;
 
 /**
@@ -21,13 +22,24 @@ public final class TaxDefaults {
             int year, String minWage, String subsistence, String fopMilitaryRate, String investmentMilitary) {}
 
     private static final Year[] YEARS = {
-        // The military levy of group 3 started in 2025; on investment income it grew from 1.5 % on 1 December 2024
-        new Year(2024, "7100", "3028", "0", "1.5"),
+        // The military levy of group 3 started in 2025. On investment income it grew from 1.5 % to 5 % on 1 December
+        // 2024: the profit of 2024 is taxed at the end of the year, at 5 %; dividends paid before December at 1.5 %
+        new Year(2024, "7100", "3028", "0", "5"),
         new Year(2025, "8000", "3028", "1", "5"),
         new Year(2026, "8647", "3328", "1", "5"),
     };
 
+    /** The military levy on investment income was 1.5 % until 30 November 2024. */
+    private static final LocalDate MILITARY_RAISED = LocalDate.of(2024, 12, 1);
+
+    private static final BigDecimal MILITARY_BEFORE = new BigDecimal("1.5");
+
     private TaxDefaults() {}
+
+    /** The military levy on investment income received on the date, the rate of its year from December 2024. */
+    public static BigDecimal investmentMilitaryRate(TaxRates rates, LocalDate date) {
+        return date.isBefore(MILITARY_RAISED) ? MILITARY_BEFORE : rates.investmentMilitaryRate();
+    }
 
     /** The defaults of the year for the group of the sole proprietor and whether it pays VAT. */
     public static TaxRates of(int year, int fopGroup, boolean fopVat) {

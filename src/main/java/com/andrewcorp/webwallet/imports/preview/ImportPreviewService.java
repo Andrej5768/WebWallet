@@ -15,8 +15,8 @@ import com.andrewcorp.webwallet.imports.privatbank.PrivatBankImporter;
 import com.andrewcorp.webwallet.imports.privatbank.PrivatStatement;
 import com.andrewcorp.webwallet.imports.zenmoney.ZenMoneyDump;
 import com.andrewcorp.webwallet.imports.zenmoney.ZenMoneyImporter;
+import com.andrewcorp.webwallet.ledger.LedgerLookups;
 import com.andrewcorp.webwallet.ledger.account.Account;
-import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
@@ -62,12 +62,10 @@ public class ImportPreviewService {
     public static final int DEFAULT_PAGE_SIZE = 100;
     public static final int MAX_PAGE_SIZE = 500;
 
-    private static final int MAX_COMMENT_LENGTH = 1000;
-
     private final ImportPreviewRepository previews;
     private final PrivatBankImporter privatBank;
     private final ZenMoneyImporter zenMoney;
-    private final AccountRepository accounts;
+    private final LedgerLookups lookups;
     private final CategoryRepository categories;
     private final TagService tags;
     private final PayeeService payees;
@@ -83,7 +81,7 @@ public class ImportPreviewService {
             ImportPreviewRepository previews,
             PrivatBankImporter privatBank,
             ZenMoneyImporter zenMoney,
-            AccountRepository accounts,
+            LedgerLookups lookups,
             CategoryRepository categories,
             TagService tags,
             PayeeService payees,
@@ -97,7 +95,7 @@ public class ImportPreviewService {
         this.previews = previews;
         this.privatBank = privatBank;
         this.zenMoney = zenMoney;
-        this.accounts = accounts;
+        this.lookups = lookups;
         this.categories = categories;
         this.tags = tags;
         this.payees = payees;
@@ -297,8 +295,7 @@ public class ImportPreviewService {
             if (edit.transferAccountId() == null) {
                 throw ApiException.invalid(field + ".transferAccountId", "error.required");
             }
-            transferAccount = accounts.findByIdAndUserId(edit.transferAccountId(), userId)
-                    .orElseThrow(() -> ApiException.invalid(field + ".transferAccountId", "error.notFound"));
+            transferAccount = lookups.account(userId, edit.transferAccountId(), field + ".transferAccountId");
             if (Objects.equals(transferAccount.getId(), operation.account().id())) {
                 throw ApiException.invalid(field + ".transferAccountId", "error.transaction.sameAccount");
             }
@@ -319,17 +316,10 @@ public class ImportPreviewService {
             if (type == TransactionType.TRANSFER) {
                 throw ApiException.invalid(field + ".categoryId", "error.transaction.transferCategory");
             }
-            category = categories
-                    .findByIdAndUserId(edit.categoryId(), userId)
-                    .orElseThrow(() -> ApiException.invalid(field + ".categoryId", "error.notFound"));
-            CategoryKind kind = CategoryKind.of(type);
-            boolean refund = kind == CategoryKind.INCOME && category.getKind() == CategoryKind.EXPENSE;
-            if (category.getKind() != kind && !refund) {
-                throw ApiException.invalid(field + ".categoryId", "error.category.kind");
-            }
+            category = lookups.category(userId, edit.categoryId(), CategoryKind.of(type), field + ".categoryId");
         }
         Set<Tag> tagSet = tags.findAll(userId, edit.tagIds(), field + ".tagIds");
-        String comment = Texts.truncate(Texts.trimToNull(edit.comment()), MAX_COMMENT_LENGTH);
+        String comment = Texts.truncate(Texts.trimToNull(edit.comment()), Transaction.MAX_COMMENT_LENGTH);
         String pairKey = null;
         Transaction pairTransaction = null;
         if (edit.pairKey() != null || edit.pairTransactionId() != null) {

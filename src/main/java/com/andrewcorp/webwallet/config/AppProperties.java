@@ -20,6 +20,11 @@ public record AppProperties(
         @NotNull Google google,
         @NotNull Telegram telegram) {
 
+    /** A page of the web client, e.g. {@code /transactions}; a slash at the end of the configured URL is ignored. */
+    public String frontendUrl(String path) {
+        return frontendUrl.replaceAll("/+$", "") + path;
+    }
+
     public record Mail(@NotBlank String from) {}
 
     /**

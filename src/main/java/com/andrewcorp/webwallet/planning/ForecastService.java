@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
@@ -68,6 +69,14 @@ public class ForecastService {
      * Balances from the first day of the current month to the date: the actual ones up to today, then the forecast.
      * Pending occurrences due today or overdue are expected tomorrow.
      */
+    /** The first day up to the date on which the forecast balance is below zero. */
+    @Transactional
+    public Optional<ForecastDay> firstNegativeDay(Long userId, LocalDate to) {
+        return forecast(userId, to).days().stream()
+                .filter(day -> !day.actual() && day.balance().signum() < 0)
+                .findFirst();
+    }
+
     @Transactional
     public ForecastResponse forecast(Long userId, LocalDate to) {
         LocalDate today = LocalDate.now(clock);

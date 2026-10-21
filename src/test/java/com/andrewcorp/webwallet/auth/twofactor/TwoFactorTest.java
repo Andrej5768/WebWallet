@@ -31,7 +31,8 @@ class TwoFactorTest extends AbstractIntegrationTest {
 
     /** Turns two-factor authentication on and returns the secret and the recovery codes. */
     private Enabled enable() throws Exception {
-        Map<String, Object> setup = json(postJson("/api/v1/me/two-factor/setup", Map.of(), auth), 200);
+        Map<String, Object> setup =
+                json(postJson("/api/v1/me/two-factor/setup", Map.of("password", PASSWORD), auth), 200);
         String secret = (String) setup.get("secret");
         assertThat((String) setup.get("otpauthUri")).startsWith("otpauth://totp/WebWallet:");
         Map<String, Object> enabled =
@@ -66,8 +67,16 @@ class TwoFactorTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void setupNeedsThePassword() throws Exception {
+        mockMvc.perform(postJson("/api/v1/me/two-factor/setup", Map.of(), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_CURRENT_PASSWORD"));
+    }
+
+    @Test
     void setupBecomesActiveOnlyWithACodeOfTheNewSecret() throws Exception {
-        Map<String, Object> setup = json(postJson("/api/v1/me/two-factor/setup", Map.of(), auth), 200);
+        Map<String, Object> setup =
+                json(postJson("/api/v1/me/two-factor/setup", Map.of("password", PASSWORD), auth), 200);
 
         mockMvc.perform(postJson("/api/v1/me/two-factor/enable", Map.of("code", "000000"), auth))
                 .andExpect(status().isBadRequest())
@@ -85,7 +94,8 @@ class TwoFactorTest extends AbstractIntegrationTest {
         mockMvc.perform(get("/api/v1/me").header("Authorization", auth))
                 .andExpect(jsonPath("$.twoFactorEnabled").value(true))
                 .andExpect(jsonPath("$.recoveryCodesLeft").value(10));
-        mockMvc.perform(postJson("/api/v1/me/two-factor/setup", Map.of(), auth)).andExpect(status().isConflict());
+        mockMvc.perform(postJson("/api/v1/me/two-factor/setup", Map.of("password", PASSWORD), auth))
+                .andExpect(status().isConflict());
     }
 
     @Test
@@ -161,7 +171,8 @@ class TwoFactorTest extends AbstractIntegrationTest {
         // The device of another user does not count
         User other = createVerifiedUser();
         String otherAuth = bearer(login(other.getEmail(), PASSWORD));
-        Map<String, Object> setup = json(postJson("/api/v1/me/two-factor/setup", Map.of(), otherAuth), 200);
+        Map<String, Object> setup =
+                json(postJson("/api/v1/me/two-factor/setup", Map.of("password", PASSWORD), otherAuth), 200);
         json(
                 postJson(
                         "/api/v1/me/two-factor/enable",

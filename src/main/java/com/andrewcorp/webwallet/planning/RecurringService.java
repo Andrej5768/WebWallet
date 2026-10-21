@@ -113,8 +113,39 @@ public class RecurringService {
 
     @Transactional
     public RecurringResponse update(Long userId, Long id, RecurringRequest request) {
-        apply(userId, find(userId, id), request);
+        RecurringPayment recurring = find(userId, id);
+        apply(userId, recurring, request);
+        reschedule(recurring);
         return get(userId, id);
+    }
+
+    /**
+     * Moves the occurrences that are off a changed schedule: a paid one to the nearest date of the new schedule, so
+     * that its payment is not expected or created a second time; a pending or skipped one is dropped.
+     */
+    private void reschedule(RecurringPayment recurring) {
+        for (RecurringOccurrence occurrence : occurrences.findByRecurring(recurring)) {
+            LocalDate due = occurrence.getDueDate();
+            if (dates(recurring, due, due).contains(due)) {
+                continue;
+            }
+            Transaction paidBy = occurrence.getStatus() == OccurrenceStatus.PAID ? occurrence.getTransaction() : null;
+            occurrences.delete(occurrence);
+            occurrences.flush();
+            if (paidBy == null) {
+                continue;
+            }
+            dates(recurring, due.minusDays(LOOKBACK_DAYS), due.plusDays(LOOKBACK_DAYS)).stream()
+                    .min(Comparator.comparingLong(date -> Math.abs(ChronoUnit.DAYS.between(date, due))))
+                    .filter(date -> occurrences
+                            .findByRecurringAndDueDate(recurring, date)
+                            .isEmpty())
+                    .ifPresent(date -> {
+                        RecurringOccurrence moved = new RecurringOccurrence(recurring, date);
+                        moved.paid(paidBy);
+                        occurrences.save(moved);
+                    });
+        }
     }
 
     /** Deletes the recurring payment; the transactions that paid it stay. */

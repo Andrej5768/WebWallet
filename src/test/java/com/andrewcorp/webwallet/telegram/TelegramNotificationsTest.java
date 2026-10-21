@@ -165,7 +165,40 @@ class TelegramNotificationsTest extends AbstractIntegrationTest {
 
         notifications.daily();
 
-        verify(client, never()).sendPhoto(anyLong(), any(), anyString(), any());
+        // The monthly report of October may still come; the weekly one not
+        verify(client, never()).sendPhoto(anyLong(), any(), contains("Spending 1–"), any());
+    }
+
+    @Test
+    void weeklyReportThatFailedGoesTheNextDay() throws Exception {
+        expense(LocalDate.of(2026, 10, 3), 1500);
+        at(2026, 10, 19, 9);
+        org.mockito.Mockito.doThrow(new TelegramClient.TelegramException("sendPhoto", 502, "Bad Gateway"))
+                .when(client)
+                .sendPhoto(anyLong(), any(), anyString(), any());
+        notifications.daily();
+        org.mockito.Mockito.reset(client);
+
+        at(2026, 10, 20, 9);
+        notifications.daily();
+        at(2026, 10, 21, 9);
+        notifications.daily();
+
+        verify(client).sendPhoto(eq(CHAT), any(), contains("Spending 1–18 October"), any());
+    }
+
+    @Test
+    void blockedBotDisconnectsTheChat() throws Exception {
+        at(2026, 10, 20, 9);
+        recurring("Rent", LocalDate.of(2026, 10, 21));
+        org.mockito.Mockito.doThrow(new TelegramClient.TelegramException("sendMessage", 403, "bot was blocked"))
+                .when(client)
+                .sendMessage(anyLong(), anyString(), any(), any());
+
+        notifications.daily();
+
+        assertThat(jdbc.queryForObject("select count(*) from telegram_links", Long.class))
+                .isZero();
     }
 
     @Test

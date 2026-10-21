@@ -123,7 +123,7 @@ public class AuthService {
             rateLimiter.loginFailed(clientIp, email);
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         }
-        rateLimiter.loginSucceeded(email);
+        rateLimiter.loginSucceeded(clientIp, email);
         if (!user.get().isEnabled()) {
             throw new ApiException(ErrorCode.ACCOUNT_DISABLED);
         }
@@ -177,12 +177,16 @@ public class AuthService {
         return tokenService.issueTokens(user);
     }
 
-    /** Ends all sessions, forgets trusted browsers and voids reset links that were sent for the old password. */
+    /**
+     * Ends all sessions, forgets trusted browsers, voids reset links that were sent for the old password and
+     * disconnects the Telegram chat.
+     */
     private void setPassword(User user, String newPassword) {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userTokens.deleteByUserAndType(user, UserTokenType.PASSWORD_RESET);
         tokenService.revokeAllSessions(user);
         twoFactor.forgetDevices(user.getId());
+        events.publishEvent(new PasswordChangedEvent(user.getId()));
     }
 
     private void sendToken(User user, UserTokenType type) {

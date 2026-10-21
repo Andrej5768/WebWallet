@@ -36,12 +36,7 @@ class ForecastControllerTest extends AbstractIntegrationTest {
     }
 
     private Long account(String name, String type, double openingBalance) throws Exception {
-        return id(json(
-                postJson(
-                        "/api/v1/accounts",
-                        Map.of("name", name, "type", type, "currency", "UAH", "openingBalance", openingBalance),
-                        auth),
-                201));
+        return createAccount(auth, name, type, "UAH", openingBalance);
     }
 
     private void transaction(String type, String date, Long account, double amount) throws Exception {
@@ -66,10 +61,6 @@ class ForecastControllerTest extends AbstractIntegrationTest {
             body.put("toAccountId", toAccount);
         }
         json(postJson("/api/v1/recurring", body, auth), 201);
-    }
-
-    private static double number(Object value) {
-        return ((Number) value).doubleValue();
     }
 
     @Test

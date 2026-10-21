@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
+import com.andrewcorp.webwallet.ledger.account.AccountType;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction;
@@ -57,10 +58,14 @@ class ZenMoneyCsvImportTest extends AbstractIntegrationTest {
     }
 
     private Map<String, Object> importCsv() throws Exception {
+        return importCsv(CSV);
+    }
+
+    private Map<String, Object> importCsv(String csv) throws Exception {
         return json(
                 multipart("/api/v1/imports/zenmoney/file")
                         .file(new MockMultipartFile(
-                                "file", "zen.csv", "text/csv", CSV.getBytes(StandardCharsets.UTF_8)))
+                                "file", "zen.csv", "text/csv", csv.getBytes(StandardCharsets.UTF_8)))
                         .header("Authorization", auth),
                 200);
     }
@@ -127,6 +132,50 @@ class ZenMoneyCsvImportTest extends AbstractIntegrationTest {
 
         assertThat(again).containsEntry("accountsCreated", 0).containsEntry("transactionsImported", 0);
         assertThat(userTransactions()).hasSize(5);
+    }
+
+    @Test
+    void anotherExportWithTheAccountsInAnotherOrderKeepsThem() throws Exception {
+        importCsv();
+        Long cash = accounts.findByUserIdOrderBySortOrderAscIdAsc(user.getId()).stream()
+                .filter(account -> account.getName().equals("Готівка"))
+                .findFirst()
+                .orElseThrow()
+                .getId();
+        // The next export starts with another account and another category
+        String later = "date,categoryName,payee,comment,outcomeAccountName,outcome,outcomeCurrencyShortTitle,"
+                + "incomeAccountName,income,incomeCurrencyShortTitle,createdDate,changedDate\n"
+                + "2026-10-01,Transport,,,Card,\"20,00\",UAH,,,,\"2026-10-01 09:00:00\",\"2026-10-01 09:00:00\"\n"
+                + "2026-10-02,\"Food / Cafe\",,,Готівка,\"30,00\",UAH,,,,"
+                + "\"2026-10-02 09:00:00\",\"2026-10-02 09:00:00\"\n";
+
+        Map<String, Object> result = importCsv(later);
+
+        assertThat(result).containsEntry("accountsCreated", 0).containsEntry("transactionsImported", 2);
+        Transaction coffee = userTransactions().stream()
+                .filter(t -> t.getDate().equals(LocalDate.of(2026, 10, 2)))
+                .findFirst()
+                .orElseThrow();
+        assertThat(coffee.getAccount().getId()).isEqualTo(cash);
+        assertThat(accounts.findById(cash).orElseThrow().getName()).isEqualTo("Готівка");
+        assertThat(categories.findByUserIdOrderBySortOrderAscNameAsc(user.getId()))
+                .filteredOn(c -> c.getName().equals("Cafe"))
+                .hasSize(1);
+    }
+
+    @Test
+    void accountsOfAnEarlierCsvImportTakeTheNewIds() throws Exception {
+        // Imported before the ids were hashes of the names
+        Account old = new Account(user.getId(), "Готівка", AccountType.CASH, "UAH");
+        old.setExternal("ZENMONEY", "csv-account-1");
+        accounts.save(old);
+
+        Map<String, Object> result = importCsv();
+
+        assertThat(result).containsEntry("accountsCreated", 2);
+        assertThat(accounts.findById(old.getId()).orElseThrow().getExternalId())
+                .startsWith("csv-account-")
+                .hasSizeGreaterThan(20);
     }
 
     @Test

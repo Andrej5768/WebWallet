@@ -8,6 +8,7 @@ import com.andrewcorp.webwallet.investment.InvestmentOperation;
 import com.andrewcorp.webwallet.investment.InvestmentOperationRepository;
 import com.andrewcorp.webwallet.investment.LotLedger;
 import com.andrewcorp.webwallet.investment.OperationType;
+import com.andrewcorp.webwallet.ledger.LedgerLookups;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountType;
@@ -30,10 +31,12 @@ import org.springframework.stereotype.Component;
 public class BrokerImporter {
 
     private final AccountRepository accounts;
+    private final LedgerLookups lookups;
     private final InvestmentOperationRepository operations;
 
-    public BrokerImporter(AccountRepository accounts, InvestmentOperationRepository operations) {
+    public BrokerImporter(AccountRepository accounts, LedgerLookups lookups, InvestmentOperationRepository operations) {
         this.accounts = accounts;
+        this.lookups = lookups;
         this.operations = operations;
     }
 
@@ -119,12 +122,7 @@ public class BrokerImporter {
     }
 
     private Account find(Long userId, Long accountId) {
-        Account account = accounts.findByIdAndUserId(accountId, userId)
-                .orElseThrow(() -> ApiException.invalid("accountId", "error.notFound"));
-        if (account.getType() != AccountType.INVESTMENT) {
-            throw ApiException.invalid("accountId", "error.investment.account");
-        }
-        return account;
+        return lookups.investmentAccount(userId, accountId, "accountId");
     }
 
     /** The brokerage account named after the broker that is not archived; null when there is none. */

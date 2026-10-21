@@ -42,6 +42,16 @@ class ReturnTrackerTest {
     }
 
     @Test
+    void largeDepositWorksTheWholeDay() {
+        ReturnTracker tracker = new ReturnTracker();
+        day(tracker, 0, 100, 100);
+        // 10 000 brought in and invested, the market up 1 %
+        day(tracker, 1, 10_201, 10_000);
+
+        assertThat(tracker.twr()).isEqualByComparingTo("0.01");
+    }
+
+    @Test
     void skipsWhatCannotBeTold() {
         ReturnTracker empty = new ReturnTracker();
         assertThat(empty.twr()).isNull();

@@ -5,10 +5,14 @@ import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.config.AppProperties;
 import com.andrewcorp.webwallet.ledger.account.AccountService;
 import com.andrewcorp.webwallet.telegram.TelegramApi.From;
+import com.andrewcorp.webwallet.user.User;
+import com.andrewcorp.webwallet.user.UserRepository;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +26,7 @@ public class TelegramLinkService {
     private final TelegramLinkRepository links;
     private final TelegramLinkCodeRepository codes;
     private final AccountService accountService;
+    private final UserRepository users;
     private final AppProperties properties;
     private final Clock clock;
 
@@ -29,11 +34,13 @@ public class TelegramLinkService {
             TelegramLinkRepository links,
             TelegramLinkCodeRepository codes,
             AccountService accountService,
+            UserRepository users,
             AppProperties properties,
             Clock clock) {
         this.links = links;
         this.codes = codes;
         this.accountService = accountService;
+        this.users = users;
         this.properties = properties;
         this.clock = clock;
     }
@@ -127,9 +134,28 @@ public class TelegramLinkService {
         return link.isPresent();
     }
 
+    /** The link of the chat, unless its user is disabled or deleting the account. */
     @Transactional(readOnly = true)
     public Optional<TelegramLink> byChat(long chatId) {
-        return links.findByChatId(chatId);
+        return links.findByChatId(chatId).filter(this::active);
+    }
+
+    /** The chats of the users who are not disabled or deleting their accounts, to notify. */
+    @Transactional(readOnly = true)
+    public List<TelegramLink> activeLinks() {
+        return links.findAll().stream().filter(this::active).toList();
+    }
+
+    /** The language of the bot for the user. */
+    @Transactional(readOnly = true)
+    public Locale locale(Long userId) {
+        return BotTexts.locale(users.findById(userId).map(User::getLocale).orElse(null));
+    }
+
+    private boolean active(TelegramLink link) {
+        return users.findById(link.getUserId())
+                .map(user -> user.isEnabled() && user.getDeletionScheduledAt() == null)
+                .orElse(false);
     }
 
     /** Connects the chat to the user of the code; a user who had another chat moves to this one. */

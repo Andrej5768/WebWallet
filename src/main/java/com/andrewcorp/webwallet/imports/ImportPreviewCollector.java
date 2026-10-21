@@ -32,9 +32,7 @@ public final class ImportPreviewCollector {
      * @param transaction the transaction the operation becomes, or, for a duplicate, an unsaved one describing it
      */
     public void add(String key, Transaction transaction, boolean duplicate) {
-        Category category = transaction.getSplits().size() == 1
-                ? transaction.getSplits().get(0).getCategory()
-                : null;
+        Category category = transaction.singleCategory();
         operations.add(new ImportOperation(
                 key,
                 transaction.getDate(),

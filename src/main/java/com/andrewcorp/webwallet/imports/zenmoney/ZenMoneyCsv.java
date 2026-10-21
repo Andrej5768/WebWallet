@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.imports.zenmoney;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.common.util.Amounts;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -23,6 +24,11 @@ import java.util.Map;
  * their currency is that of their operations, their type and balance are not exported.
  */
 public final class ZenMoneyCsv {
+
+    /** Ids of the accounts and categories of a CSV export; the ones before were numbered by order instead. */
+    static final String ACCOUNT_PREFIX = "csv-account-";
+
+    static final String TAG_PREFIX = "csv-tag-";
 
     private static final String HEADER_START = "date,";
     /** Zen Money dates balance corrections without a date of their own at the epoch. */
@@ -140,7 +146,8 @@ public final class ZenMoneyCsv {
             if (name.isBlank()) {
                 return null;
             }
-            String id = accountIds.computeIfAbsent(name, key -> "csv-account-" + (accountIds.size() + 1));
+            // Named by a hash of the title, so that the next export, with the accounts in another order, keeps them
+            String id = accountIds.computeIfAbsent(name, key -> ACCOUNT_PREFIX + hash(key));
             if (!currency.isBlank()) {
                 Integer instrument = instruments.computeIfAbsent(currency, key -> instruments.size() + 1);
                 accountInstruments.putIfAbsent(id, instrument);
@@ -171,9 +178,7 @@ public final class ZenMoneyCsv {
         private String tag(String title, String parentId) {
             String key = (parentId == null ? "" : parentId + "/") + title;
             return tags.computeIfAbsent(
-                            key,
-                            k -> new ZenMoneyDump.Tag(
-                                    "csv-tag-" + (tags.size() + 1), title, parentId, null, null, null))
+                            key, k -> new ZenMoneyDump.Tag(TAG_PREFIX + hash(k), title, parentId, null, null, null))
                     .id();
         }
 
@@ -202,12 +207,11 @@ public final class ZenMoneyCsv {
 
     /** "1 234,56" or "1234.56"; empty is zero. */
     static BigDecimal amount(String text) {
-        String clean = text.replace(" ", "").replace(" ", "");
-        if (clean.isEmpty()) {
+        if (Amounts.compact(text).isEmpty()) {
             return BigDecimal.ZERO;
         }
         try {
-            return new BigDecimal(clean.replace(',', '.')).abs();
+            return Amounts.parse(text).abs();
         } catch (NumberFormatException e) {
             throw new ApiException(ErrorCode.INVALID_IMPORT_FILE);
         }
@@ -229,9 +233,13 @@ public final class ZenMoneyCsv {
 
     /** Stable for the same row, so that importing the same file again finds the operations already imported. */
     private static String id(String key) {
+        return "csv-" + hash(key);
+    }
+
+    private static String hash(String key) {
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8));
-            return "csv-" + HexFormat.of().formatHex(hash, 0, 16);
+            return HexFormat.of().formatHex(hash, 0, 16);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is not available", e);
         }

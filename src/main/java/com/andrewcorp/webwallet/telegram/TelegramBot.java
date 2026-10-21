@@ -9,8 +9,11 @@ import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +27,7 @@ import org.springframework.stereotype.Component;
 public class TelegramBot {
 
     private static final Logger log = LoggerFactory.getLogger(TelegramBot.class);
+    private static final int MAX_ANSWERED = 10_000;
 
     private final TelegramClient client;
     private final TelegramLinkService linkService;
@@ -32,6 +36,13 @@ public class TelegramBot {
     private final TelegramNotifications notifications;
     private final BotTexts texts;
     private final UserRepository users;
+    /** Questions about an account already answered; only the latest ones are kept. */
+    private final Map<String, Boolean> answered = Collections.synchronizedMap(new LinkedHashMap<>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+            return size() > MAX_ANSWERED;
+        }
+    });
 
     public TelegramBot(
             TelegramClient client,
@@ -178,12 +189,21 @@ public class TelegramBot {
         } else if (data.equals("pk-")) {
             edit(chatId, messageId, BotReply.text(texts.get(locale, "bot.entry.cancelled")));
         } else if (data.startsWith("pk:")) {
-            Message original = query.message().replyToMessage();
-            if (original != null && original.text() != null) {
-                edit(chatId, messageId, quickEntry.record(link.get(), locale, original.text(), ids(data.substring(3))));
-            } else {
-                edit(chatId, messageId, BotReply.text(texts.get(locale, "bot.entry.expired")));
+            // A second press, or a press of another button of the same question, records nothing again
+            String question = chatId + ":" + messageId;
+            if (answered.putIfAbsent(question, Boolean.TRUE) != null) {
+                client.answerCallbackQuery(query.id(), null);
+                return;
             }
+            Message original = query.message().replyToMessage();
+            BotReply reply = original != null && original.text() != null
+                    ? quickEntry.record(link.get(), locale, original.text(), ids(data.substring(3)))
+                    : BotReply.text(texts.get(locale, "bot.entry.expired"));
+            if (asks(reply)) {
+                // The next account word is ambiguous too: the same message asks again
+                answered.remove(question);
+            }
+            edit(chatId, messageId, reply);
         } else {
             String[] parts = data.split(":");
             List<Long> ids = parts.length > 1 ? ids(data.substring(parts[0].length() + 1)) : List.of();
@@ -224,7 +244,16 @@ public class TelegramBot {
     }
 
     private Locale locale(Long userId) {
-        return BotTexts.locale(users.findById(userId).map(User::getLocale).orElse(null));
+        return linkService.locale(userId);
+    }
+
+    /** Whether the reply asks which account a word means. */
+    private static boolean asks(BotReply reply) {
+        return reply.keyboard() != null
+                && reply.keyboard().rows().stream()
+                        .flatMap(List::stream)
+                        .anyMatch(button -> button.callbackData() != null
+                                && button.callbackData().startsWith("pk:"));
     }
 
     /** Ids separated by colons; an id that is not a number ends the list. */

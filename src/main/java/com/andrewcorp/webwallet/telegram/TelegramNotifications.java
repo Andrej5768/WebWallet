@@ -20,7 +20,6 @@ import com.andrewcorp.webwallet.goal.GoalDtos.GoalStatus;
 import com.andrewcorp.webwallet.goal.GoalService;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
-import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.notification.NotificationKind;
 import com.andrewcorp.webwallet.notification.NotificationLog;
 import com.andrewcorp.webwallet.notification.NotificationSettings;
@@ -35,8 +34,7 @@ import com.andrewcorp.webwallet.planning.RecurringService;
 import com.andrewcorp.webwallet.report.ReportDtos.IncomeExpenseResponse;
 import com.andrewcorp.webwallet.report.ReportService;
 import com.andrewcorp.webwallet.tax.FopTaxService;
-import com.andrewcorp.webwallet.tax.TaxDtos.FopQuarter;
-import com.andrewcorp.webwallet.tax.TaxDtos.FopReport;
+import com.andrewcorp.webwallet.tax.TaxDtos.FopDeadline;
 import com.andrewcorp.webwallet.telegram.TelegramApi.Button;
 import com.andrewcorp.webwallet.telegram.TelegramApi.Keyboard;
 import com.andrewcorp.webwallet.user.User;
@@ -50,6 +48,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.ZonedDateTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -71,14 +70,15 @@ public class TelegramNotifications {
     private static final LocalTime QUIET_FROM = LocalTime.of(22, 0);
     private static final LocalTime QUIET_TO = LocalTime.of(8, 0);
     private static final Duration LOG_RETENTION = Duration.ofDays(400);
-    private static final int FORECAST_DAYS = 30;
     private static final int BUDGET_WARNING = 80;
     private static final int TOP_CHANGES = 2;
     private static final int CHART_CATEGORIES = 6;
     private static final int TAX_WARNING_DAYS = 7;
+    /** A weekly or monthly report not sent on its day, e.g. when Telegram failed, goes on this many days after. */
+    private static final int REPORT_CATCH_UP_DAYS = 2;
 
     private final TelegramClient client;
-    private final TelegramLinkRepository links;
+    private final TelegramLinkService linkService;
     private final NotificationSettingsService settingsService;
     private final NotificationLog notificationLog;
     private final RecurringService recurringService;
@@ -98,7 +98,7 @@ public class TelegramNotifications {
 
     public TelegramNotifications(
             TelegramClient client,
-            TelegramLinkRepository links,
+            TelegramLinkService linkService,
             NotificationSettingsService settingsService,
             NotificationLog notificationLog,
             RecurringService recurringService,
@@ -116,7 +116,7 @@ public class TelegramNotifications {
             AppProperties properties,
             Clock clock) {
         this.client = client;
-        this.links = links;
+        this.linkService = linkService;
         this.settingsService = settingsService;
         this.notificationLog = notificationLog;
         this.recurringService = recurringService;
@@ -150,7 +150,7 @@ public class TelegramNotifications {
             return;
         }
         int hour = ZonedDateTime.now(clock.withZone(Zones.KYIV)).getHour();
-        for (TelegramLink link : links.findAll()) {
+        for (TelegramLink link : linkService.activeLinks()) {
             NotificationSettings settings = settingsService.of(link.getUserId());
             if (settings.getNotifyHour() == hour) {
                 sendDaily(link, settings);
@@ -166,7 +166,17 @@ public class TelegramNotifications {
         }
         LocalTime now = LocalTime.now(clock.withZone(Zones.KYIV));
         boolean quiet = !now.isBefore(QUIET_FROM) || now.isBefore(QUIET_TO);
-        for (TelegramLink link : links.findAll()) {
+        for (TelegramLink link : linkService.activeLinks()) {
+            try {
+                bankProblem(link, quiet);
+            } catch (RuntimeException e) {
+                log.error("Telegram bank notification of user {} failed", link.getUserId(), e);
+            }
+        }
+    }
+
+    private void bankProblem(TelegramLink link, boolean quiet) {
+        {
             Long userId = link.getUserId();
             Optional<BankConnection> connection =
                     bankConnections.findByUserIdAndProvider(userId, BankProvider.MONOBANK);
@@ -179,12 +189,12 @@ public class TelegramNotifications {
                     // Solved: a new problem is reported again
                     notificationLog.forget(userId, NotificationKind.BANKS, ref);
                 }
-                continue;
+                return;
             }
             if (quiet || !settingsService.of(userId).isOn(NotificationKind.BANKS)) {
-                continue;
+                return;
             }
-            Locale locale = locale(userId);
+            Locale locale = linkService.locale(userId);
             deliver(link, Notice.text(NotificationKind.BANKS, ref, texts.get(locale, "notify.bank"), Keyboard.NONE));
         }
     }
@@ -197,7 +207,7 @@ public class TelegramNotifications {
     /** The daily notifications of one user that are switched on; a failing one does not stop the others. */
     void sendDaily(TelegramLink link, NotificationSettings settings) {
         Long userId = link.getUserId();
-        Locale locale = locale(userId);
+        Locale locale = linkService.locale(userId);
         LocalDate today = LocalDate.now(clock);
         List<NotificationKind> kinds = List.of(
                 NotificationKind.RECURRING,
@@ -234,16 +244,25 @@ public class TelegramNotifications {
         };
     }
 
-    /** Sends the notice unless it was sent before. */
+    /** Sends the notice unless it was sent before; a chat the user blocked or deleted is disconnected. */
     private void deliver(TelegramLink link, Notice notice) {
         Long userId = link.getUserId();
         if (notificationLog.sent(userId, notice.kind(), notice.ref())) {
             return;
         }
-        if (notice.chart() != null) {
-            client.sendPhoto(link.getChatId(), notice.chart(), notice.html(), notice.keyboard());
-        } else {
-            client.sendMessage(link.getChatId(), notice.html(), notice.keyboard(), null);
+        try {
+            if (notice.chart() != null) {
+                client.sendPhoto(link.getChatId(), notice.chart(), notice.html(), notice.keyboard());
+            } else {
+                client.sendMessage(link.getChatId(), notice.html(), notice.keyboard(), null);
+            }
+        } catch (TelegramClient.TelegramException e) {
+            if (e.chatGone()) {
+                log.info("Telegram chat of user {} is gone; disconnected", userId);
+                linkService.unlinkChat(link.getChatId());
+                return;
+            }
+            throw e;
         }
         notificationLog.markSent(userId, notice.kind(), notice.ref());
     }
@@ -306,11 +325,7 @@ public class TelegramNotifications {
     }
 
     private static String amount(OccurrenceResponse occurrence, Locale locale) {
-        return occurrence.type() == TransactionType.EXPENSE
-                ? BotTexts.money(occurrence.amount().negate(), occurrence.currency(), locale)
-                : occurrence.type() == TransactionType.INCOME
-                        ? BotTexts.signedMoney(occurrence.amount(), occurrence.currency(), locale)
-                        : BotTexts.money(occurrence.amount(), occurrence.currency(), locale);
+        return BotTexts.amount(occurrence.type(), occurrence.amount(), occurrence.currency(), locale);
     }
 
     // Budgets
@@ -362,69 +377,37 @@ public class TelegramNotifications {
     /** Payments and declarations of the sole proprietor due in 7 days or tomorrow. */
     List<Notice> taxes(Long userId, LocalDate today, Locale locale) {
         List<Notice> notices = new ArrayList<>();
-        for (int year = today.getYear() - 1; year <= today.getYear(); year++) {
-            FopReport report = fopTaxService.report(userId, year);
-            if (report.fopAccountIds().isEmpty()) {
-                return notices;
+        for (FopDeadline deadline :
+                fopTaxService.deadlines(userId, today.plusDays(1), today.plusDays(TAX_WARNING_DAYS))) {
+            boolean week = deadline.date().equals(today.plusDays(TAX_WARNING_DAYS));
+            if (!week && !deadline.date().equals(today.plusDays(1))) {
+                continue;
             }
-            for (FopQuarter quarter : report.quarters()) {
-                if (quarter.paid()) {
-                    continue;
-                }
-                String number = BotCommands.roman(quarter.quarter());
-                tax(
-                        notices,
-                        today,
-                        locale,
-                        year,
-                        quarter,
-                        "singleTax",
-                        quarter.taxDue(),
-                        quarter.singleTax().add(quarter.military()),
-                        number);
-                tax(notices, today, locale, year, quarter, "esv", quarter.esvDue(), quarter.esv(), number);
-                tax(notices, today, locale, year, quarter, "declaration", quarter.declarationDue(), null, number);
-            }
+            String what = switch (deadline.kind()) {
+                case SINGLE_TAX -> "singleTax";
+                case ESV -> "esv";
+                case DECLARATION -> "declaration";
+            };
+            String subject = texts.get(locale, "notify.tax." + what, BotCommands.roman(deadline.quarter()));
+            String title = texts.get(locale, week ? "notify.tax.week" : "notify.tax.tomorrow", subject);
+            String due = BotTexts.date(deadline.date(), locale);
+            String dueText = deadline.amount() != null
+                    ? texts.get(locale, "notify.tax.due", due, BotTexts.money(deadline.amount(), "UAH", locale))
+                    : texts.get(locale, "notify.tax.dueDate", due);
+            String ref = deadline.year() + ":" + deadline.quarter() + ":" + what + ":" + (week ? TAX_WARNING_DAYS : 1);
+            notices.add(Notice.text(
+                    NotificationKind.TAXES, ref, "<b>" + title + "</b>\n" + dueText, openKeyboard(locale, "/taxes")));
         }
         return notices;
-    }
-
-    private void tax(
-            List<Notice> notices,
-            LocalDate today,
-            Locale locale,
-            int year,
-            FopQuarter quarter,
-            String what,
-            LocalDate due,
-            BigDecimal amount,
-            String number) {
-        if (due == null || (amount != null && amount.signum() <= 0)) {
-            return;
-        }
-        boolean week = due.equals(today.plusDays(TAX_WARNING_DAYS));
-        boolean tomorrow = due.equals(today.plusDays(1));
-        if (!week && !tomorrow) {
-            return;
-        }
-        String subject = texts.get(locale, "notify.tax." + what, number);
-        String title = texts.get(locale, week ? "notify.tax.week" : "notify.tax.tomorrow", subject);
-        String dueText = amount != null
-                ? texts.get(locale, "notify.tax.due", BotTexts.date(due, locale), BotTexts.money(amount, "UAH", locale))
-                : texts.get(locale, "notify.tax.dueDate", BotTexts.date(due, locale));
-        String ref = year + ":" + quarter.quarter() + ":" + what + ":" + (week ? TAX_WARNING_DAYS : 1);
-        notices.add(Notice.text(
-                NotificationKind.TAXES, ref, "<b>" + title + "</b>\n" + dueText, openKeyboard(locale, "/taxes")));
     }
 
     // Forecast
 
     /** The first day of the next 30 the forecast balance is below zero; again only when the day or the sum changes. */
     List<Notice> forecast(Long userId, LocalDate today, Locale locale) {
-        var forecast = forecastService.forecast(userId, today.plusDays(FORECAST_DAYS));
-        Optional<ForecastDay> negative = forecast.days().stream()
-                .filter(day -> !day.actual() && day.balance().signum() < 0)
-                .findFirst();
+        // The same days as /planned, so that both tell the same
+        LocalDate last = today.plusDays(BotCommands.PLANNED_DAYS - 1);
+        Optional<ForecastDay> negative = forecastService.firstNegativeDay(userId, last);
         if (negative.isEmpty()) {
             return List.of();
         }
@@ -434,7 +417,7 @@ public class TelegramNotifications {
                 locale,
                 "notify.forecast",
                 BotTexts.date(day.date(), locale),
-                BotTexts.money(day.balance(), forecast.currency(), locale));
+                BotTexts.money(day.balance(), userCurrency(userId), locale));
         return List.of(
                 Notice.text(NotificationKind.FORECAST, day.date() + ":" + rounded, html, openKeyboard(locale, "/")));
     }
@@ -465,14 +448,16 @@ public class TelegramNotifications {
     // Spending reports
 
     /**
-     * On Mondays, except in the first week of a month: the spending from the 1st to yesterday against the same days
-     * of the previous month, with the categories that changed most and a chart.
+     * On Mondays, except in the first week of a month: the spending from the 1st to Sunday against the same days of
+     * the previous month, with the categories that changed most and a chart. A report that could not be sent goes
+     * on the next days, until Wednesday.
      */
     List<Notice> weekly(Long userId, LocalDate today, Locale locale) {
-        if (today.getDayOfWeek() != DayOfWeek.MONDAY || today.getDayOfMonth() <= 7) {
+        LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        if (today.isAfter(monday.plusDays(REPORT_CATCH_UP_DAYS)) || monday.getDayOfMonth() <= 7) {
             return List.of();
         }
-        LocalDate to = today.minusDays(1);
+        LocalDate to = monday.minusDays(1);
         LocalDate from = to.withDayOfMonth(1);
         LocalDate previousFrom = from.minusMonths(1);
         LocalDate previousTo = previousFrom.withDayOfMonth(
@@ -523,12 +508,15 @@ public class TelegramNotifications {
                         .toList(),
                 locale);
         return List.of(new Notice(
-                NotificationKind.WEEKLY, today.toString(), html.toString(), openKeyboard(locale, "/reports"), chart));
+                NotificationKind.WEEKLY, monday.toString(), html.toString(), openKeyboard(locale, "/reports"), chart));
     }
 
-    /** On the 1st: the previous month against the month before it, with a chart of the categories. */
+    /**
+     * On the 1st: the previous month against the month before it, with a chart of the categories; until the 3rd when
+     * it could not be sent.
+     */
     List<Notice> monthly(Long userId, LocalDate today, Locale locale) {
-        if (today.getDayOfMonth() != 1) {
+        if (today.getDayOfMonth() > 1 + REPORT_CATCH_UP_DAYS) {
             return List.of();
         }
         YearMonth month = YearMonth.from(today).minusMonths(1);
@@ -650,14 +638,12 @@ public class TelegramNotifications {
     }
 
     private Keyboard openKeyboard(Locale locale, String path) {
-        String url = properties.frontendUrl().replaceAll("/+$", "") + path;
-        // Telegram accepts only public links on buttons
-        return url.startsWith("https://")
-                ? Keyboard.of(List.of(List.of(Button.link(texts.get(locale, "notify.button.open"), url))))
-                : Keyboard.NONE;
+        return BotTexts.buttonUrl(properties, path)
+                .map(url -> Keyboard.of(List.of(List.of(Button.link(texts.get(locale, "notify.button.open"), url)))))
+                .orElse(Keyboard.NONE);
     }
 
-    private Locale locale(Long userId) {
-        return BotTexts.locale(users.findById(userId).map(User::getLocale).orElse(null));
+    private String userCurrency(Long userId) {
+        return users.findById(userId).map(User::getBaseCurrency).orElse("UAH");
     }
 }

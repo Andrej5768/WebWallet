@@ -71,12 +71,7 @@ class DeclarationTest extends AbstractIntegrationTest {
     }
 
     private Long account(String name, String type, String currency) throws Exception {
-        return id(json(
-                postJson(
-                        "/api/v1/accounts",
-                        Map.of("name", name, "type", type, "currency", currency, "openingBalance", 0),
-                        auth),
-                201));
+        return createAccount(auth, name, type, currency, 0);
     }
 
     private MockHttpServletResponse download(String url) throws Exception {

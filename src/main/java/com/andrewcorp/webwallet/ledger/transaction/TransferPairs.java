@@ -156,16 +156,7 @@ public class TransferPairs {
         }
         // The income goes first: its lookup flushes, and the cleared splits of the expense must be flushed only once
         transactionService.delete(userId, income.getId());
-        expense.setType(TransactionType.TRANSFER);
-        expense.setHold(false);
-        expense.setToAccount(income.getAccount());
-        expense.setToAmount(income.getAmount());
-        expense.setToBankId(income.getBankId());
-        expense.setToExternalId(income.getExternalId());
-        expense.setOriginalAmount(null);
-        expense.setOriginalCurrency(null);
-        expense.replaceSplits(List.of());
-        expense.setPayee(null);
+        expense.becomeTransfer(income.getAccount(), income.getAmount(), income.getBankId(), income.getExternalId());
         if (expense.getComment() == null) {
             expense.setComment(income.getComment());
         }

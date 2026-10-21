@@ -1,14 +1,14 @@
 package com.andrewcorp.webwallet.investment;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
+import com.andrewcorp.webwallet.common.util.Money;
 import com.andrewcorp.webwallet.common.web.Periods;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.OperationRequest;
 import com.andrewcorp.webwallet.investment.InvestmentDtos.OperationResponse;
+import com.andrewcorp.webwallet.ledger.LedgerLookups;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
-import com.andrewcorp.webwallet.ledger.account.AccountType;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.EnumSet;
 import java.util.Set;
 import org.springframework.data.domain.Page;
@@ -25,12 +25,17 @@ public class OperationService {
 
     private final InvestmentOperationRepository operations;
     private final AccountRepository accounts;
+    private final LedgerLookups lookups;
     private final InstrumentService instrumentService;
 
     public OperationService(
-            InvestmentOperationRepository operations, AccountRepository accounts, InstrumentService instrumentService) {
+            InvestmentOperationRepository operations,
+            AccountRepository accounts,
+            LedgerLookups lookups,
+            InstrumentService instrumentService) {
         this.operations = operations;
         this.accounts = accounts;
+        this.lookups = lookups;
         this.instrumentService = instrumentService;
     }
 
@@ -100,13 +105,9 @@ public class OperationService {
 
     private void apply(Long userId, InvestmentOperation operation, OperationRequest request) {
         Periods.checkDate(request.date(), "date");
-        Account account = accounts.findByIdAndUserId(request.accountId(), userId)
-                .orElseThrow(() -> ApiException.invalid("accountId", "error.notFound"));
+        Account account = lookups.investmentAccount(userId, request.accountId(), "accountId");
         // Two operations on the account at once would both pass the check of the lots
         accounts.lock(account.getId());
-        if (account.getType() != AccountType.INVESTMENT) {
-            throw ApiException.invalid("accountId", "error.investment.account");
-        }
         OperationType type = request.type();
         Instrument instrument = null;
         if (request.instrumentId() != null) {
@@ -129,9 +130,7 @@ public class OperationService {
             case BUY, SELL -> {
                 quantity = required(request.quantity(), "quantity");
                 price = required(request.price(), "price");
-                amount = request.amount() != null
-                        ? request.amount()
-                        : quantity.multiply(price).setScale(4, RoundingMode.HALF_UP);
+                amount = request.amount() != null ? request.amount() : Money.round4(quantity.multiply(price));
             }
             case DIVIDEND, COUPON, FEE, DEPOSIT, WITHDRAWAL, EXCHANGE -> {
                 amount = required(request.amount(), "amount");

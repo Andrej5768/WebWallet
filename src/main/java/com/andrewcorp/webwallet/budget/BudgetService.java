@@ -13,6 +13,7 @@ import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
+import com.andrewcorp.webwallet.ledger.category.CategoryTree;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -250,16 +251,10 @@ public class BudgetService {
         private MonthResponse response(BigDecimal readyToAssign, Map<Long, BigDecimal> available) {
             Map<Long, BigDecimal> assigned = assignedByMonth.getOrDefault(month, Map.of());
             Map<Long, BigDecimal> activity = activityByMonth.getOrDefault(month, Map.of());
-            List<Category> expenseCategories = categories.findByUserIdOrderBySortOrderAscNameAsc(userId).stream()
-                    .filter(category -> category.getKind() == CategoryKind.EXPENSE)
-                    .toList();
+            CategoryTree tree = categories.tree(userId);
             List<CategoryRow> rows = new ArrayList<>();
-            for (Category parent : expenseCategories) {
-                if (parent.getParentId() != null) {
-                    continue;
-                }
-                List<CategoryRow> children = expenseCategories.stream()
-                        .filter(child -> parent.getId().equals(child.getParentId()))
+            for (Category parent : tree.topLevel(CategoryKind.EXPENSE)) {
+                List<CategoryRow> children = tree.children(parent.getId()).stream()
                         .map(child -> row(child, assigned, activity, available, List.of()))
                         .filter(row -> !row.archived() || hasMoney(row))
                         .toList();

@@ -1,12 +1,15 @@
 package com.andrewcorp.webwallet.telegram;
 
+import com.andrewcorp.webwallet.auth.twofactor.TwoFactorService;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.telegram.TelegramLinkService.TelegramLinkResponse;
 import com.andrewcorp.webwallet.telegram.TelegramLinkService.TelegramSettingsRequest;
 import com.andrewcorp.webwallet.telegram.TelegramLinkService.TelegramStatus;
+import com.andrewcorp.webwallet.user.dto.ConfirmIdentityRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,10 +28,12 @@ public class TelegramController {
 
     private final TelegramLinkService linkService;
     private final TelegramBot bot;
+    private final TwoFactorService twoFactor;
 
-    public TelegramController(TelegramLinkService linkService, TelegramBot bot) {
+    public TelegramController(TelegramLinkService linkService, TelegramBot bot, TwoFactorService twoFactor) {
         this.linkService = linkService;
         this.bot = bot;
+        this.twoFactor = twoFactor;
     }
 
     @Operation(summary = "Whether the bot is available and the Telegram chat of the user, if connected")
@@ -40,9 +45,11 @@ public class TelegramController {
     @Operation(
             summary = "Create a one-time link that connects a Telegram chat",
             description = "The link opens the bot; pressing Start there connects the chat. It works once, for 15"
-                    + " minutes; a new link replaces the previous one. NOT_FOUND when the bot is not configured.")
+                    + " minutes; a new link replaces the previous one. Needs the current password, or for an account"
+                    + " without one a two-factor code when it is on. NOT_FOUND when the bot is not configured.")
     @PostMapping("/link")
-    public TelegramLinkResponse link(@CurrentUserId Long userId) {
+    public TelegramLinkResponse link(@CurrentUserId Long userId, @Valid @RequestBody ConfirmIdentityRequest request) {
+        twoFactor.confirmIdentity(userId, request.password(), request.code());
         return linkService.createLink(userId);
     }
 

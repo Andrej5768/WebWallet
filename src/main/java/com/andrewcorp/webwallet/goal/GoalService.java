@@ -9,8 +9,8 @@ import com.andrewcorp.webwallet.goal.GoalDtos.GoalRequest;
 import com.andrewcorp.webwallet.goal.GoalDtos.GoalResponse;
 import com.andrewcorp.webwallet.goal.GoalDtos.GoalStatus;
 import com.andrewcorp.webwallet.goal.GoalDtos.GoalsResponse;
+import com.andrewcorp.webwallet.ledger.LedgerLookups;
 import com.andrewcorp.webwallet.ledger.account.Account;
-import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountService;
 import com.andrewcorp.webwallet.user.UserService;
 import java.math.BigDecimal;
@@ -38,7 +38,7 @@ public class GoalService {
     private static final BigDecimal MAX_SAVED = BigDecimal.TEN.pow(15);
 
     private final GoalRepository goals;
-    private final AccountRepository accounts;
+    private final LedgerLookups lookups;
     private final AccountService accountService;
     private final UserService users;
     private final Converters converters;
@@ -46,13 +46,13 @@ public class GoalService {
 
     public GoalService(
             GoalRepository goals,
-            AccountRepository accounts,
+            LedgerLookups lookups,
             AccountService accountService,
             UserService users,
             Converters converters,
             Clock clock) {
         this.goals = goals;
-        this.accounts = accounts;
+        this.lookups = lookups;
         this.accountService = accountService;
         this.users = users;
         this.converters = converters;
@@ -139,8 +139,7 @@ public class GoalService {
     private void apply(Long userId, Goal goal, GoalRequest request) {
         Account account = null;
         if (request.accountId() != null) {
-            account = accounts.findByIdAndUserId(request.accountId(), userId)
-                    .orElseThrow(() -> ApiException.invalid("accountId", "error.notFound"));
+            account = lookups.account(userId, request.accountId(), "accountId");
         }
         String currency = request.currency();
         if (currency == null) {
@@ -152,7 +151,12 @@ public class GoalService {
         goal.setCurrency(currency);
         goal.setTargetDate(request.targetDate());
         goal.setAccount(account);
-        goal.setSaved(account == null && request.saved() != null ? request.saved() : BigDecimal.ZERO);
+        if (account != null) {
+            goal.setSaved(BigDecimal.ZERO);
+        } else if (request.saved() != null) {
+            goal.setSaved(request.saved());
+        }
+        // An omitted saved amount of a goal kept by hand stays as it was, like achieved and sortOrder
         goal.setIcon(request.icon());
         goal.setColor(request.color());
         if (request.achieved() != null) {

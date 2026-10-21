@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.user;
 
 import com.andrewcorp.webwallet.auth.twofactor.TwoFactorService;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
+import com.andrewcorp.webwallet.user.dto.ConfirmIdentityRequest;
 import com.andrewcorp.webwallet.user.dto.DisableTwoFactorRequest;
 import com.andrewcorp.webwallet.user.dto.RecoveryCodesResponse;
 import com.andrewcorp.webwallet.user.dto.TwoFactorCodeRequest;
@@ -32,10 +33,12 @@ public class TwoFactorController {
     @Operation(
             summary = "Start turning on two-factor authentication",
             description = "Returns a new secret for the authenticator app; it becomes active once /enable gets a code"
-                    + " of it. Fails with CONFLICT when two-factor authentication is already on.")
+                    + " of it. Needs the current password when the account has one (INVALID_CURRENT_PASSWORD)."
+                    + " Fails with CONFLICT when two-factor authentication is already on.")
     @PostMapping("/setup")
-    public TwoFactorSetupResponse setup(@CurrentUserId Long userId) {
-        TwoFactorService.Setup setup = twoFactor.setup(userId);
+    public TwoFactorSetupResponse setup(
+            @CurrentUserId Long userId, @Valid @RequestBody ConfirmIdentityRequest request) {
+        TwoFactorService.Setup setup = twoFactor.setup(userId, request.password());
         return new TwoFactorSetupResponse(setup.secret(), setup.otpauthUri());
     }
 

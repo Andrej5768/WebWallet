@@ -345,7 +345,7 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 - Telegram bot (`TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME` from @BotFather; off without them). With
   `TELEGRAM_WEBHOOK_SECRET` the backend registers the webhook `<APP_PUBLIC_URL>/api/v1/telegram/webhook` at start and
   checks the secret in the `X-Telegram-Bot-Api-Secret-Token` header; without it, it polls Telegram (local development —
-  use a separate test bot, a bot cannot have a webhook and be polled at once). `POST /api/v1/telegram/link` returns a
+  use a separate test bot, a bot cannot have a webhook and be polled at once). `POST /api/v1/telegram/link` (with the current password, see below) returns a
   one-time `t.me/<bot>?start=<code>` link (15 minutes) that connects the chat, `GET /api/v1/telegram` the state,
   `PUT /api/v1/telegram/settings` `{quickEntryAccountId}`, `DELETE /api/v1/telegram` disconnects (so does `/stop` in
   the bot). A message to the bot is recorded right away: the first number is the amount (`+` for an income), words
@@ -361,6 +361,13 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
   reached, on Mondays after the first week the spending of the month so far against the same days of the previous
   month and on the 1st the previous month against the month before, both with a PNG chart; a Monobank token the bank
   rejects is reported within 10 minutes, except from 22:00 to 8:00.
+- Changes of how the account is reached — linking Google (`POST /api/v1/me/google/link`), connecting Telegram and
+  starting two-factor authentication (`POST /api/v1/me/two-factor/setup`) — take `{password, code}`: the current
+  password, or for an account without one a two-factor code when it is on, so that a stolen session cannot give its
+  thief a way back in. A new or reset password disconnects the Telegram chat. Failed logins block an IP for an account
+  after 10 tries and the account for every IP after 30; two-factor codes are limited to 10 per 15 minutes and 30 a
+  day. The webhook secret of a Monobank connection is stored as its hash, and the CSV of the data export neutralizes
+  cells that a spreadsheet would run as formulas.
 - Market data providers: the services use `MarketDataProvider` (instruments and daily closes), `DividendProvider`
   (dividends) and `SectorProvider` (sectors, from the same service as the dividends); the implementation is chosen with `app.market-data.prices-provider` (`twelve-data`) and
   `app.market-data.dividends-provider` (`alpha-vantage`). Another service is another implementation of the interface;
