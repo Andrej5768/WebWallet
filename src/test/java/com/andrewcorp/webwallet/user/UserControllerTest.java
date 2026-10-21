@@ -55,7 +55,7 @@ class UserControllerTest extends AbstractIntegrationTest {
     void unauthorizedMessageIsLocalized() throws Exception {
         mockMvc.perform(get("/api/v1/me").header("Accept-Language", "uk"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.detail").value("Потрібна автентифікація"));
+                .andExpect(jsonPath("$.detail").value("Увійдіть, щоб продовжити"));
     }
 
     @Test

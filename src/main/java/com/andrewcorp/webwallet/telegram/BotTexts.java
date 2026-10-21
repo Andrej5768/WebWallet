@@ -97,6 +97,23 @@ public class BotTexts {
         return date.getDayOfMonth() + " " + month;
     }
 
+    /** E.g. {@code 1–19 жовтня}; one day by its date. */
+    public static String period(LocalDate from, LocalDate to, Locale locale) {
+        String end = date(to, locale);
+        return from.equals(to) ? end : from.getDayOfMonth() + "–" + end;
+    }
+
+    /** The month as after «підсумок»: {@code вересня}; in English the name itself. */
+    public static String monthOf(YearMonth month, Locale locale) {
+        if (!"uk".equals(locale.getLanguage())) {
+            return DateTimeFormatter.ofPattern("LLLL", locale).format(month.atDay(1));
+        }
+        // The month of a date is in the genitive: «1 вересня»
+        return DateTimeFormatter.ofPattern("d MMMM", locale)
+                .format(month.atDay(1))
+                .substring(2);
+    }
+
     /** E.g. {@code Жовтень}. */
     public static String month(YearMonth month, Locale locale) {
         String name = DateTimeFormatter.ofPattern("LLLL", locale).format(month.atDay(1));

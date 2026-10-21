@@ -31,7 +31,7 @@ class ErrorHandlingTest extends AbstractIntegrationTest {
         mockMvc.perform(postJson("/api/v1/auth/login", Map.of("email", "", "password", "x"))
                         .header("Accept-Language", "uk"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Дані запиту не пройшли перевірку"))
+                .andExpect(jsonPath("$.detail").value("Перевірте введені дані"))
                 .andExpect(jsonPath("$.errors[0].field").value("email"))
                 .andExpect(jsonPath("$.errors[0].message").isNotEmpty());
     }

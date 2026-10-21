@@ -90,6 +90,9 @@ public class SecurityConfig {
                         // Called by Telegram with the secret of the webhook in a header
                         .requestMatchers("/api/v1/telegram/webhook")
                         .permitAll()
+                        // The links of the digest emails, signed for their user
+                        .requestMatchers("/api/v1/notifications/unsubscribe", "/api/v1/notifications/resubscribe")
+                        .permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                         .permitAll()
                         .requestMatchers("/actuator/health/**")

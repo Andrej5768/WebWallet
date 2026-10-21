@@ -5,7 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-/** What a user is notified about; a user without a row has the defaults: everything at 9:00. */
+/** What a user is notified about, in Telegram and by email; a user without a row has the defaults: everything at 9:00. */
 @Entity
 @Table(name = "notification_settings")
 public class NotificationSettings {
@@ -43,6 +43,12 @@ public class NotificationSettings {
     @Column(nullable = false)
     private boolean monthly = true;
 
+    @Column(nullable = false)
+    private boolean emailWeekly = true;
+
+    @Column(nullable = false)
+    private boolean emailMonthly = true;
+
     protected NotificationSettings() {}
 
     public NotificationSettings(Long userId) {
@@ -59,6 +65,8 @@ public class NotificationSettings {
             case GOALS -> goals;
             case WEEKLY -> weekly;
             case MONTHLY -> monthly;
+            case EMAIL_WEEKLY -> emailWeekly;
+            case EMAIL_MONTHLY -> emailMonthly;
         };
     }
 
@@ -136,5 +144,21 @@ public class NotificationSettings {
 
     public void setMonthly(boolean monthly) {
         this.monthly = monthly;
+    }
+
+    public boolean isEmailWeekly() {
+        return emailWeekly;
+    }
+
+    public void setEmailWeekly(boolean emailWeekly) {
+        this.emailWeekly = emailWeekly;
+    }
+
+    public boolean isEmailMonthly() {
+        return emailMonthly;
+    }
+
+    public void setEmailMonthly(boolean emailMonthly) {
+        this.emailMonthly = emailMonthly;
     }
 }

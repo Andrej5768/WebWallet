@@ -361,6 +361,13 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
   reached, on Mondays after the first week the spending of the month so far against the same days of the previous
   month and on the 1st the previous month against the month before, both with a PNG chart; a Monobank token the bank
   rejects is reported within 10 minutes, except from 22:00 to 8:00.
+- Email digest: the weekly and the monthly report of the Telegram bot also go by email (HTML with the chart attached
+  inline and a plain text version), at the same hour, to every confirmed address unless `emailWeekly` / `emailMonthly`
+  of `/api/v1/notifications/settings` are off. The weekly one adds the envelopes at 80 % or more, the payments of 7 days
+  and the forecast, the monthly one the goals. Every email has `List-Unsubscribe` with `List-Unsubscribe-Post`
+  (RFC 8058): `POST /api/v1/notifications/unsubscribe?user&token` switches both off without signing in, `GET` of it
+  redirects to the page `/unsubscribe` of the web client, `POST /api/v1/notifications/resubscribe` switches them on.
+  The token is an HMAC of the user id with the JWT key, so nothing is stored.
 - Changes of how the account is reached — linking Google (`POST /api/v1/me/google/link`), connecting Telegram and
   starting two-factor authentication (`POST /api/v1/me/two-factor/setup`) — take `{password, code}`: the current
   password, or for an account without one a two-factor code when it is on, so that a stolen session cannot give its
@@ -488,7 +495,7 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 ### Phase 6 — Notifications and mobile
 - [x] Telegram bot: quick entry of expenses, incomes and transfers, commands, reminders, budget and tax alerts,
   weekly and monthly spending reports with charts
-- [ ] Email digest
+- [x] Email digest: the weekly and the monthly report by email, on by default, with one-click unsubscribe
 - [ ] Push notifications (FCM / APNs)
 - [ ] Native Android (Kotlin) and iOS (Swift) apps with PIN / biometrics
 
@@ -496,6 +503,8 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
 - [x] TOTP two-factor authentication with recovery codes and trusted browsers (90 days)
 - [x] Sign-in with Google (OpenID Connect with PKCE; a verified email links an existing account)
 - [ ] Sign-in with Apple — together with the iOS app, it needs the Apple Developer Program
+- [ ] CAPTCHA (Cloudflare Turnstile) on sign-in after a few failed passwords, also on registration and password reset;
+  then the account-wide login block can go, so that wrong passwords from elsewhere cannot lock the owner out
 - [x] Rate limiting of the whole API per client address, encryption of bank tokens and 2FA secrets at rest
 - [x] Export of all data (ZIP: JSON of every owned table and transactions as CSV) and account deletion after a
   14-day grace period with a cancel link
