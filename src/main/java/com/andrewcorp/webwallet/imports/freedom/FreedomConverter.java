@@ -8,6 +8,7 @@ import com.andrewcorp.webwallet.imports.broker.BrokerStatement.Skip;
 import com.andrewcorp.webwallet.imports.freedom.FreedomReport.CashFlow;
 import com.andrewcorp.webwallet.imports.freedom.FreedomReport.Trade;
 import com.andrewcorp.webwallet.investment.OperationType;
+import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -392,7 +393,7 @@ public final class FreedomConverter {
         }
 
         private static String description(CashFlow flow) {
-            return Texts.truncate(flow.comment(), 1000);
+            return Texts.truncate(flow.comment(), Transaction.MAX_COMMENT_LENGTH);
         }
     }
 }

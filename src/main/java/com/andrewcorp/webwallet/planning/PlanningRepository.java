@@ -88,13 +88,16 @@ public interface PlanningRepository extends Repository<Transaction, Long> {
     @Query("select min(t.date) from Transaction t where t.userId = :userId")
     LocalDate findFirstDate(Long userId);
 
-    /** Expense parts of the transactions that paid recurring payments in the period, per day, currency and category. */
+    /**
+     * Expense parts of the transactions that paid recurring payments in the period, per day, currency and category;
+     * only of the accounts of the budget, whose spending the plan compares with.
+     */
     @Query("""
             select t.date as date, a.currency as currency, s.category.id as categoryId, sum(s.amount) as amount
             from RecurringOccurrence o join o.transaction t join t.splits s join t.account a
             where o.recurring.userId = :userId
               and t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.EXPENSE
-              and s.category is not null and t.date between :from and :to
+              and s.category is not null and t.date between :from and :to and a.inBudget = true
             group by t.date, a.currency, s.category.id""")
     List<CategoryAmount> findRecurringExpenses(Long userId, LocalDate from, LocalDate to);
 

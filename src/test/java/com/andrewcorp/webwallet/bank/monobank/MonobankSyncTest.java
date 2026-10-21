@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import com.andrewcorp.webwallet.TestClock;
+import com.andrewcorp.webwallet.auth.token.TokenHasher;
 import com.andrewcorp.webwallet.bank.BankAccountLink;
 import com.andrewcorp.webwallet.bank.BankAccountLinkRepository;
 import com.andrewcorp.webwallet.bank.BankConnection;
@@ -587,12 +588,33 @@ class MonobankSyncTest extends AbstractIntegrationTest {
                 .isEqualByComparingTo("0");
     }
 
+    @Test
+    void raisedCreditLimitIsReadAgainTheNextDay() throws Exception {
+        connect(LocalDate.now().minusDays(5));
+        syncAll();
+        assertThat(link("mono-iron").getBankCreditLimit()).isEqualByComparingTo("50000");
+        when(client.clientInfo(TOKEN))
+                .thenReturn(new ClientInfo(
+                        "c1",
+                        "Test User",
+                        List.of(new BankAccount(
+                                "mono-iron", 8_000_000, 7_000_000, "iron", 980, List.of("444111******7777"), "UA2")),
+                        List.of()));
+
+        TestClock.INSTANCE.set(Instant.now().plus(25, ChronoUnit.HOURS));
+        syncAll();
+
+        assertThat(link("mono-iron").getBankCreditLimit()).isEqualByComparingTo("70000");
+    }
+
     // webhook
 
     @Test
     void webhookImportsOperation() throws Exception {
         connect(LocalDate.now().minusDays(5));
-        String secret = connection().getWebhookSecret();
+        // Only its hash is stored; Monobank gets the secret in the URL when the webhook is registered
+        String secret = "webhook-secret-of-the-test";
+        tx.executeWithoutResult(status -> connection().setWebhookSecret(TokenHasher.hash(secret)));
 
         mockMvc.perform(get("/api/v1/banks/monobank/webhook/" + secret)).andExpect(status().isOk());
         mockMvc.perform(postJson(
@@ -688,11 +710,12 @@ class MonobankSyncTest extends AbstractIntegrationTest {
                     status -> connection().setLastRequestAt(Instant.now().minus(2, ChronoUnit.MINUTES)));
             assertThat(service.dueConnections()).containsExactly(connection().getId());
             assertThat(service.syncStep(connection().getId())).isTrue();
-            verify(client)
-                    .setWebhook(
-                            TOKEN,
-                            "https://wallet.test/api/v1/banks/monobank/webhook/"
-                                    + connection().getWebhookSecret());
+            ArgumentCaptor<String> url = ArgumentCaptor.forClass(String.class);
+            verify(client).setWebhook(eq(TOKEN), url.capture());
+            String prefix = "https://wallet.test/api/v1/banks/monobank/webhook/";
+            assertThat(url.getValue()).startsWith(prefix);
+            assertThat(connection().getWebhookSecret())
+                    .isEqualTo(TokenHasher.hash(url.getValue().substring(prefix.length())));
             mockMvc.perform(get("/api/v1/banks/monobank").header("Authorization", auth))
                     .andExpect(jsonPath("$.webhook").value(true));
 

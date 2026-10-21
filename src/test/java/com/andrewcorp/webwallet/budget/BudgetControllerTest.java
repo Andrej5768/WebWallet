@@ -46,18 +46,11 @@ class BudgetControllerTest extends AbstractIntegrationTest {
     }
 
     private Long account(String name, String type, String currency, double openingBalance) throws Exception {
-        return id(json(
-                postJson(
-                        "/api/v1/accounts",
-                        Map.of("name", name, "type", type, "currency", currency, "openingBalance", openingBalance),
-                        auth),
-                201));
+        return createAccount(auth, name, type, currency, openingBalance);
     }
 
     private Long category(String name, String kind, Long parentId) throws Exception {
-        Map<String, Object> body = new HashMap<>(Map.of("name", name, "kind", kind));
-        body.put("parentId", parentId);
-        return id(json(postJson("/api/v1/categories", body, auth), 201));
+        return createCategory(auth, name, kind, parentId);
     }
 
     private void transaction(String type, String date, Long account, double amount, Long categoryId) throws Exception {

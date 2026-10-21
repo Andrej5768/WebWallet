@@ -65,7 +65,7 @@ public class ListingSearch {
             }
             searches.record(user);
         }
-        List<Listing> listings = ExternalCalls.call(() -> provider.search(query.trim())).stream()
+        List<Listing> listings = ExternalCalls.callWithServerKey(() -> provider.search(query.trim())).stream()
                 .map(ListingSearch::sanitized)
                 .filter(Objects::nonNull)
                 .toList();

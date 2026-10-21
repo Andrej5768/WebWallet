@@ -34,15 +34,11 @@ public class CategoryService {
     /** All categories of the user as a tree: top-level categories with their subcategories. */
     @Transactional(readOnly = true)
     public List<CategoryResponse> tree(Long userId) {
-        List<Category> all = categories.findByUserIdOrderBySortOrderAscNameAsc(userId);
-        Map<Long, List<Category>> childrenByParent = all.stream()
-                .filter(category -> category.getParentId() != null)
-                .collect(Collectors.groupingBy(Category::getParentId));
-        return all.stream()
-                .filter(category -> category.getParentId() == null)
+        CategoryTree tree = categories.tree(userId);
+        return tree.roots().stream()
                 .map(parent -> CategoryResponse.from(
                         parent,
-                        childrenByParent.getOrDefault(parent.getId(), List.of()).stream()
+                        tree.children(parent.getId()).stream()
                                 .map(child -> CategoryResponse.from(child, List.of()))
                                 .toList()))
                 .toList();

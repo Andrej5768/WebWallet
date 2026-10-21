@@ -90,7 +90,8 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 `ENCRYPTION_KEY` (encrypts bank tokens), `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`,
 `APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `TWELVE_DATA_API_KEY` and `ALPHA_VANTAGE_API_KEY` (market data and dividends, see below), `APP_PUBLIC_URL` (makes the Monobank `WEBHOOK` mode available), `TRUSTED_PROXIES`
 (a regular expression of reverse proxy addresses allowed to set `X-Forwarded-For`, loopback by default),
-`API_DOCS_ENABLED`, `REFRESH_COOKIE_SECURE`
+`API_DOCS_ENABLED`, `REFRESH_COOKIE_SECURE`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` and
+`TELEGRAM_WEBHOOK_SECRET` (the Telegram bot, see below)
 (see `src/main/resources/application.properties`).
 
 ### Authentication
@@ -341,6 +342,32 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
   `ALPHA_VANTAGE_API_KEY`, about 25 requests a day): the US-dollar stocks, ETFs and funds someone holds are checked
   once a week, one an hour. The same hourly request loads the sectors when no dividends are due: of a company from its
   SEC industry (`OVERVIEW`), of a fund its weights (`ETF_PROFILE`), checked every 90 days.
+- Telegram bot (`TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME` from @BotFather; off without them). With
+  `TELEGRAM_WEBHOOK_SECRET` the backend registers the webhook `<APP_PUBLIC_URL>/api/v1/telegram/webhook` at start and
+  checks the secret in the `X-Telegram-Bot-Api-Secret-Token` header; without it, it polls Telegram (local development —
+  use a separate test bot, a bot cannot have a webhook and be polled at once). `POST /api/v1/telegram/link` (with the current password, see below) returns a
+  one-time `t.me/<bot>?start=<code>` link (15 minutes) that connects the chat, `GET /api/v1/telegram` the state,
+  `PUT /api/v1/telegram/settings` `{quickEntryAccountId}`, `DELETE /api/v1/telegram` disconnects (so does `/stop` in
+  the bot). A message to the bot is recorded right away: the first number is the amount (`+` for an income), words
+  naming accounts pick the account (compared in Latin letters, so «моно» names Monobank; a word fitting several is
+  asked with buttons), two of them make a transfer, `вчора` or `dd.mm` the date, the rest is the comment; the category
+  comes from the rules and the payee, the latest transaction with that comment, or a category of that name. The
+  buttons under it change the category or the account, turn an expense into a transfer or cancel it, for 48 hours.
+  Commands: `/balance`, `/today`, `/month`, `/planned` (30 days of planned payments, the taxes of a sole proprietor
+  and the day the forecast goes below zero), `/help`, `/stop`. Notifications (`GET/PUT /api/v1/notifications/settings`:
+  a switch per kind and the `hour` of Kyiv time) go once each, at that hour: recurring payments due tomorrow and today
+  (with «Paid», which records the payment), envelopes at 80 % and 100 % of the month, taxes of a sole proprietor 7 days
+  and a day ahead, the first day of the next 30 the forecast is below zero (again only when it changes), goals
+  reached, on Mondays after the first week the spending of the month so far against the same days of the previous
+  month and on the 1st the previous month against the month before, both with a PNG chart; a Monobank token the bank
+  rejects is reported within 10 minutes, except from 22:00 to 8:00.
+- Changes of how the account is reached — linking Google (`POST /api/v1/me/google/link`), connecting Telegram and
+  starting two-factor authentication (`POST /api/v1/me/two-factor/setup`) — take `{password, code}`: the current
+  password, or for an account without one a two-factor code when it is on, so that a stolen session cannot give its
+  thief a way back in. A new or reset password disconnects the Telegram chat. Failed logins block an IP for an account
+  after 10 tries and the account for every IP after 30; two-factor codes are limited to 10 per 15 minutes and 30 a
+  day. The webhook secret of a Monobank connection is stored as its hash, and the CSV of the data export neutralizes
+  cells that a spreadsheet would run as formulas.
 - Market data providers: the services use `MarketDataProvider` (instruments and daily closes), `DividendProvider`
   (dividends) and `SectorProvider` (sectors, from the same service as the dividends); the implementation is chosen with `app.market-data.prices-provider` (`twelve-data`) and
   `app.market-data.dividends-provider` (`alpha-vantage`). Another service is another implementation of the interface;
@@ -459,7 +486,8 @@ mvn test -Dtest=OpenApiSpecTest -Dopenapi.update=true
       contribution, the yearly declaration with Ф1
 
 ### Phase 6 — Notifications and mobile
-- [ ] Telegram bot (notifications and quick expense entry)
+- [x] Telegram bot: quick entry of expenses, incomes and transfers, commands, reminders, budget and tax alerts,
+  weekly and monthly spending reports with charts
 - [ ] Email digest
 - [ ] Push notifications (FCM / APNs)
 - [ ] Native Android (Kotlin) and iOS (Swift) apps with PIN / biometrics

@@ -7,6 +7,7 @@ import com.andrewcorp.webwallet.auth.token.UserTokenRepository;
 import com.andrewcorp.webwallet.auth.token.UserTokenType;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.common.util.Texts;
 import com.andrewcorp.webwallet.config.AppProperties;
 import com.andrewcorp.webwallet.ledger.category.DefaultCategories;
 import com.andrewcorp.webwallet.user.User;
@@ -204,7 +205,7 @@ public class GoogleSignInService {
                 ? email.substring(0, email.indexOf('@'))
                 : identity.givenName().trim();
         String language = locale != null && "uk".equals(locale.getLanguage()) ? "uk" : "en";
-        User user = new User(email, null, firstName, blankToNull(identity.familyName()), language);
+        User user = new User(email, null, firstName, Texts.trimToNull(identity.familyName()), language);
         user.setEmailVerified(true);
         user = users.save(user);
         defaultCategories.create(user.getId(), Locale.forLanguageTag(language));
@@ -212,7 +213,7 @@ public class GoogleSignInService {
     }
 
     private String redirectUri() {
-        return properties.frontendUrl() + CALLBACK_PATH;
+        return properties.frontendUrl(CALLBACK_PATH);
     }
 
     /** PKCE S256: the challenge sent with the authorization request is the hash of the verifier. */
@@ -227,10 +228,6 @@ public class GoogleSignInService {
 
     private static boolean constantTimeEquals(String a, String b) {
         return MessageDigest.isEqual(a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static String blankToNull(String text) {
-        return text == null || text.isBlank() ? null : text.trim();
     }
 
     /** Removes the states of sign-ins that were never finished. */

@@ -1,5 +1,6 @@
 package com.andrewcorp.webwallet.ledger.transaction;
 
+import com.andrewcorp.webwallet.common.util.Amounts;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionFilter;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -20,8 +21,6 @@ final class TransactionSpecifications {
     /** An amount as people type it: digits with an optional fraction after a point or a comma. */
     private static final Pattern AMOUNT = Pattern.compile("\\d+([.,]\\d+)?");
     /** Spaces, including the non-breaking ones, that group the thousands of an amount, e.g. "1 284,50". */
-    private static final Pattern GROUPING = Pattern.compile("[\\s\\u00A0\\u202F]");
-
     private static final char LIKE_ESCAPE = '!';
 
     private TransactionSpecifications() {}
@@ -92,7 +91,7 @@ final class TransactionSpecifications {
 
     /** The text as an amount, e.g. "1284.50", "1284,50" or "1 284,50", ignoring a sign; null if it is not one. */
     static BigDecimal parseAmount(String text) {
-        String compact = GROUPING.matcher(text).replaceAll("");
+        String compact = Amounts.compact(text);
         if (compact.startsWith("-") || compact.startsWith("+")) {
             compact = compact.substring(1);
         }

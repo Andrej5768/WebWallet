@@ -12,7 +12,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Limits the requests to the API per client address, so that one client cannot overload the server. The auth endpoints
- * have stricter limits of their own; the Monobank webhook is left out, since the bank sends from its own addresses.
+ * have stricter limits of their own; the Monobank and Telegram webhooks are left out, since they come from the
+ * addresses of the services, shared by all users.
  */
 public class RequestRateLimitFilter extends OncePerRequestFilter {
 
@@ -33,7 +34,9 @@ public class RequestRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return !path.startsWith("/api/") || path.startsWith("/api/v1/banks/monobank/webhook/");
+        return !path.startsWith("/api/")
+                || path.startsWith("/api/v1/banks/monobank/webhook/")
+                || path.equals("/api/v1/telegram/webhook");
     }
 
     @Override

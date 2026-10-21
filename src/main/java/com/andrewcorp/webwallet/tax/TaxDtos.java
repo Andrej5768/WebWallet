@@ -215,6 +215,22 @@ public final class TaxDtos {
             LocalDate esvDue,
             boolean paid) {}
 
+    /**
+     * A deadline of the sole proprietor.
+     *
+     * @param amount to pay; null for a declaration
+     */
+    public record FopDeadline(LocalDate date, int year, int quarter, Kind kind, BigDecimal amount) {
+
+        public enum Kind {
+            /** The single tax and the military levy. */
+            SINGLE_TAX,
+            /** The social contribution. */
+            ESV,
+            DECLARATION
+        }
+    }
+
     public record FopTotals(
             BigDecimal income, BigDecimal singleTax, BigDecimal military, BigDecimal esv, BigDecimal total) {}
 

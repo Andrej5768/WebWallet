@@ -374,6 +374,25 @@ class RecurringControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void movedScheduleDoesNotCreateThePaymentAgain() throws Exception {
+        Map<String, Object> body = series("Salary", "INCOME", card, 52000, TODAY);
+        body.put("categoryId", salary);
+        body.put("autoCreate", true);
+        Long id = create(body);
+        assertThat(occurrence(id, TODAY)).containsEntry("status", "PAID");
+
+        // The payment of this month moves five days later
+        body.put("startDate", TODAY.plusDays(5).toString());
+        json(putJson("/api/v1/recurring/" + id, body, auth), 200);
+        today(TODAY.plusDays(5));
+        recurringTask.refresh();
+
+        assertThat(occurrence(id, TODAY.plusDays(5))).containsEntry("status", "PAID");
+        assertThat(json(get("/api/v1/transactions").header("Authorization", auth), 200))
+                .containsEntry("totalItems", 1);
+    }
+
+    @Test
     void rejectsInvalidRecurringPayments() throws Exception {
         Map<String, Object> transfer = series("Savings", "TRANSFER", card, 1000, TODAY);
         json(postJson("/api/v1/recurring", transfer, auth), 400);

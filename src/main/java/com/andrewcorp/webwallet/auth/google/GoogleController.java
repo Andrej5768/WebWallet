@@ -41,7 +41,7 @@ public class GoogleController {
         this.googleSignIn = googleSignIn;
         this.stateCookie = stateCookie;
         this.refreshTokenCookie = refreshTokenCookie;
-        this.frontendUrl = properties.frontendUrl();
+        this.frontendUrl = properties.frontendUrl("");
     }
 
     @Operation(summary = "Which ways of signing in this server offers besides the password")

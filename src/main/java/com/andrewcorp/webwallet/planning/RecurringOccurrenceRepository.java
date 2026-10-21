@@ -12,6 +12,8 @@ public interface RecurringOccurrenceRepository extends JpaRepository<RecurringOc
 
     Optional<RecurringOccurrence> findByRecurringAndDueDate(RecurringPayment recurring, LocalDate dueDate);
 
+    List<RecurringOccurrence> findByRecurring(RecurringPayment recurring);
+
     /** Stored occurrences of the user's recurring payments in the period. */
     @Query("""
             select o from RecurringOccurrence o join fetch o.recurring r

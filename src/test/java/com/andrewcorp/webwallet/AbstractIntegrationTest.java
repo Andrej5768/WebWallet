@@ -187,6 +187,29 @@ public abstract class AbstractIntegrationTest {
         return body.isEmpty() ? Map.of() : jsonMapper.readValue(body, Map.class);
     }
 
+    /** Creates an account by the API and returns its id. */
+    protected Long createAccount(String authorization, String name, String type, String currency, double openingBalance)
+            throws Exception {
+        return id(json(
+                postJson(
+                        "/api/v1/accounts",
+                        Map.of("name", name, "type", type, "currency", currency, "openingBalance", openingBalance),
+                        authorization),
+                201));
+    }
+
+    /** Creates a category by the API, under the parent when there is one, and returns its id. */
+    protected Long createCategory(String authorization, String name, String kind, Long parentId) throws Exception {
+        Map<String, Object> body = new java.util.HashMap<>(Map.of("name", name, "kind", kind));
+        body.put("parentId", parentId);
+        return id(json(postJson("/api/v1/categories", body, authorization), 201));
+    }
+
+    /** A number of a JSON response. */
+    protected static double number(Object value) {
+        return ((Number) value).doubleValue();
+    }
+
     protected static Long id(Map<String, Object> json) {
         return ((Number) json.get("id")).longValue();
     }

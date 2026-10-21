@@ -111,7 +111,8 @@ public class OperationMatcher {
             Account account, TransactionType type, BigDecimal amount, LocalDate date, String bankId, boolean allowFee) {
         Optional<Transaction> counterpart = sameCurrencyCounterpart(account, type, amount, date, allowFee)
                 .or(() -> exchangeCounterpart(account, type, amount, date));
-        counterpart.ifPresent(transfer -> makeTransfer(transfer, account, type, amount, bankId));
+        // The bank id of an imported operation is its import id too
+        counterpart.ifPresent(transfer -> transfer.becomeTransfer(account, amount, bankId, bankId));
         return counterpart;
     }
 
@@ -161,29 +162,6 @@ public class OperationMatcher {
                 })
                 .toList();
         return candidates.size() == 1 ? Optional.of(candidates.get(0)) : Optional.empty();
-    }
-
-    private static void makeTransfer(
-            Transaction transfer, Account account, TransactionType type, BigDecimal amount, String bankId) {
-        Account other = transfer.getAccount();
-        BigDecimal otherAmount = transfer.getAmount();
-        String otherBankId = transfer.getBankId();
-        transfer.setType(TransactionType.TRANSFER);
-        transfer.setHold(false);
-        transfer.replaceSplits(List.of());
-        transfer.setPayee(null);
-        if (type == TransactionType.EXPENSE) {
-            transfer.setAccount(account);
-            transfer.setAmount(amount);
-            transfer.setBankId(bankId);
-            transfer.setToAccount(other);
-            transfer.setToAmount(otherAmount);
-            transfer.setToBankId(otherBankId);
-        } else {
-            transfer.setToAccount(account);
-            transfer.setToAmount(amount);
-            transfer.setToBankId(bankId);
-        }
     }
 
     private static Optional<Transaction> closest(List<Transaction> candidates, LocalDate date) {

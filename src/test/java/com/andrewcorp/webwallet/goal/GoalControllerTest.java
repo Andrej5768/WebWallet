@@ -49,12 +49,7 @@ class GoalControllerTest extends AbstractIntegrationTest {
     }
 
     private Long account(String name, String type, String currency, double openingBalance) throws Exception {
-        return id(json(
-                postJson(
-                        "/api/v1/accounts",
-                        Map.of("name", name, "type", type, "currency", currency, "openingBalance", openingBalance),
-                        auth),
-                201));
+        return createAccount(auth, name, type, currency, openingBalance);
     }
 
     private Map<String, Object> goal(String name, double target, String date, Long account) {
@@ -62,10 +57,6 @@ class GoalControllerTest extends AbstractIntegrationTest {
         body.put("targetDate", date);
         body.put("accountId", account);
         return body;
-    }
-
-    private static double number(Object value) {
-        return ((Number) value).doubleValue();
     }
 
     @Test

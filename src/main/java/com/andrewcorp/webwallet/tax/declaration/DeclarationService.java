@@ -104,7 +104,8 @@ public class DeclarationService {
                 income = income.add(row.income());
             }
         }
-        BigDecimal rate = rates.fopVat() ? BigDecimal.valueOf(3) : BigDecimal.valueOf(5);
+        // The same rate as the taxes page and the reminders, also when the user changed it
+        BigDecimal rate = rates.singleTaxRate();
         BigDecimal tax = TaxRates.share(income, rate);
         BigDecimal taxBefore = TaxRates.share(before, rate);
         BigDecimal military = TaxRates.share(income, rates.fopMilitaryRate());

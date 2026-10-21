@@ -153,6 +153,23 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             order by t.date desc, t.id desc""")
     List<Category> findCategoriesUsedForPayee(Long userId, Payee payee, CategoryKind kind, Pageable pageable);
 
+    /** Category of the latest categorized transaction with this comment, e.g. «кава» written to the Telegram bot. */
+    @Query("""
+            select s.category from TransactionSplit s join s.transaction t
+            where t.userId = :userId and lower(t.comment) = lower(:comment) and s.category is not null
+              and s.category.kind = :kind and s.category.archived = false
+            order by t.date desc, t.id desc""")
+    List<Category> findCategoriesUsedForComment(Long userId, String comment, CategoryKind kind, Pageable pageable);
+
+    /** Categories used most often since the date, most used first. */
+    @Query("""
+            select s.category.id from TransactionSplit s join s.transaction t
+            where t.userId = :userId and s.category is not null and s.category.kind = :kind
+              and s.category.archived = false and t.date >= :from
+            group by s.category.id
+            order by count(s.id) desc""")
+    List<Long> findFrequentCategoryIds(Long userId, CategoryKind kind, LocalDate from, Pageable pageable);
+
     /** Net change of each account caused by the transactions where it is the source account. */
     @Query("""
             select t.account.id as accountId,

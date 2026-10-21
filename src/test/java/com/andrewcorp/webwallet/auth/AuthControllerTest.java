@@ -298,10 +298,26 @@ class AuthControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void fewWrongPasswordsFromElsewhereDoNotLockTheOwnerOut() throws Exception {
+        createUser("owner@test.com", true);
+        for (int i = 0; i < 10; i++) {
+            mockMvc.perform(withIp(
+                            postJson("/api/v1/auth/login", Map.of("email", "owner@test.com", "password", "wrong")),
+                            "10.0.2.1"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(withIp(
+                        postJson("/api/v1/auth/login", Map.of("email", "owner@test.com", "password", PASSWORD)),
+                        "10.0.3.1"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void accountIsBlockedAfterTooManyFailedLoginsFromDifferentIps() throws Exception {
         createUser("target@test.com", true);
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 30; i++) {
             mockMvc.perform(withIp(
                             postJson("/api/v1/auth/login", Map.of("email", "target@test.com", "password", "wrong")),
                             "10.0.0." + i))

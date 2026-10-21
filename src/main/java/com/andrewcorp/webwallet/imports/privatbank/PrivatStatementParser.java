@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.imports.privatbank;
 
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.common.util.Amounts;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -204,6 +205,6 @@ public class PrivatStatementParser {
 
     /** "1 234,56" (the thousands space may be a line break) to 1234.56. */
     static BigDecimal number(String text) {
-        return new BigDecimal(text.replaceAll("\\s", "").replace(',', '.'));
+        return Amounts.parse(text);
     }
 }

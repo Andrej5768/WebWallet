@@ -14,6 +14,9 @@ import jakarta.persistence.Table;
 @Table(name = "payees")
 public class Payee {
 
+    /** Longest name kept; longer ones of imported operations are cut. */
+    public static final int MAX_NAME_LENGTH = 200;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

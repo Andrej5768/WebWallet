@@ -28,6 +28,7 @@ import com.andrewcorp.webwallet.user.User;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -205,6 +206,89 @@ class ZenMoneyImportTest extends AbstractIntegrationTest {
         assertThat(transactions.findExternalIds(user.getId(), TransactionSource.ZENMONEY))
                 .doesNotContain("tx-groceries");
         assertThat(transactions.findByBankId(user.getId(), "abc")).hasSize(1);
+    }
+
+    @Test
+    void cardOfAnAccountFromTheBankIsNotCreatedAgain() throws Exception {
+        Account privat = new Account(user.getId(), "PrivatBank *1234", AccountType.CARD, "UAH");
+        privat.setCardNumbers(List.of("1234"));
+        privat.setExternal("PRIVATBANK", "statement");
+        Long privatId = accounts.save(privat).getId();
+
+        Map<String, Object> result = importFile();
+
+        assertThat(result).containsEntry("accountsCreated", 6);
+        assertThat(accounts.findByUserIdAndExternalSourceAndExternalId(user.getId(), "ZENMONEY", "acc-card"))
+                .isEmpty();
+        Account kept = accounts.findById(privatId).orElseThrow();
+        assertThat(kept.getExternalSource()).isEqualTo("PRIVATBANK");
+        // Its balance stays its own: only new accounts take the balance of Zen Money
+        assertThat(kept.getOpeningBalance()).isEqualByComparingTo("0");
+        assertThat(transactions.findAll().stream()
+                        .filter(t -> t.getUserId().equals(user.getId()))
+                        .filter(t -> t.getAccount().getId().equals(privatId)))
+                .isNotEmpty();
+    }
+
+    @Test
+    void settingsOfAnExistingAccountAreKept() throws Exception {
+        importFile();
+        Account card = account("acc-card");
+        card.setName("Моя картка");
+        card.setArchived(true);
+        card.setInBudget(false);
+        card.setCreditLimit(null);
+        accounts.save(card);
+
+        importFile();
+
+        Account again = account("acc-card");
+        assertThat(again.getName()).isEqualTo("Моя картка");
+        assertThat(again.isArchived()).isTrue();
+        assertThat(again.isInBudget()).isFalse();
+        assertThat(again.getCreditLimit()).isNull();
+    }
+
+    @Test
+    void transferOfWhichTheBankBroughtOneHalfBecomesOne() throws Exception {
+        Account privat = new Account(user.getId(), "PrivatBank *1234", AccountType.CARD, "UAH");
+        privat.setCardNumbers(List.of("1234"));
+        privat = accounts.save(privat);
+        Transaction fromBank = new Transaction(user.getId());
+        fromBank.setSource(TransactionSource.PRIVATBANK);
+        fromBank.setExternalId("xyz");
+        fromBank.setBankId("xyz");
+        fromBank.setType(TransactionType.EXPENSE);
+        fromBank.setDate(LocalDate.of(2026, 9, 12));
+        fromBank.setAccount(privat);
+        fromBank.setAmount(new BigDecimal("700"));
+        Long bankId = transactions.save(fromBank).getId();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> parsed = jsonMapper.readValue(dump, Map.class);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> list = (List<Map<String, Object>>) parsed.get("transaction");
+        Map<String, Object> transfer = new HashMap<>(list.get(2));
+        transfer.put("id", "tx-bank-transfer");
+        transfer.put("date", "2026-09-12");
+        transfer.put("outcomeAccount", "acc-card");
+        transfer.put("outcome", 700);
+        transfer.put("incomeAccount", "acc-cash");
+        transfer.put("income", 700);
+        transfer.put("outcomeBankID", "xyz");
+        list.add(transfer);
+        dump = jsonMapper.writeValueAsBytes(parsed);
+
+        importFile();
+
+        Transaction merged = transactions.findById(bankId).orElseThrow();
+        assertThat(merged.getType()).isEqualTo(TransactionType.TRANSFER);
+        assertThat(merged.getToAccount().getId()).isEqualTo(account("acc-cash").getId());
+        assertThat(merged.getToAmount()).isEqualByComparingTo("700");
+        assertThat(merged.getToExternalId()).isEqualTo("tx-bank-transfer");
+
+        Map<String, Object> again = importFile();
+        assertThat(again).containsEntry("transactionsImported", 0);
+        assertThat(transactions.findByBankId(user.getId(), "xyz")).hasSize(1);
     }
 
     @Test

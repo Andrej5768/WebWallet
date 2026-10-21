@@ -17,9 +17,36 @@ public record AppProperties(
         @NotNull Cors cors,
         @NotNull Jwt jwt,
         @NotNull Auth auth,
-        @NotNull Google google) {
+        @NotNull Google google,
+        @NotNull Telegram telegram) {
+
+    /** A page of the web client, e.g. {@code /transactions}; a slash at the end of the configured URL is ignored. */
+    public String frontendUrl(String path) {
+        return frontendUrl.replaceAll("/+$", "") + path;
+    }
 
     public record Mail(@NotBlank String from) {}
+
+    /**
+     * The Telegram bot; it is off while the token is blank.
+     *
+     * @param botToken      from @BotFather
+     * @param botUsername   without the {@code @}, for the t.me links
+     * @param webhookSecret Telegram sends it with every webhook request; without it the bot polls for updates
+     */
+    public record Telegram(
+            @DefaultValue("") String botToken,
+            @DefaultValue("") String botUsername,
+            @DefaultValue("") String webhookSecret) {
+
+        public boolean enabled() {
+            return !botToken.isBlank() && !botUsername.isBlank();
+        }
+
+        public boolean webhook() {
+            return enabled() && !webhookSecret.isBlank();
+        }
+    }
 
     public record Cors(List<String> allowedOrigins) {}
 

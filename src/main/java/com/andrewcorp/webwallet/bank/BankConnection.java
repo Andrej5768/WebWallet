@@ -64,6 +64,9 @@ public class BankConnection {
     @Column(nullable = false)
     private Instant nextSyncAt;
 
+    /** When the accounts of the bank, with their credit limits, were read last. */
+    private Instant infoRefreshedAt;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -182,6 +185,14 @@ public class BankConnection {
 
     public void setNextSyncAt(Instant nextSyncAt) {
         this.nextSyncAt = nextSyncAt;
+    }
+
+    public Instant getInfoRefreshedAt() {
+        return infoRefreshedAt;
+    }
+
+    public void setInfoRefreshedAt(Instant infoRefreshedAt) {
+        this.infoRefreshedAt = infoRefreshedAt;
     }
 
     public Instant getCreatedAt() {

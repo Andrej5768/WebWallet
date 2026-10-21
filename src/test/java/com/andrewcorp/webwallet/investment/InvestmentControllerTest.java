@@ -86,12 +86,7 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
     }
 
     private Long account(String name, String type, String currency, double openingBalance) throws Exception {
-        return id(json(
-                postJson(
-                        "/api/v1/accounts",
-                        Map.of("name", name, "type", type, "currency", currency, "openingBalance", openingBalance),
-                        auth),
-                201));
+        return createAccount(auth, name, type, currency, openingBalance);
     }
 
     private Long apple() throws Exception {
@@ -115,10 +110,6 @@ class InvestmentControllerTest extends AbstractIntegrationTest {
                 "price", price,
                 "fee", fee));
         return body;
-    }
-
-    private static double number(Object value) {
-        return ((Number) value).doubleValue();
     }
 
     @Test

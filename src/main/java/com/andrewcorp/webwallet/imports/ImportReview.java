@@ -5,7 +5,6 @@ import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.tag.Tag;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.Transaction.SplitData;
-import com.andrewcorp.webwallet.ledger.transaction.TransactionSplit;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -135,29 +134,23 @@ public final class ImportReview {
         }
         TransactionType detected = transaction.getType();
         TransactionType type = edit.type() != null ? edit.type() : detected;
-        Category category = edit.keepCategory() ? suggestedCategory(transaction) : edit.category();
+        Category category = edit.keepCategory() ? transaction.singleCategory() : edit.category();
         if (type == TransactionType.TRANSFER && detected != TransactionType.TRANSFER) {
-            Account other = edit.transferAccount();
-            if (detected == TransactionType.EXPENSE) {
-                transaction.setToAccount(other);
-            } else {
-                transaction.setToAccount(transaction.getAccount());
-                transaction.setToBankId(transaction.getBankId());
-                transaction.setBankId(null);
-                transaction.setAccount(other);
-            }
-            transaction.setToAmount(transaction.getAmount());
-            transaction.setOriginalAmount(null);
-            transaction.setOriginalCurrency(null);
+            // The other half is not in the file: it gets the same amount and no ids
+            transaction.becomeTransfer(edit.transferAccount(), transaction.getAmount(), null, null);
         } else if (type != TransactionType.TRANSFER && detected == TransactionType.TRANSFER) {
             if (type == TransactionType.INCOME) {
                 transaction.setAccount(transaction.getToAccount());
                 transaction.setAmount(transaction.getToAmount());
                 transaction.setBankId(transaction.getToBankId());
+                if (transaction.getToExternalId() != null) {
+                    transaction.setExternalId(transaction.getToExternalId());
+                }
             }
             transaction.setToAccount(null);
             transaction.setToAmount(null);
             transaction.setToBankId(null);
+            transaction.setToExternalId(null);
         }
         transaction.setType(type);
         transaction.replaceSplits(
@@ -166,11 +159,5 @@ public final class ImportReview {
                         : List.of(new SplitData(category, transaction.getAmount(), null)));
         transaction.replaceTags(edit.tags());
         transaction.setComment(edit.comment());
-    }
-
-    /** The category the import gave the transaction; none for a transfer. */
-    private static Category suggestedCategory(Transaction transaction) {
-        List<TransactionSplit> splits = transaction.getSplits();
-        return splits.size() == 1 ? splits.getFirst().getCategory() : null;
     }
 }

@@ -52,6 +52,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class MonobankService {
 
+    /** How often the accounts of the bank are read again. */
+    private static final Duration INFO_REFRESH = Duration.ofDays(1);
+
     static final String SOURCE = "MONOBANK";
     /** The longest period of one statement request; the bank allows 31 days and 1 hour. */
     static final Duration MAX_STATEMENT_PERIOD = Duration.ofDays(31);
@@ -132,12 +135,13 @@ public class MonobankService {
         Instant now = clock.instant();
         BankConnection connection = connections
                 .findByUserIdAndProvider(userId, BankProvider.MONOBANK)
-                .orElseGet(() -> new BankConnection(userId, BankProvider.MONOBANK, "", TokenHasher.newToken()));
+                .orElseGet(() -> new BankConnection(userId, BankProvider.MONOBANK, "", unusedSecret()));
         connection.setEncryptedToken(cipher.encrypt(request.token()));
         // A new webhook URL on every connect: the old one stops working
-        connection.setWebhookSecret(TokenHasher.newToken());
+        connection.setWebhookSecret(unusedSecret());
         connection.setClientName(info.name());
         connection.setLastRequestAt(now);
+        connection.setInfoRefreshedAt(now);
         connection.setLastError(null);
         applySchedule(connection, request.syncMode(), request.windowStart(), request.windowEnd(), request.dailyAt());
         // The webhook is registered again with the new URL; a webhook of another mode is removed
@@ -256,6 +260,11 @@ public class MonobankService {
         if (request == null) {
             return false;
         }
+        if (request.info()) {
+            ClientInfo info = client.clientInfo(request.token());
+            tx.executeWithoutResult(status -> applyInfo(connectionId, info, request.requestedAt()));
+            return true;
+        }
         if (request.webhookUrl() != null) {
             client.setWebhook(request.token(), request.webhookUrl());
             tx.executeWithoutResult(status -> connections.findById(connectionId).ifPresent(connection -> {
@@ -283,7 +292,8 @@ public class MonobankService {
             Instant to,
             Instant gapTo,
             Instant syncedUntil,
-            Instant requestedAt) {}
+            Instant requestedAt,
+            boolean info) {}
 
     private SyncRequest nextRequest(Long connectionId) {
         BankConnection connection = connections.findById(connectionId).orElse(null);
@@ -295,20 +305,30 @@ public class MonobankService {
         boolean webhook = connection.getSyncMode() == SyncMode.WEBHOOK && !publicUrl.isEmpty();
         if (webhook != connection.isWebhookRegistered()) {
             connection.setLastRequestAt(now);
+            // Only the hash of the secret is kept: the URL is known to Monobank alone
+            String secret = TokenHasher.newToken();
+            connection.setWebhookSecret(TokenHasher.hash(secret));
             return new SyncRequest(
                     token,
-                    webhook ? publicUrl + WEBHOOK_PATH + connection.getWebhookSecret() : "",
+                    webhook ? publicUrl + WEBHOOK_PATH + secret : "",
                     null,
                     null,
                     null,
                     null,
                     null,
                     null,
-                    now);
+                    now,
+                    false);
         }
         Instant due = connection.getNextSyncAt();
         if (due.isAfter(now)) {
             return null;
+        }
+        // Once a day the accounts are read again: a raised credit limit changes what the balances mean
+        if (connection.getInfoRefreshedAt() == null
+                || connection.getInfoRefreshedAt().isBefore(now.minus(INFO_REFRESH))) {
+            connection.setLastRequestAt(now);
+            return new SyncRequest(token, null, null, null, null, null, null, null, now, true);
         }
         Optional<BankAccountLink> next = links.findByConnectionOrderByIdAsc(connection).stream()
                 .filter(link -> link.getAccount() != null)
@@ -338,7 +358,25 @@ public class MonobankService {
                 to,
                 link.getGapTo(),
                 link.getSyncedUntil(),
-                now);
+                now,
+                false);
+    }
+
+    /** Takes the credit limits of the accounts as the bank says them now. */
+    private void applyInfo(Long connectionId, ClientInfo info, Instant requestedAt) {
+        BankConnection connection = connections.findLockedById(connectionId).orElse(null);
+        if (connection == null) {
+            return;
+        }
+        connection.setInfoRefreshedAt(requestedAt);
+        connection.setLastError(null);
+        for (MonobankClient.BankAccount bankAccount : Lists.orEmpty(info.accounts())) {
+            links.findByConnectionAndExternalAccountId(connection, bankAccount.id())
+                    .ifPresent(link -> {
+                        BigDecimal limit = Currencies.fromMinorUnits(bankAccount.creditLimit(), link.getCurrency());
+                        link.setBankCreditLimit(limit);
+                    });
+        }
     }
 
     private void applyStatement(Long connectionId, SyncRequest request, List<StatementItem> items) {
@@ -389,7 +427,7 @@ public class MonobankService {
     @Transactional
     public void handleWebhook(String secret, String externalAccountId, StatementItem item) {
         connections
-                .findLockedByProviderAndWebhookSecret(BankProvider.MONOBANK, secret)
+                .findLockedByProviderAndWebhookSecret(BankProvider.MONOBANK, TokenHasher.hash(secret))
                 .flatMap(connection -> links.findByConnectionAndExternalAccountId(connection, externalAccountId))
                 .filter(link -> link.getAccount() != null)
                 .ifPresent(link -> {
@@ -583,5 +621,10 @@ public class MonobankService {
 
     private static Instant max(Instant a, Instant b) {
         return a.isAfter(b) ? a : b;
+    }
+
+    /** The hash of a secret nobody knows, until the webhook is registered with a new one. */
+    private static String unusedSecret() {
+        return TokenHasher.hash(TokenHasher.newToken());
     }
 }

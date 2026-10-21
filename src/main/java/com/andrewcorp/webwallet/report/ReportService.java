@@ -1,12 +1,16 @@
 package com.andrewcorp.webwallet.report;
 
+import com.andrewcorp.webwallet.common.util.Money;
 import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
+import com.andrewcorp.webwallet.investment.InvestmentValuation;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
+import com.andrewcorp.webwallet.ledger.account.AccountType;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
+import com.andrewcorp.webwallet.ledger.category.CategoryTree;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.report.ReportDtos.CategorySpending;
 import com.andrewcorp.webwallet.report.ReportDtos.IncomeExpenseResponse;
@@ -47,6 +51,7 @@ public class ReportService {
     private final ReportRepository reports;
     private final CategoryRepository categories;
     private final AccountRepository accounts;
+    private final InvestmentValuation investments;
     private final Clock clock;
 
     public ReportService(
@@ -54,11 +59,13 @@ public class ReportService {
             ReportRepository reports,
             CategoryRepository categories,
             AccountRepository accounts,
+            InvestmentValuation investments,
             Clock clock) {
         this.converters = converters;
         this.reports = reports;
         this.categories = categories;
         this.accounts = accounts;
+        this.investments = investments;
         this.clock = clock;
     }
 
@@ -80,16 +87,10 @@ public class ReportService {
         }
         BigDecimal total = byCategory.values().stream().reduce(uncategorized, BigDecimal::add);
 
-        List<Category> expenseCategories = categories.findByUserIdOrderBySortOrderAscNameAsc(userId).stream()
-                .filter(category -> category.getKind() == CategoryKind.EXPENSE)
-                .toList();
+        CategoryTree tree = categories.tree(userId);
         List<CategorySpending> rows = new ArrayList<>();
-        for (Category parent : expenseCategories) {
-            if (parent.getParentId() != null) {
-                continue;
-            }
-            List<CategorySpending> children = expenseCategories.stream()
-                    .filter(child -> parent.getId().equals(child.getParentId()))
+        for (Category parent : tree.topLevel(CategoryKind.EXPENSE)) {
+            List<CategorySpending> children = tree.children(parent.getId()).stream()
                     .filter(child -> byCategory.containsKey(child.getId()))
                     .map(child -> spending(child, byCategory.get(child.getId()), total, List.of()))
                     .sorted(Comparator.comparing(CategorySpending::amount).reversed())
@@ -158,16 +159,23 @@ public class ReportService {
                 converter.unconverted());
     }
 
-    /** Balances of all accounts at the end of every month of the period. */
+    /**
+     * Balances of all accounts at the end of every month of the period; a brokerage account with its cash and the
+     * value of its positions then, as in the balances of the accounts.
+     */
     @Transactional(readOnly = true)
     public NetWorthResponse netWorth(Long userId, LocalDate from, LocalDate to) {
         CurrencyConverter converter = converter(userId);
         LocalDate today = LocalDate.now(clock);
         Map<Long, Account> accountsById = new HashMap<>();
         Map<Long, BigDecimal> balances = new HashMap<>();
+        Map<Long, String> brokerage = new HashMap<>();
         for (Account account : accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)) {
             accountsById.put(account.getId(), account);
             balances.put(account.getId(), account.getOpeningBalance());
+            if (account.getType() == AccountType.INVESTMENT) {
+                brokerage.put(account.getId(), account.getCurrency());
+            }
         }
         TreeMap<YearMonth, List<MonthChange>> pending = new TreeMap<>();
         Stream.concat(reports.findSourceChanges(userId, to).stream(), reports.findTargetChanges(userId, to).stream())
@@ -184,9 +192,15 @@ public class ReportService {
                             change -> balances.merge(change.getAccountId(), change.getChange(), BigDecimal::add)));
             due.clear();
             LocalDate rateDate = end.isAfter(today) ? today : end;
+            Map<Long, BigDecimal> monthBalances = new HashMap<>(balances);
+            if (!brokerage.isEmpty()) {
+                investments
+                        .balances(userId, brokerage, rateDate)
+                        .forEach((accountId, amount) -> monthBalances.merge(accountId, amount, BigDecimal::add));
+            }
             BigDecimal assets = BigDecimal.ZERO;
             BigDecimal liabilities = BigDecimal.ZERO;
-            for (Map.Entry<Long, BigDecimal> balance : balances.entrySet()) {
+            for (Map.Entry<Long, BigDecimal> balance : monthBalances.entrySet()) {
                 BigDecimal converted = converter.convert(
                         balance.getValue(), accountsById.get(balance.getKey()).getCurrency(), rateDate);
                 if (converted.signum() >= 0) {
@@ -232,6 +246,6 @@ public class ReportService {
     }
 
     private static BigDecimal savingsRate(BigDecimal income, BigDecimal expense) {
-        return income.signum() <= 0 ? null : income.subtract(expense).divide(income, 4, RoundingMode.HALF_UP);
+        return Money.positiveShare(income.subtract(expense), income);
     }
 }

@@ -5,6 +5,7 @@ import com.andrewcorp.webwallet.common.util.Texts;
 import com.andrewcorp.webwallet.imports.ImportPreviewCollector;
 import com.andrewcorp.webwallet.imports.ImportResult;
 import com.andrewcorp.webwallet.imports.ImportReview;
+import com.andrewcorp.webwallet.ledger.LedgerLookups;
 import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountService;
@@ -36,8 +37,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PrivatBankImporter {
 
-    private static final int MAX_PAYEE_LENGTH = 200;
-    private static final int MAX_COMMENT_LENGTH = 1000;
     private static final int MAX_BANK_CATEGORY_LENGTH = 100;
 
     private static final Pattern RECIPIENT = Pattern.compile("отримувач (.+?), банк");
@@ -47,6 +46,7 @@ public class PrivatBankImporter {
     static final String FEE_CATEGORY = "Комісія банку";
 
     private final AccountRepository accounts;
+    private final LedgerLookups lookups;
     private final AccountService accountService;
     private final TransactionRepository transactions;
     private final OperationMatcher matcher;
@@ -55,12 +55,14 @@ public class PrivatBankImporter {
 
     public PrivatBankImporter(
             AccountRepository accounts,
+            LedgerLookups lookups,
             AccountService accountService,
             TransactionRepository transactions,
             OperationMatcher matcher,
             PayeeService payees,
             CategorySuggester categories) {
         this.accounts = accounts;
+        this.lookups = lookups;
         this.accountService = accountService;
         this.transactions = transactions;
         this.matcher = matcher;
@@ -131,8 +133,7 @@ public class PrivatBankImporter {
 
     private Account account(Long userId, Long accountId, PrivatStatement statement, ImportResult.Builder result) {
         if (accountId != null) {
-            Account account = accounts.findByIdAndUserId(accountId, userId)
-                    .orElseThrow(() -> ApiException.invalid("accountId", "error.notFound"));
+            Account account = lookups.account(userId, accountId, "accountId");
             if (!account.getCurrency().equals(statement.currency())) {
                 throw ApiException.invalid("accountId", "error.bank.currency");
             }
@@ -236,7 +237,8 @@ public class PrivatBankImporter {
         }
         transaction.setBankCategory(Texts.truncate(record.bankCategory(), MAX_BANK_CATEGORY_LENGTH));
         transaction.setComment(Texts.truncate(
-                Optional.ofNullable(paymentComment(record)).orElse(record.bankCategory()), MAX_COMMENT_LENGTH));
+                Optional.ofNullable(paymentComment(record)).orElse(record.bankCategory()),
+                Transaction.MAX_COMMENT_LENGTH));
         return transaction;
     }
 
@@ -277,10 +279,21 @@ public class PrivatBankImporter {
             batch.preview().add(key, fee, true);
             return;
         }
+        // A fee the user entered by hand stands for it, like any other operation
+        if (matcher.matchExisting(account, TransactionType.EXPENSE, record.fee(), record.date(), key)
+                .isPresent()) {
+            result.transactionsMatched++;
+            if (batch.preview() != null) {
+                batch.preview().add(key, fee, true);
+            }
+            return;
+        }
         fee.replaceSplits(List.of(new SplitData(
                 batch.suggestions().suggest(null, null, FEE_CATEGORY, CategoryKind.EXPENSE), record.fee(), null)));
         batch.review().apply(key, fee);
         transactions.save(fee);
+        // A pair the user made of it in the preview is merged now
+        batch.review().saved(key, fee);
         imported.add(key);
         result.transactionsImported++;
         if (batch.preview() != null) {
@@ -299,7 +312,7 @@ public class PrivatBankImporter {
         if (name == null && record.cardAmount().signum() > 0) {
             name = find(SENDER, record.details());
         }
-        return Texts.truncate(name, MAX_PAYEE_LENGTH);
+        return Texts.truncate(name, Payee.MAX_NAME_LENGTH);
     }
 
     private static String paymentComment(PrivatStatement.Record record) {

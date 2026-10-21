@@ -50,18 +50,11 @@ class TaxControllerTest extends AbstractIntegrationTest {
     }
 
     private Long account(String name, String type, String currency) throws Exception {
-        return id(json(
-                postJson(
-                        "/api/v1/accounts",
-                        Map.of("name", name, "type", type, "currency", currency, "openingBalance", 0),
-                        auth),
-                201));
+        return createAccount(auth, name, type, currency, 0);
     }
 
     private Long category(String name, String kind, Long parentId) throws Exception {
-        Map<String, Object> body = new HashMap<>(Map.of("name", name, "kind", kind));
-        body.put("parentId", parentId);
-        return id(json(postJson("/api/v1/categories", body, auth), 201));
+        return createCategory(auth, name, kind, parentId);
     }
 
     private Long transaction(String type, String date, Long account, double amount, Long category) throws Exception {
@@ -82,10 +75,6 @@ class TaxControllerTest extends AbstractIntegrationTest {
         mockMvc.perform(request)
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status()
                         .is(status));
-    }
-
-    private static double number(Object value) {
-        return ((Number) value).doubleValue();
     }
 
     @Test
@@ -141,10 +130,10 @@ class TaxControllerTest extends AbstractIntegrationTest {
                 // 20 April 2030 is a Saturday
                 .containsEntry("esvDue", "2030-04-22");
         assertThat(quarters.get(1)).containsEntry("paid", false);
-        // 9 November is a Saturday: the declaration moves to Monday and the payment follows it
+        // 9 November is a Saturday: the declaration moves to Monday, the payment still counts from the 9th
         assertThat(quarters.get(2))
                 .containsEntry("declarationDue", "2030-11-11")
-                .containsEntry("taxDue", "2030-11-21");
+                .containsEntry("taxDue", "2030-11-19");
         Map<String, Object> totals = (Map<String, Object>) report.get("totals");
         assertThat(number(totals.get("income"))).isEqualTo(17700);
         assertThat(number(report.get("incomeLimit"))).isEqualTo(1167 * 8647.0);

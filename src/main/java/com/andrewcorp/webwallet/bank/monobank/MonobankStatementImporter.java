@@ -43,9 +43,6 @@ class MonobankStatementImporter {
 
     private static final long MIN_TIME = Instant.parse("2000-01-01T00:00:00Z").getEpochSecond();
 
-    private static final int MAX_PAYEE_LENGTH = 200;
-    private static final int MAX_COMMENT_LENGTH = 1000;
-
     private final TransactionRepository transactions;
     private final OperationMatcher matcher;
     private final PayeeService payees;
@@ -144,7 +141,7 @@ class MonobankStatementImporter {
         transaction.setAccount(account);
         transaction.setAmount(amount);
         transaction.setMcc(mcc);
-        transaction.setComment(Texts.truncate(item.comment(), MAX_COMMENT_LENGTH));
+        transaction.setComment(Texts.truncate(item.comment(), Transaction.MAX_COMMENT_LENGTH));
         String operationCurrency = Currencies.byNumericCode(item.currencyCode());
         if (operationCurrency != null && !operationCurrency.equals(account.getCurrency())) {
             transaction.setOriginalAmount(
@@ -176,6 +173,12 @@ class MonobankStatementImporter {
             return;
         }
         existing.setAmount(amount);
+        String operationCurrency = Currencies.byNumericCode(item.currencyCode());
+        if (existing.getOriginalCurrency() != null
+                && existing.getOriginalCurrency().equals(operationCurrency)) {
+            // The amount charged by the merchant may be settled differently too
+            existing.setOriginalAmount(Currencies.fromMinorUnits(Math.abs(item.operationAmount()), operationCurrency));
+        }
         existing.replaceSplits(existing.getSplits().stream()
                 .map(split -> new SplitData(split.getCategory(), amount, split.getComment()))
                 .toList());
@@ -200,7 +203,7 @@ class MonobankStatementImporter {
     private static Payee payee(PayeeService.Lookup payees, StatementItem item) {
         String name =
                 item.counterName() != null && !item.counterName().isBlank() ? item.counterName() : item.description();
-        String trimmed = Texts.truncate(name, MAX_PAYEE_LENGTH);
+        String trimmed = Texts.truncate(name, Payee.MAX_NAME_LENGTH);
         return trimmed == null ? null : payees.findOrCreate(trimmed);
     }
 

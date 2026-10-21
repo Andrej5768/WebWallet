@@ -77,13 +77,17 @@ public class TwoFactorService {
     /** A session after the second step; {@code trustedDeviceToken} is set when the browser is to be trusted. */
     public record Login(IssuedTokens tokens, String trustedDeviceToken) {}
 
-    /** Generates a secret that becomes active once {@link #enable} gets a code of it. A new setup replaces it. */
-    @Transactional
-    public Setup setup(Long userId) {
+    /**
+     * Generates a secret that becomes active once {@link #enable} gets a code of it. A new setup replaces it. Needs
+     * the password, when the account has one: whoever holds a stolen session must not lock the owner out.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
+    public Setup setup(Long userId, String password) {
         User user = user(userId);
         if (user.isTwoFactorEnabled()) {
             throw new ApiException(ErrorCode.CONFLICT);
         }
+        checkPassword(user, password);
         String secret = Totp.newSecret();
         user.setTotpPendingSecret(cipher.encrypt(secret));
         return new Setup(secret, Totp.uri(ISSUER, user.getEmail(), secret));
@@ -262,6 +266,20 @@ public class TwoFactorService {
 
     static String normalizeRecoveryCode(String code) {
         return code.replaceAll("[\\s-]", "").toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Confirms a change of how the account is reached, e.g. linking Google or Telegram: by the password, or, for an
+     * account without one, by a code of the second factor when it is on.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
+    public void confirmIdentity(Long userId, String password, String code) {
+        User user = user(userId);
+        if (user.getPasswordHash() != null) {
+            checkPassword(user, password);
+        } else if (user.isTwoFactorEnabled()) {
+            verifySecondFactor(user, code);
+        }
     }
 
     private void checkPassword(User user, String password) {

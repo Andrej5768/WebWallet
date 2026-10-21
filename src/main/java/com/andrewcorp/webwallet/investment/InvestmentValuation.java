@@ -1,10 +1,10 @@
 package com.andrewcorp.webwallet.investment;
 
+import com.andrewcorp.webwallet.common.util.Money;
 import com.andrewcorp.webwallet.currency.ConverterCache;
 import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -168,7 +168,7 @@ public class InvestmentValuation {
             if (price == null) {
                 return lots.cost();
             }
-            return lots.quantity().multiply(price.close()).setScale(4, RoundingMode.HALF_UP);
+            return Money.round4(lots.quantity().multiply(price.close()));
         }
     }
 

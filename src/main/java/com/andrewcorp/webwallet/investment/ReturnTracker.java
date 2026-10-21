@@ -46,8 +46,10 @@ final class ReturnTracker {
             first = day;
             flows.add(new Flow(day, -v));
         } else {
-            if (previous > 0) {
-                factor *= (v - f) / previous;
+            // The deposit works the whole day: 10 000 brought to 100 and grown to 10 201 is 1 %, not 101 %
+            double base = previous + f;
+            if (base > 0) {
+                factor *= v / base;
                 measured = true;
             }
             if (f != 0) {
