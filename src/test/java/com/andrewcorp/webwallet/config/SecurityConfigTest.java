@@ -29,7 +29,8 @@ class SecurityConfigTest {
                         Duration.ofDays(90),
                         "refresh_token",
                         true),
-                new AppProperties.Google("", ""));
+                new AppProperties.Google("", ""),
+                new AppProperties.Telegram("", "", ""));
     }
 
     @Test

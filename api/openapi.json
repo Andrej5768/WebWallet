@@ -2207,6 +2207,41 @@
         "required" : [ "currency", "months", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "NotificationSettingsDto" : {
+        "properties" : {
+          "banks" : {
+            "type" : "boolean"
+          },
+          "budgets" : {
+            "type" : "boolean"
+          },
+          "forecast" : {
+            "type" : "boolean"
+          },
+          "goals" : {
+            "type" : "boolean"
+          },
+          "hour" : {
+            "format" : "int32",
+            "maximum" : 23,
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "monthly" : {
+            "type" : "boolean"
+          },
+          "recurring" : {
+            "type" : "boolean"
+          },
+          "taxes" : {
+            "type" : "boolean"
+          },
+          "weekly" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "OccurrenceConfirmRequest" : {
         "properties" : {
           "amount" : {
@@ -3938,6 +3973,57 @@
         "required" : [ "defaults", "incomeCategoryIds", "sources", "values", "year" ],
         "type" : "object"
       },
+      "TelegramLinkResponse" : {
+        "properties" : {
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "expiresAt", "url" ],
+        "type" : "object"
+      },
+      "TelegramSettingsRequest" : {
+        "properties" : {
+          "quickEntryAccountId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "TelegramStatus" : {
+        "properties" : {
+          "botUsername" : {
+            "type" : [ "string", "null" ]
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "firstName" : {
+            "type" : [ "string", "null" ]
+          },
+          "linked" : {
+            "type" : "boolean"
+          },
+          "linkedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "quickEntryAccountId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "username" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "botUsername", "enabled", "firstName", "linked", "linkedAt", "quickEntryAccountId", "username" ],
+        "type" : "object"
+      },
       "TickerChoice" : {
         "properties" : {
           "instrumentId" : {
@@ -4549,7 +4635,7 @@
         "tags" : [ "Accounts" ]
       },
       "get" : {
-        "operationId" : "get_3",
+        "operationId" : "get_4",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -4578,7 +4664,7 @@
       },
       "put" : {
         "description" : "Omitted optional fields keep their values; a credit limit or interest rate of 0 removes it",
-        "operationId" : "update_6",
+        "operationId" : "update_7",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -5619,7 +5705,7 @@
       },
       "put" : {
         "description" : "The parent is always applied (null makes a top-level category); other omitted optional fields keep their values. icon, color and necessity sent as null are removed. A necessity is allowed only on expense categories; it is removed when the category becomes income.",
-        "operationId" : "update_5",
+        "operationId" : "update_6",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -5757,7 +5843,7 @@
         "tags" : [ "Categorization rules" ]
       },
       "put" : {
-        "operationId" : "update_4",
+        "operationId" : "update_5",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -5901,7 +5987,7 @@
         "tags" : [ "Goals" ]
       },
       "get" : {
-        "operationId" : "get_2",
+        "operationId" : "get_3",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -5930,7 +6016,7 @@
       },
       "put" : {
         "description" : "Omitted achieved and sortOrder keep their values. Moved to another account, the pace starts again from its balance.",
-        "operationId" : "update_3",
+        "operationId" : "update_4",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -6127,7 +6213,7 @@
         "tags" : [ "Imports" ]
       },
       "get" : {
-        "operationId" : "get_4",
+        "operationId" : "get_5",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -6993,7 +7079,7 @@
         "tags" : [ "Investments" ]
       },
       "put" : {
-        "operationId" : "update_2",
+        "operationId" : "update_3",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -7221,7 +7307,7 @@
     "/api/v1/me/google/link" : {
       "post" : {
         "description" : "Returns the Google page to send the browser to and sets the cookie that binds the link to this browser; Google then redirects to the security settings",
-        "operationId" : "link_2",
+        "operationId" : "link_3",
         "responses" : {
           "200" : {
             "content" : {
@@ -7429,6 +7515,57 @@
         } ],
         "summary" : "Start turning on two-factor authentication",
         "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/notifications/settings" : {
+      "get" : {
+        "operationId" : "get_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NotificationSettingsDto"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "What the user is notified about in Telegram, and at which hour",
+        "tags" : [ "Notifications" ]
+      },
+      "put" : {
+        "operationId" : "update_2",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NotificationSettingsDto"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NotificationSettingsDto"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "tags" : [ "Notifications" ]
       }
     },
     "/api/v1/payees" : {
@@ -7870,7 +8007,7 @@
     "/api/v1/recurring/{id}/occurrences/{date}/link" : {
       "post" : {
         "description" : "The transaction must not pay another occurrence.",
-        "operationId" : "link_1",
+        "operationId" : "link_2",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -8591,7 +8728,7 @@
         "tags" : [ "Taxes" ]
       },
       "put" : {
-        "operationId" : "updateSettings",
+        "operationId" : "updateSettings_1",
         "parameters" : [ {
           "in" : "path",
           "name" : "year",
@@ -8693,6 +8830,97 @@
         } ],
         "summary" : "Add a transaction to the income of the sole proprietor, take it out, or forget the mark (null)",
         "tags" : [ "Taxes" ]
+      }
+    },
+    "/api/v1/telegram" : {
+      "delete" : {
+        "operationId" : "unlink_1",
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Disconnect the Telegram chat",
+        "tags" : [ "Notifications" ]
+      },
+      "get" : {
+        "operationId" : "status_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TelegramStatus"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Whether the bot is available and the Telegram chat of the user, if connected",
+        "tags" : [ "Notifications" ]
+      }
+    },
+    "/api/v1/telegram/link" : {
+      "post" : {
+        "description" : "The link opens the bot; pressing Start there connects the chat. It works once, for 15 minutes; a new link replaces the previous one. NOT_FOUND when the bot is not configured.",
+        "operationId" : "link_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TelegramLinkResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Create a one-time link that connects a Telegram chat",
+        "tags" : [ "Notifications" ]
+      }
+    },
+    "/api/v1/telegram/settings" : {
+      "put" : {
+        "description" : "NOT_FOUND when no chat is connected",
+        "operationId" : "updateSettings",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TelegramSettingsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TelegramStatus"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Settings of the connected chat",
+        "tags" : [ "Notifications" ]
       }
     },
     "/api/v1/transactions" : {

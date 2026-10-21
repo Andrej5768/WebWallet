@@ -9,6 +9,8 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -DskipTests package \
     && java -Djarmode=tools -jar target/web-wallet-*.jar extract --layers --launcher --destination target/extracted
 
 FROM eclipse-temurin:21-jre
+# The charts of the Telegram reports are drawn with DejaVu Sans, which has Cyrillic letters
+RUN apt-get update     && apt-get install -y --no-install-recommends fonts-dejavu-core     && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system app && useradd --system --gid app app
 WORKDIR /app
 COPY --from=build /workspace/target/extracted/dependencies/ ./

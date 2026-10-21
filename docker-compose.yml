@@ -58,6 +58,10 @@ services:
       ALERT_EMAIL: ${ALERT_EMAIL:-}
       TWELVE_DATA_API_KEY: ${TWELVE_DATA_API_KEY:-}
       ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+      # Telegram bot; off without a token. Without the webhook secret the bot polls Telegram (local development)
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck:

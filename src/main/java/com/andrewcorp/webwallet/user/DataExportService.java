@@ -49,6 +49,7 @@ public class DataExportService {
             "trusted_devices",
             "oauth_states",
             "import_previews",
+            "telegram_link_codes",
             "flyway_schema_history");
 
     /** Encrypted bank tokens, webhook secrets, hashes. */
