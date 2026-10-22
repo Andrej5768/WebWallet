@@ -1,8 +1,11 @@
 package com.andrewcorp.webwallet.auth.token;
 
+import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -44,13 +47,19 @@ public class RefreshToken {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** Which client keeps the token: null for the web client (a cookie), the apps otherwise (the body). */
+    @Column(length = 16)
+    @Enumerated(EnumType.STRING)
+    private ClientInfo.Kind client;
+
     protected RefreshToken() {}
 
-    public RefreshToken(User user, UUID familyId, String tokenHash, Instant expiresAt) {
+    public RefreshToken(User user, UUID familyId, String tokenHash, Instant expiresAt, ClientInfo.Kind client) {
         this.user = user;
         this.familyId = familyId;
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;
+        this.client = client == ClientInfo.Kind.WEB ? null : client;
     }
 
     @PrePersist
@@ -86,5 +95,10 @@ public class RefreshToken {
 
     public Instant getRevokedAt() {
         return revokedAt;
+    }
+
+    /** The client that keeps the token; the web client for tokens issued before clients were told apart. */
+    public ClientInfo.Kind getClient() {
+        return client == null ? ClientInfo.Kind.WEB : client;
     }
 }

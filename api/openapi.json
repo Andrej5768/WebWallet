@@ -1468,6 +1468,11 @@
             "maxLength" : 128,
             "minLength" : 0,
             "type" : "string"
+          },
+          "trustedDeviceToken" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
           }
         },
         "required" : [ "ticket" ],
@@ -1972,6 +1977,11 @@
             "maxLength" : 128,
             "minLength" : 0,
             "type" : "string"
+          },
+          "trustedDeviceToken" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
           }
         },
         "required" : [ "email", "password" ],
@@ -1986,6 +1996,9 @@
             "format" : "int64",
             "type" : [ "integer", "null" ]
           },
+          "refreshToken" : {
+            "type" : [ "string", "null" ]
+          },
           "tokenType" : {
             "type" : [ "string", "null" ]
           },
@@ -1993,7 +2006,7 @@
             "type" : [ "string", "null" ]
           }
         },
-        "required" : [ "accessToken", "expiresIn", "tokenType", "twoFactorChallenge" ],
+        "required" : [ "accessToken", "expiresIn", "refreshToken", "tokenType", "twoFactorChallenge" ],
         "type" : "object"
       },
       "LotResponse" : {
@@ -3357,6 +3370,16 @@
         "required" : [ "url" ],
         "type" : "object"
       },
+      "RefreshTokenRequest" : {
+        "properties" : {
+          "refreshToken" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "RegisterRequest" : {
         "properties" : {
           "email" : {
@@ -4161,11 +4184,17 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "refreshToken" : {
+            "type" : [ "string", "null" ]
+          },
           "tokenType" : {
             "type" : "string"
+          },
+          "trustedDeviceToken" : {
+            "type" : [ "string", "null" ]
           }
         },
-        "required" : [ "accessToken", "expiresIn", "tokenType" ],
+        "required" : [ "accessToken", "expiresIn", "refreshToken", "tokenType", "trustedDeviceToken" ],
         "type" : "object"
       },
       "TransactionMarkRequest" : {
@@ -5077,7 +5106,7 @@
     },
     "/api/v1/auth/google/complete" : {
       "post" : {
-        "description" : "Exchanges the ticket of the callback for a session, like /login: the access token, or twoFactorChallenge when two-factor authentication is on. The ticket works once and briefly.",
+        "description" : "Exchanges the ticket of the callback for a session, like /login: the access token, or twoFactorChallenge when two-factor authentication is on. The ticket works once and briefly. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie and send trustedDeviceToken in the body.",
         "operationId" : "complete",
         "parameters" : [ {
           "description" : "Set when the browser was trusted at an earlier two-factor sign-in",
@@ -5129,7 +5158,7 @@
     },
     "/api/v1/auth/login" : {
       "post" : {
-        "description" : "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only to /api/v1/auth. With two-factor authentication on, unless the browser is trusted, returns twoFactorChallenge instead, to exchange with a code at /api/v1/auth/login/two-factor.",
+        "description" : "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only to /api/v1/auth. With two-factor authentication on, unless the device is trusted, returns twoFactorChallenge instead, to exchange with a code at /api/v1/auth/login/two-factor. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie and send it in the body. Native apps send trustedDeviceToken in the body.",
         "operationId" : "login",
         "parameters" : [ {
           "description" : "Set when the browser was trusted at an earlier two-factor sign-in",
@@ -5168,7 +5197,7 @@
     },
     "/api/v1/auth/login/two-factor" : {
       "post" : {
-        "description" : "Exchanges the challenge of the login response and a code of the authenticator app or a recovery code for a session. A wrong code keeps the challenge until it expires; an expired one fails with TWO_FACTOR_EXPIRED. With trustDevice the browser gets a cookie that skips the code for a while.",
+        "description" : "Exchanges the challenge of the login response and a code of the authenticator app or a recovery code for a session. A wrong code keeps the challenge until it expires; an expired one fails with TWO_FACTOR_EXPIRED. With trustDevice the browser gets a cookie that skips the code for a while. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie and send it in the body. Native apps get the trusted device as trustedDeviceToken in the body.",
         "operationId" : "loginTwoFactor",
         "requestBody" : {
           "content" : {
@@ -5198,7 +5227,7 @@
     },
     "/api/v1/auth/logout" : {
       "post" : {
-        "description" : "Succeeds without the cookie or with an unknown token as well",
+        "description" : "Succeeds without a token or with an unknown one as well. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie and send it in the body.",
         "operationId" : "logout",
         "parameters" : [ {
           "description" : "Refresh token set by login or a previous refresh",
@@ -5209,12 +5238,21 @@
             "type" : "string"
           }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          }
+        },
         "responses" : {
           "204" : {
             "description" : "No Content"
           }
         },
-        "summary" : "End the session of the refresh token cookie and delete the cookie",
+        "summary" : "End the session of the refresh token and delete the cookie",
         "tags" : [ "Authentication" ]
       }
     },
@@ -5239,7 +5277,7 @@
     },
     "/api/v1/auth/refresh" : {
       "post" : {
-        "description" : "The refresh token is rotated: the response sets a new cookie and the presented token stops working. Presenting an already rotated token ends the whole session.",
+        "description" : "The refresh token is rotated: the response sets a new cookie and the presented token stops working. Presenting an already rotated token ends the whole session. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie and send it in the body.",
         "operationId" : "refresh",
         "parameters" : [ {
           "description" : "Refresh token set by login or a previous refresh",
@@ -5250,6 +5288,15 @@
             "type" : "string"
           }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          }
+        },
         "responses" : {
           "200" : {
             "content" : {
@@ -5262,7 +5309,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Exchange the refresh token cookie for a new access token",
+        "summary" : "Exchange the refresh token for a new access token",
         "tags" : [ "Authentication" ]
       }
     },
@@ -7443,7 +7490,7 @@
     },
     "/api/v1/me/password" : {
       "post" : {
-        "description" : "All sessions are ended, including the current one; a new session is started: the response contains a new access token and sets a new refresh token cookie",
+        "description" : "All sessions are ended, including the current one; a new session is started: the response contains a new access token and sets a new refresh token cookie. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie.",
         "operationId" : "changePassword",
         "requestBody" : {
           "content" : {

@@ -113,7 +113,15 @@ returned by `GET /api/v1/app/config`)
 - The web client is served from the same domain as the API (a reverse proxy sends `/api` to the backend), so the
   browser sends the cookie without CORS. The `local` profile drops the `Secure` flag
   (`app.auth.refresh-cookie-secure=false`, or `REFRESH_COOKIE_SECURE=false`) for development over plain HTTP.
-- The native mobile apps will need a separate way to keep the refresh token; it is not part of the API yet.
+- Native apps send `X-WebWallet-Client: android` (or `ios`) and `X-App-Version` on every request and keep their
+  tokens themselves: `login`, `login/two-factor`, `refresh`, `restore`, `google/complete` and `me/password` return
+  the refresh token in `refreshToken` and set no cookie; `refresh` and `logout` take `{refreshToken}` in the body
+  (the body is looked at first, then the cookie, for every client; a native request without either is rejected
+  with 401). Rotation, reuse detection and the 30-day lifetime are the same, and a token presented by a client of
+  another kind (a browser cookie replayed by an app or the other way round) ends the session as reuse would. Which
+  client keeps a token is stored with it (`refresh_tokens.client`, null for the web). The trusted device of a
+  two-factor sign-in works the same way: `login/two-factor` with `trustDevice` returns `trustedDeviceToken` in the
+  body instead of the cookie, and `login` and `google/complete` take it back as `trustedDeviceToken`.
 
 ### API conventions
 

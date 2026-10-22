@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.andrewcorp.webwallet.auth.AuthRateLimiter;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
+import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.currency.ExchangeRateService;
 import com.andrewcorp.webwallet.currency.NbuClient;
 import com.andrewcorp.webwallet.investment.market.ListingSearch;
@@ -159,6 +160,11 @@ public abstract class AbstractIntegrationTest {
 
     protected static MockHttpServletRequestBuilder refresh(Cookie refreshCookie) {
         return post("/api/v1/auth/refresh").cookie(refreshCookie);
+    }
+
+    /** Marks the request as coming from the Android app, which keeps its tokens in the body instead of cookies. */
+    protected static MockHttpServletRequestBuilder asAndroid(MockHttpServletRequestBuilder request) {
+        return request.header(ClientInfo.CLIENT_HEADER, "android").header(ClientInfo.VERSION_HEADER, "1");
     }
 
     /** Logs in a new verified user and returns the Authorization header value. */

@@ -1,13 +1,16 @@
 package com.andrewcorp.webwallet.auth.twofactor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import com.andrewcorp.webwallet.TestClock;
+import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.user.User;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
@@ -64,6 +67,79 @@ class TwoFactorTest extends AbstractIntegrationTest {
         return mockMvc.perform(postJson("/api/v1/auth/login/two-factor", body))
                 .andReturn()
                 .getResponse();
+    }
+
+    private MockHttpServletResponse nativeCompleteLogin(String challenge, String code, boolean trust) throws Exception {
+        Map<String, Object> body = new HashMap<>();
+        body.put("challenge", challenge);
+        body.put("code", code);
+        body.put("trustDevice", trust);
+        return mockMvc.perform(asAndroid(postJson("/api/v1/auth/login/two-factor", body)))
+                .andReturn()
+                .getResponse();
+    }
+
+    @Test
+    void nativeTwoFactorLoginWithTrustDeviceReturnsTheTokensInTheBody() throws Exception {
+        Enabled enabled = enable();
+
+        MockHttpServletResponse ok = nativeCompleteLogin(challenge(), code(enabled.secret(), 1), true);
+
+        assertThat(ok.getStatus()).isEqualTo(200);
+        assertThat(ok.getHeader("Set-Cookie")).isNull();
+        TokenResponse session = tokens(ok);
+        assertThat(session.refreshToken()).isNotBlank();
+        assertThat(session.trustedDeviceToken()).isNotBlank();
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(session)))
+                .andExpect(status().isOk());
+
+        // The trusted device skips the code next time
+        Map<String, String> trusted = Map.of(
+                "email", user.getEmail(), "password", PASSWORD, "trustedDeviceToken", session.trustedDeviceToken());
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/login", trusted)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.twoFactorChallenge").value(nullValue()))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+    }
+
+    @Test
+    void nativeLoginWithAnUnknownTrustedDeviceTokenAsksForTheCode() throws Exception {
+        enable();
+
+        Map<String, String> credentials =
+                Map.of("email", user.getEmail(), "password", PASSWORD, "trustedDeviceToken", "garbage");
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/login", credentials)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value(nullValue()))
+                .andExpect(jsonPath("$.refreshToken").value(nullValue()))
+                .andExpect(jsonPath("$.twoFactorChallenge").isNotEmpty());
+    }
+
+    @Test
+    void nativeTwoFactorLoginWithoutTrustDeviceHasNoTrustedDeviceToken() throws Exception {
+        Enabled enabled = enable();
+
+        MockHttpServletResponse ok = nativeCompleteLogin(challenge(), code(enabled.secret(), 1), false);
+
+        assertThat(ok.getStatus()).isEqualTo(200);
+        assertThat(ok.getHeader("Set-Cookie")).isNull();
+        assertThat(tokens(ok).refreshToken()).isNotBlank();
+        assertThat(tokens(ok).trustedDeviceToken()).isNull();
+    }
+
+    @Test
+    void webTwoFactorLoginStillUsesTheCookiesAndHasNoTokensInTheBody() throws Exception {
+        Enabled enabled = enable();
+
+        MockHttpServletResponse ok = completeLogin(challenge(), code(enabled.secret(), 1), true);
+
+        assertThat(ok.getStatus()).isEqualTo(200);
+        assertThat(ok.getCookie(TrustedDeviceCookie.NAME)).isNotNull();
+        assertThat(ok.getCookie(REFRESH_COOKIE)).isNotNull();
+        assertThat(tokens(ok).refreshToken()).isNull();
+        assertThat(tokens(ok).trustedDeviceToken()).isNull();
     }
 
     @Test

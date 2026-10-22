@@ -1,10 +1,11 @@
 package com.andrewcorp.webwallet.auth.google;
 
-import com.andrewcorp.webwallet.auth.RefreshTokenCookie;
+import com.andrewcorp.webwallet.auth.SessionResponse;
 import com.andrewcorp.webwallet.auth.dto.AuthOptionsResponse;
 import com.andrewcorp.webwallet.auth.dto.GoogleTicketRequest;
 import com.andrewcorp.webwallet.auth.dto.LoginResponse;
 import com.andrewcorp.webwallet.auth.twofactor.TrustedDeviceCookie;
+import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.config.AppProperties;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,17 +31,17 @@ public class GoogleController {
 
     private final GoogleSignInService googleSignIn;
     private final GoogleStateCookie stateCookie;
-    private final RefreshTokenCookie refreshTokenCookie;
+    private final SessionResponse sessionResponse;
     private final String frontendUrl;
 
     public GoogleController(
             GoogleSignInService googleSignIn,
             GoogleStateCookie stateCookie,
-            RefreshTokenCookie refreshTokenCookie,
+            SessionResponse sessionResponse,
             AppProperties properties) {
         this.googleSignIn = googleSignIn;
         this.stateCookie = stateCookie;
-        this.refreshTokenCookie = refreshTokenCookie;
+        this.sessionResponse = sessionResponse;
         this.frontendUrl = properties.frontendUrl("");
     }
 
@@ -86,13 +87,17 @@ public class GoogleController {
     @Operation(
             summary = "Finish signing in with Google",
             description = "Exchanges the ticket of the callback for a session, like /login: the access token, or"
-                    + " twoFactorChallenge when two-factor authentication is on. The ticket works once and briefly.")
+                    + " twoFactorChallenge when two-factor authentication is on. The ticket works once and briefly."
+                    + " Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the"
+                    + " cookie and send trustedDeviceToken in the body.")
     @PostMapping("/google/complete")
     public ResponseEntity<LoginResponse> complete(
             @Valid @RequestBody GoogleTicketRequest request,
             @Parameter(description = "Set when the browser was trusted at an earlier two-factor sign-in")
                     @CookieValue(name = TrustedDeviceCookie.NAME, required = false)
-                    String trustedDevice) {
-        return refreshTokenCookie.respond(googleSignIn.complete(request.ticket(), trustedDevice));
+                    String trustedDevice,
+            ClientInfo client) {
+        String trusted = SessionResponse.presented(request.trustedDeviceToken(), trustedDevice);
+        return sessionResponse.login(googleSignIn.complete(request.ticket(), trusted, client.kind()), client);
     }
 }

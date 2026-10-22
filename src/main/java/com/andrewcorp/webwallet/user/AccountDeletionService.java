@@ -10,6 +10,7 @@ import com.andrewcorp.webwallet.auth.token.UserTokenType;
 import com.andrewcorp.webwallet.auth.twofactor.TwoFactorService;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.mail.AuthMailEvent;
 import java.time.Clock;
 import java.time.Duration;
@@ -102,10 +103,11 @@ public class AccountDeletionService {
      * Cancels the deletion. The token of a sign-in also starts a session; the emailed one does not, since a link
      * must not skip the password and the two-factor code.
      *
+     * @param client the client that keeps the refresh token
      * @return the session, or null for the emailed token
      */
     @Transactional
-    public IssuedTokens restore(String rawToken) {
+    public IssuedTokens restore(String rawToken, ClientInfo.Kind client) {
         String hash = TokenHasher.hash(rawToken);
         Optional<UserToken> afterSignIn =
                 userTokens.findByTokenHashAndType(hash, UserTokenType.ACCOUNT_RESTORE_SESSION);
@@ -118,7 +120,7 @@ public class AccountDeletionService {
         User user = token.getUser();
         user.setDeletionScheduledAt(null);
         userTokens.deleteByUserAndType(user, UserTokenType.ACCOUNT_RESTORE);
-        return afterSignIn.isPresent() ? tokenService.issueTokens(user) : null;
+        return afterSignIn.isPresent() ? tokenService.issueTokens(user, client) : null;
     }
 
     /**

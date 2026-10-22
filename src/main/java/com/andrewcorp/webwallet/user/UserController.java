@@ -2,8 +2,10 @@ package com.andrewcorp.webwallet.user;
 
 import com.andrewcorp.webwallet.auth.AuthService;
 import com.andrewcorp.webwallet.auth.RefreshTokenCookie;
+import com.andrewcorp.webwallet.auth.SessionResponse;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
 import com.andrewcorp.webwallet.auth.twofactor.TwoFactorService;
+import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.user.dto.ChangePasswordRequest;
 import com.andrewcorp.webwallet.user.dto.DeleteAccountRequest;
@@ -39,6 +41,7 @@ public class UserController {
     private final UserDataService userDataService;
     private final AuthService authService;
     private final RefreshTokenCookie refreshTokenCookie;
+    private final SessionResponse sessionResponse;
     private final TwoFactorService twoFactor;
     private final AccountDeletionService accountDeletion;
     private final DataExportService dataExport;
@@ -49,6 +52,7 @@ public class UserController {
             UserDataService userDataService,
             AuthService authService,
             RefreshTokenCookie refreshTokenCookie,
+            SessionResponse sessionResponse,
             TwoFactorService twoFactor,
             AccountDeletionService accountDeletion,
             DataExportService dataExport,
@@ -57,6 +61,7 @@ public class UserController {
         this.userDataService = userDataService;
         this.authService = authService;
         this.refreshTokenCookie = refreshTokenCookie;
+        this.sessionResponse = sessionResponse;
         this.twoFactor = twoFactor;
         this.accountDeletion = accountDeletion;
         this.dataExport = dataExport;
@@ -82,12 +87,14 @@ public class UserController {
     @Operation(
             summary = "Change the password",
             description = "All sessions are ended, including the current one; a new session is started: the response"
-                    + " contains a new access token and sets a new refresh token cookie")
+                    + " contains a new access token and sets a new refresh token cookie. Native apps (header"
+                    + " X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie.")
     @PostMapping("/password")
     public ResponseEntity<TokenResponse> changePassword(
-            @CurrentUserId Long userId, @Valid @RequestBody ChangePasswordRequest request) {
-        return refreshTokenCookie.respond(
-                authService.changePassword(userId, request.currentPassword(), request.newPassword()));
+            @CurrentUserId Long userId, @Valid @RequestBody ChangePasswordRequest request, ClientInfo client) {
+        return sessionResponse.tokens(
+                authService.changePassword(userId, request.currentPassword(), request.newPassword(), client.kind()),
+                client);
     }
 
     @Operation(

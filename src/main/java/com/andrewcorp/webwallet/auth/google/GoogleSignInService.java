@@ -8,6 +8,7 @@ import com.andrewcorp.webwallet.auth.token.UserTokenType;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.common.util.Texts;
+import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.config.AppProperties;
 import com.andrewcorp.webwallet.ledger.category.DefaultCategories;
 import com.andrewcorp.webwallet.user.User;
@@ -132,7 +133,7 @@ public class GoogleSignInService {
 
     /** Exchanges the ticket of the callback for a session or the second step of two-factor authentication. */
     @Transactional(noRollbackFor = ApiException.class)
-    public AuthService.LoginResult complete(String ticket, String trustedDeviceToken) {
+    public AuthService.LoginResult complete(String ticket, String trustedDeviceToken, ClientInfo.Kind client) {
         UserToken token = userTokens
                 .findByTokenHashAndType(TokenHasher.hash(ticket), UserTokenType.GOOGLE_LOGIN)
                 .orElseThrow(() -> new ApiException(ErrorCode.INVALID_TOKEN));
@@ -143,7 +144,7 @@ public class GoogleSignInService {
         if (!user.isEnabled()) {
             throw new ApiException(ErrorCode.ACCOUNT_DISABLED);
         }
-        return authService.startSession(user, trustedDeviceToken);
+        return authService.startSession(user, trustedDeviceToken, client);
     }
 
     /** Unlinks the Google account; an account without a password would be left without a way to sign in. */
