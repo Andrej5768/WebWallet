@@ -18,7 +18,8 @@ public record AppProperties(
         @NotNull Jwt jwt,
         @NotNull Auth auth,
         @NotNull Google google,
-        @NotNull Telegram telegram) {
+        @NotNull Telegram telegram,
+        @NotNull Android android) {
 
     /** A page of the web client, e.g. {@code /transactions}; a slash at the end of the configured URL is ignored. */
     public String frontendUrl(String path) {
@@ -49,6 +50,29 @@ public record AppProperties(
     }
 
     public record Cors(List<String> allowedOrigins) {}
+
+    /**
+     * Versions of the Android app this server supports.
+     *
+     * @param minSupportedVersionCode the app refuses to run below it (forced update)
+     * @param latestVersionCode the app offers an update below it
+     * @param storeUrl where to send the user for the update
+     */
+    public record Android(
+            @DefaultValue("1") @Positive int minSupportedVersionCode,
+            @DefaultValue("1") @Positive int latestVersionCode,
+
+            @DefaultValue("https://play.google.com/store/apps/details?id=org.andrewdev.webwallet") @NotBlank
+            String storeUrl) {
+
+        public Android {
+            if (latestVersionCode < minSupportedVersionCode) {
+                throw new IllegalArgumentException("app.android.latest-version-code (" + latestVersionCode
+                        + ") must not be below app.android.min-supported-version-code (" + minSupportedVersionCode
+                        + ")");
+            }
+        }
+    }
 
     /**
      * OAuth client of Google sign-in; sign-in with Google is off while the client id is blank.

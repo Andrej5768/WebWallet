@@ -12,6 +12,7 @@ import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,7 +81,7 @@ public class ErrorAlerts {
                 // Errors of sending an alert are logged here too; they must not cause another alert
                 if (event.getLevel().isGreaterOrEqual(Level.ERROR)
                         && !event.getLoggerName().equals(log.getName())) {
-                    report(event.getLoggerName(), event.getFormattedMessage(), trace(event));
+                    report(event.getLoggerName(), withClient(event), trace(event));
                 }
             }
         };
@@ -146,6 +147,17 @@ public class ErrorAlerts {
         } catch (TaskRejectedException e) {
             log.warn("Dropped an error alert: the mail queue is full");
         }
+    }
+
+    /** The message with the app that made the request in front, so that app problems are told apart at a glance. */
+    private static String withClient(ILoggingEvent event) {
+        Map<String, String> mdc = event.getMDCPropertyMap();
+        String client = mdc.get(ClientInfoFilter.MDC_CLIENT);
+        if (client == null || client.equals("web")) {
+            return event.getFormattedMessage();
+        }
+        return "[" + client + " " + mdc.getOrDefault(ClientInfoFilter.MDC_APP_VERSION, "?") + "] "
+                + event.getFormattedMessage();
     }
 
     private static String trace(ILoggingEvent event) {

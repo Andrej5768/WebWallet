@@ -91,7 +91,9 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 `APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `TWELVE_DATA_API_KEY` and `ALPHA_VANTAGE_API_KEY` (market data and dividends, see below), `APP_PUBLIC_URL` (makes the Monobank `WEBHOOK` mode available), `TRUSTED_PROXIES`
 (a regular expression of reverse proxy addresses allowed to set `X-Forwarded-For`, loopback by default),
 `API_DOCS_ENABLED`, `REFRESH_COOKIE_SECURE`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` and
-`TELEGRAM_WEBHOOK_SECRET` (the Telegram bot, see below)
+`TELEGRAM_WEBHOOK_SECRET` (the Telegram bot, see below), `APP_ANDROID_MIN_VERSION_CODE`,
+`APP_ANDROID_LATEST_VERSION_CODE` and `APP_ANDROID_STORE_URL` (the versions of the Android app the server supports,
+returned by `GET /api/v1/app/config`)
 (see `src/main/resources/application.properties`).
 
 ### Authentication
@@ -130,6 +132,10 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
   `availableCredit`. `GET /api/v1/accounts/summary` returns `netWorth`, `available` (cash and cards),
   `availableWithCredit` and `readyToAssign` in the base currency, with `unconvertedCurrencies` like the reports.
 - The last name of a user is optional (`null` when not given).
+- Native apps send `X-WebWallet-Client` (`android`, `ios`) and `X-App-Version` (the `versionCode`) on every request;
+  the web client sends neither. The server logs the client with every line and error alert. Before signing in the
+  apps read `GET /api/v1/app/config` (public): the supported versions of the Android app and which optional features
+  (Google sign-in, market search, Telegram, push) are on.
 - Budget: in `GET /api/v1/budget/{month}` the `assigned`, `activity` and `available` of a parent category row already
   include its subcategories (own + children); `ownAssigned`, `ownActivity` and `ownAvailable` are the values of the
   parent's own envelope (for a subcategory the same as the totals). `POST /api/v1/budget/{month}/move` with

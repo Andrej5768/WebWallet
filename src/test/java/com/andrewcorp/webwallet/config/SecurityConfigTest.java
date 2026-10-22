@@ -30,7 +30,9 @@ class SecurityConfigTest {
                         "refresh_token",
                         true),
                 new AppProperties.Google("", ""),
-                new AppProperties.Telegram("", "", ""));
+                new AppProperties.Telegram("", "", ""),
+                new AppProperties.Android(
+                        1, 1, "https://play.google.com/store/apps/details?id=org.andrewdev.webwallet"));
     }
 
     @Test

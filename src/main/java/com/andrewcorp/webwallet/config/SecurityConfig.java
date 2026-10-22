@@ -57,6 +57,8 @@ public class SecurityConfig {
 
     private static final RequestMatcher AUTH_PATHS =
             PathPatternRequestMatcher.withDefaults().matcher("/api/v1/auth/**");
+    private static final RequestMatcher APP_PATHS =
+            PathPatternRequestMatcher.withDefaults().matcher("/api/v1/app/**");
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -83,6 +85,9 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.requestMatchers(AUTH_PATHS)
+                        .permitAll()
+                        // Read by the native apps before sign-in
+                        .requestMatchers(APP_PATHS)
                         .permitAll()
                         // Called by Monobank; the URL contains a secret of the connection
                         .requestMatchers("/api/v1/banks/monobank/webhook/**")
@@ -158,13 +163,14 @@ public class SecurityConfig {
     }
 
     /**
-     * Ignores the access token on the auth endpoints. They do not need it, and a client sends its expired token
-     * along when it refreshes or logs out; validating it would reject the request with 401 before the refresh token
-     * cookie is looked at, so a logout would not end the session.
+     * Ignores the access token on the auth endpoints and the app config. They do not need it, and a client sends its
+     * expired token along when it refreshes or logs out; validating it would reject the request with 401 before the
+     * refresh token cookie is looked at, so a logout would not end the session. The app reads its config on start,
+     * before it knows whether its token is still good.
      */
     static BearerTokenResolver bearerTokenResolver() {
         DefaultBearerTokenResolver resolver = new DefaultBearerTokenResolver();
-        return request -> AUTH_PATHS.matches(request) ? null : resolver.resolve(request);
+        return request -> AUTH_PATHS.matches(request) || APP_PATHS.matches(request) ? null : resolver.resolve(request);
     }
 
     private static JwtAuthenticationConverter jwtAuthenticationConverter() {

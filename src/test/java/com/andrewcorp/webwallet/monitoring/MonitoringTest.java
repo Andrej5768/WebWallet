@@ -16,6 +16,7 @@ import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.test.context.TestPropertySource;
@@ -70,5 +71,23 @@ class MonitoringTest extends AbstractIntegrationTest {
         verify(mailSender).send(mail.capture());
         assertThat(mail.getValue().getSubject()).isEqualTo("[WebWallet localhost] 1 more errors");
         assertThat(mail.getValue().getText()).contains("Sync failed again");
+    }
+
+    @Test
+    void anErrorOfAnAppRequestNamesTheAppAndItsVersion() {
+        // Past the quiet period of an alert another test may have sent
+        TestClock.INSTANCE.set(Instant.now().plus(Duration.ofHours(1)));
+        MDC.put(ClientInfoFilter.MDC_CLIENT, "android");
+        MDC.put(ClientInfoFilter.MDC_APP_VERSION, "5");
+        try {
+            LoggerFactory.getLogger("com.andrewcorp.webwallet.SomeController").error("Import failed");
+        } finally {
+            MDC.clear();
+        }
+
+        ArgumentCaptor<SimpleMailMessage> mail = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(mail.capture());
+        assertThat(mail.getValue().getSubject()).isEqualTo("[WebWallet localhost] [android 5] Import failed");
+        assertThat(mail.getValue().getText()).contains("[android 5] Import failed");
     }
 }
