@@ -104,28 +104,43 @@ class BudgetControllerTest extends AbstractIntegrationTest {
         throw new AssertionError("No row for category " + categoryId);
     }
 
+    @SuppressWarnings("unchecked")
+    private static List<Object> names(Map<String, Object> month) {
+        return ((List<Map<String, Object>>) month.get("categories"))
+                .stream().map(row -> row.get("name")).toList();
+    }
+
     private static BigDecimal amount(Map<String, Object> json, String field) {
         return new BigDecimal(json.get(field).toString());
     }
 
+    private void carryOver(Long categoryId, String name, Long parentId) throws Exception {
+        Map<String, Object> body = new HashMap<>(Map.of("name", name, "kind", "EXPENSE", "carryOver", true));
+        body.put("parentId", parentId);
+        Map<String, Object> category = json(putJson("/api/v1/categories/" + categoryId, body, auth), 200);
+        assertThat(category).containsEntry("carryOver", true);
+    }
+
     @Test
-    void openingBalancesOfBudgetAccountsAreReadyToAssign() throws Exception {
+    void theOpeningBalanceIsNotIncomeOfTheMonth() throws Exception {
         Map<String, Object> october = month("2026-10");
 
         assertThat(october).containsEntry("currency", "UAH").containsEntry("month", "2026-10");
-        // The deposit is outside the budget
-        assertThat(amount(october, "readyToAssign")).isEqualByComparingTo("1000");
+        assertThat(amount(october, "readyToAssign")).isEqualByComparingTo("0");
+        assertThat(amount(october, "inflow")).isEqualByComparingTo("0");
         assertThat(amount(row(october, groceries), "available")).isEqualByComparingTo("0");
     }
 
     @Test
-    void assignSpendAndCarryOver() throws Exception {
+    void thePlanOfAMonthIsComparedWithItsIncomeAndExpiresWithIt() throws Exception {
         transaction("INCOME", "2026-10-01", card, 5000, salary);
         assign("2026-10", groceries, 3000);
         transaction("EXPENSE", "2026-10-05", card, 1000, groceries);
+        transaction("EXPENSE", "2026-10-10", card, 400, transport);
 
         Map<String, Object> october = month("2026-10");
-        assertThat(amount(october, "readyToAssign")).isEqualByComparingTo("3000");
+        assertThat(amount(october, "inflow")).isEqualByComparingTo("5000");
+        assertThat(amount(october, "readyToAssign")).isEqualByComparingTo("2000");
         Map<String, Object> groceriesRow = row(october, groceries);
         assertThat(amount(groceriesRow, "assigned")).isEqualByComparingTo("3000");
         assertThat(amount(groceriesRow, "activity")).isEqualByComparingTo("-1000");
@@ -133,27 +148,48 @@ class BudgetControllerTest extends AbstractIntegrationTest {
         // A parent includes its subcategories
         assertThat(amount(row(october, food), "available")).isEqualByComparingTo("2000");
         assertThat(amount(october, "assigned")).isEqualByComparingTo("3000");
+        // Overspending of the month stays in the month
+        assertThat(amount(row(october, transport), "available")).isEqualByComparingTo("-400");
 
-        // The rest moves to the next month
+        // Nothing moves to the next month, neither the rest nor the overspending
         Map<String, Object> november = month("2026-11");
         assertThat(amount(row(november, groceries), "assigned")).isEqualByComparingTo("0");
-        assertThat(amount(row(november, groceries), "available")).isEqualByComparingTo("2000");
-        assertThat(amount(november, "readyToAssign")).isEqualByComparingTo("3000");
+        assertThat(amount(row(november, groceries), "available")).isEqualByComparingTo("0");
+        assertThat(amount(row(november, transport), "available")).isEqualByComparingTo("0");
+        assertThat(amount(november, "inflow")).isEqualByComparingTo("0");
+        assertThat(amount(november, "readyToAssign")).isEqualByComparingTo("0");
     }
 
     @Test
-    void overspendingIsTakenFromTheNextMonth() throws Exception {
+    void aCategoryWithCarryOverIsAnEnvelope() throws Exception {
+        carryOver(groceries, "Groceries", food);
+        carryOver(transport, "Transport", null);
+        transaction("INCOME", "2026-10-01", card, 5000, salary);
+        assign("2026-10", groceries, 3000);
+        transaction("EXPENSE", "2026-10-05", card, 1000, groceries);
         transaction("EXPENSE", "2026-10-10", card, 400, transport);
 
         Map<String, Object> october = month("2026-10");
+        assertThat(amount(october, "readyToAssign")).isEqualByComparingTo("2000");
         assertThat(amount(row(october, transport), "available")).isEqualByComparingTo("-400");
-        assertThat(amount(october, "readyToAssign")).isEqualByComparingTo("1000");
 
+        // The rest moves to the next month; the overspending is taken from the free money of the next month, once
         Map<String, Object> november = month("2026-11");
+        assertThat(amount(row(november, groceries), "assigned")).isEqualByComparingTo("0");
+        assertThat(amount(row(november, groceries), "available")).isEqualByComparingTo("2000");
         assertThat(amount(row(november, transport), "available")).isEqualByComparingTo("0");
-        assertThat(amount(november, "readyToAssign")).isEqualByComparingTo("600");
-        // Also when there is nothing in between
-        assertThat(amount(month("2027-02"), "readyToAssign")).isEqualByComparingTo("600");
+        assertThat(amount(november, "readyToAssign")).isEqualByComparingTo("-400");
+        Map<String, Object> february = month("2027-02");
+        assertThat(amount(row(february, groceries), "available")).isEqualByComparingTo("2000");
+        assertThat(amount(february, "readyToAssign")).isEqualByComparingTo("0");
+
+        // Only expense categories carry over
+        mockMvc.perform(putJson(
+                        "/api/v1/categories/" + salary,
+                        Map.of("name", "Salary", "kind", "INCOME", "carryOver", true),
+                        auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("carryOver"));
     }
 
     @Test
@@ -169,7 +205,9 @@ class BudgetControllerTest extends AbstractIntegrationTest {
 
         Map<String, Object> october = month("2026-10");
 
-        assertThat(amount(october, "readyToAssign")).isEqualByComparingTo("350");
+        // Net transfers out of the budget are a negative inflow; the uncategorized spending is taken from it
+        assertThat(amount(october, "inflow")).isEqualByComparingTo("-450");
+        assertThat(amount(october, "readyToAssign")).isEqualByComparingTo("-650");
         assertThat(amount(row(october, groceries), "activity")).isEqualByComparingTo("0");
     }
 
@@ -239,7 +277,7 @@ class BudgetControllerTest extends AbstractIntegrationTest {
         assertThat(amount(row(october, food), "ownAssigned")).isEqualByComparingTo("120.5");
         // The total stays the same
         assertThat(amount(row(october, food), "assigned")).isEqualByComparingTo("300");
-        assertThat(amount(october, "readyToAssign")).isEqualByComparingTo("700");
+        assertThat(amount(october, "readyToAssign")).isEqualByComparingTo("-300");
 
         // Moving everything out removes the assignment; moving more takes the envelope below zero
         json(
@@ -302,7 +340,8 @@ class BudgetControllerTest extends AbstractIntegrationTest {
         assertThat(amount(row(october, food), "ownAssigned")).isEqualByComparingTo("50");
         // Already assigned this month: kept
         assertThat(amount(row(october, transport), "assigned")).isEqualByComparingTo("70");
-        assertThat(amount(row(october, old), "assigned")).isEqualByComparingTo("0");
+        // The archived category got nothing and, without carry-over, has no money to show
+        assertThat(names(october)).doesNotContain("Old");
         assertThat(amount(october, "assigned")).isEqualByComparingTo("420");
 
         // Nothing to copy from an empty month

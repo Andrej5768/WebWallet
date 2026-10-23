@@ -10,6 +10,7 @@ import com.andrewcorp.webwallet.auth.twofactor.TwoFactorService;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.common.util.Texts;
+import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.config.AppProperties;
 import com.andrewcorp.webwallet.ledger.category.DefaultCategories;
 import com.andrewcorp.webwallet.mail.AuthMailEvent;
@@ -111,10 +112,12 @@ public class AuthService {
 
     /**
      * Checks the password and starts a session, or the second step when two-factor authentication is on and the
-     * browser is not trusted.
+     * device is not trusted.
+     *
+     * @param client the client that keeps the refresh token
      */
     @Transactional(noRollbackFor = ApiException.class)
-    public LoginResult login(LoginRequest request, String trustedDeviceToken, String clientIp) {
+    public LoginResult login(LoginRequest request, String trustedDeviceToken, String clientIp, ClientInfo.Kind client) {
         String email = User.normalizeEmail(request.email());
         rateLimiter.checkLogin(clientIp, email);
         Optional<User> user = users.findByEmail(email);
@@ -130,19 +133,19 @@ public class AuthService {
         if (!user.get().isEmailVerified()) {
             throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
-        return startSession(user.get(), trustedDeviceToken);
+        return startSession(user.get(), trustedDeviceToken, client);
     }
 
     /**
      * Starts a session for a user whose identity is proven, or the second step when two-factor authentication is on
-     * and the browser is not trusted.
+     * and the device is not trusted.
      */
     @Transactional(noRollbackFor = ApiException.class)
-    public LoginResult startSession(User user, String trustedDeviceToken) {
+    public LoginResult startSession(User user, String trustedDeviceToken, ClientInfo.Kind client) {
         if (user.isTwoFactorEnabled() && !twoFactor.isTrusted(user, trustedDeviceToken)) {
             return new LoginResult(null, twoFactor.startLogin(user));
         }
-        return new LoginResult(tokenService.issueTokens(user), null);
+        return new LoginResult(tokenService.issueTokens(user, client), null);
     }
 
     /** Silently does nothing for unknown emails, so the response does not reveal accounts. */
@@ -166,7 +169,8 @@ public class AuthService {
 
     /** Changes the password, ends all other sessions and returns tokens for a new one. */
     @Transactional
-    public IssuedTokens changePassword(Long userId, String currentPassword, String newPassword) {
+    public IssuedTokens changePassword(
+            Long userId, String currentPassword, String newPassword, ClientInfo.Kind client) {
         User user = users.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
         rateLimiter.checkPasswordChange(userId);
         if (!user.hasPassword() || !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
@@ -174,7 +178,7 @@ public class AuthService {
             throw new ApiException(ErrorCode.INVALID_CURRENT_PASSWORD);
         }
         setPassword(user, newPassword);
-        return tokenService.issueTokens(user);
+        return tokenService.issueTokens(user, client);
     }
 
     /**

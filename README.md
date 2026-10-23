@@ -91,7 +91,9 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 `APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `TWELVE_DATA_API_KEY` and `ALPHA_VANTAGE_API_KEY` (market data and dividends, see below), `APP_PUBLIC_URL` (makes the Monobank `WEBHOOK` mode available), `TRUSTED_PROXIES`
 (a regular expression of reverse proxy addresses allowed to set `X-Forwarded-For`, loopback by default),
 `API_DOCS_ENABLED`, `REFRESH_COOKIE_SECURE`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` and
-`TELEGRAM_WEBHOOK_SECRET` (the Telegram bot, see below)
+`TELEGRAM_WEBHOOK_SECRET` (the Telegram bot, see below), `APP_ANDROID_MIN_VERSION_CODE`,
+`APP_ANDROID_LATEST_VERSION_CODE` and `APP_ANDROID_STORE_URL` (the versions of the Android app the server supports,
+returned by `GET /api/v1/app/config`)
 (see `src/main/resources/application.properties`).
 
 ### Authentication
@@ -111,7 +113,15 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 - The web client is served from the same domain as the API (a reverse proxy sends `/api` to the backend), so the
   browser sends the cookie without CORS. The `local` profile drops the `Secure` flag
   (`app.auth.refresh-cookie-secure=false`, or `REFRESH_COOKIE_SECURE=false`) for development over plain HTTP.
-- The native mobile apps will need a separate way to keep the refresh token; it is not part of the API yet.
+- Native apps send `X-WebWallet-Client: android` (or `ios`) and `X-App-Version` on every request and keep their
+  tokens themselves: `login`, `login/two-factor`, `refresh`, `restore`, `google/complete` and `me/password` return
+  the refresh token in `refreshToken` and set no cookie; `refresh` and `logout` take `{refreshToken}` in the body
+  (the body is looked at first, then the cookie, for every client; a native request without either is rejected
+  with 401). Rotation, reuse detection and the 30-day lifetime are the same, and a token presented by a client of
+  another kind (a browser cookie replayed by an app or the other way round) ends the session as reuse would. Which
+  client keeps a token is stored with it (`refresh_tokens.client`, null for the web). The trusted device of a
+  two-factor sign-in works the same way: `login/two-factor` with `trustDevice` returns `trustedDeviceToken` in the
+  body instead of the cookie, and `login` and `google/complete` take it back as `trustedDeviceToken`.
 
 ### API conventions
 
@@ -130,6 +140,10 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
   `availableCredit`. `GET /api/v1/accounts/summary` returns `netWorth`, `available` (cash and cards),
   `availableWithCredit` and `readyToAssign` in the base currency, with `unconvertedCurrencies` like the reports.
 - The last name of a user is optional (`null` when not given).
+- Native apps send `X-WebWallet-Client` (`android`, `ios`) and `X-App-Version` (the `versionCode`) on every request;
+  the web client sends neither. The server logs the client with every line and error alert. Before signing in the
+  apps read `GET /api/v1/app/config` (public): the supported versions of the Android app and which optional features
+  (Google sign-in, market search, Telegram, push) are on.
 - Budget: in `GET /api/v1/budget/{month}` the `assigned`, `activity` and `available` of a parent category row already
   include its subcategories (own + children); `ownAssigned`, `ownActivity` and `ownAvailable` are the values of the
   parent's own envelope (for a subcategory the same as the totals). `POST /api/v1/budget/{month}/move` with

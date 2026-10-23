@@ -30,16 +30,20 @@ public final class BudgetDtos {
             @NotNull @Positive @Digits(integer = 15, fraction = 4) BigDecimal amount) {}
 
     /**
-     * Envelope budget of a month in the base currency of the user.
+     * Budget of a month in the base currency of the user.
      *
-     * @param readyToAssign money of the budget accounts that is not assigned to any envelope yet; negative means more
-     *                      was assigned than there is
+     * @param readyToAssign free money of the month: its inflow minus its plan, minus spending without a category and
+     *                      minus the overspending that envelopes with carry-over bring from the previous month; negative
+     *                      means the plan is bigger than the income
+     * @param inflow        income of the budget accounts in the month, plus transfers into the budget from other
+     *                      accounts, minus transfers out of it
      * @param categories    expense categories as a tree; a parent row includes its subcategories
      */
     public record MonthResponse(
             YearMonth month,
             String currency,
             BigDecimal readyToAssign,
+            BigDecimal inflow,
             BigDecimal assigned,
             BigDecimal activity,
             BigDecimal available,
@@ -53,8 +57,8 @@ public final class BudgetDtos {
      *
      * @param assigned     money put into the envelope this month
      * @param activity     spending (negative) and refunds this month
-     * @param available    what is left: the positive rest of previous months plus assigned plus activity; negative is
-     *                     overspending, which is taken from the money ready to assign next month
+     * @param available    what is left of the plan: assigned plus activity, plus the positive rest of previous months
+     *                     for a category with carry-over; negative is overspending
      * @param ownAssigned  {@code assigned} without the children
      * @param ownActivity  {@code activity} without the children
      * @param ownAvailable {@code available} without the children

@@ -130,6 +130,23 @@
         "required" : [ "key", "share", "value" ],
         "type" : "object"
       },
+      "AndroidVersions" : {
+        "properties" : {
+          "latestVersionCode" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "minSupportedVersionCode" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "storeUrl" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "latestVersionCode", "minSupportedVersionCode", "storeUrl" ],
+        "type" : "object"
+      },
       "Anomaly" : {
         "properties" : {
           "amount" : {
@@ -146,6 +163,36 @@
           }
         },
         "required" : [ "amount", "average", "month", "ratio" ],
+        "type" : "object"
+      },
+      "AppConfigResponse" : {
+        "properties" : {
+          "android" : {
+            "$ref" : "#/components/schemas/AndroidVersions"
+          },
+          "features" : {
+            "$ref" : "#/components/schemas/AppFeatures"
+          }
+        },
+        "required" : [ "android", "features" ],
+        "type" : "object"
+      },
+      "AppFeatures" : {
+        "properties" : {
+          "googleSignIn" : {
+            "type" : "boolean"
+          },
+          "marketSearch" : {
+            "type" : "boolean"
+          },
+          "push" : {
+            "type" : "boolean"
+          },
+          "telegram" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "googleSignIn", "marketSearch", "push", "telegram" ],
         "type" : "object"
       },
       "ApplyResponse" : {
@@ -499,6 +546,9 @@
           "archived" : {
             "type" : "boolean"
           },
+          "carryOver" : {
+            "type" : "boolean"
+          },
           "color" : {
             "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime", null ],
             "type" : [ "string", "null" ]
@@ -535,6 +585,9 @@
       "CategoryResponse" : {
         "properties" : {
           "archived" : {
+            "type" : "boolean"
+          },
+          "carryOver" : {
             "type" : "boolean"
           },
           "children" : {
@@ -574,7 +627,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "archived", "children", "color", "icon", "id", "kind", "name", "necessity", "parentId", "sortOrder" ],
+        "required" : [ "archived", "carryOver", "children", "color", "icon", "id", "kind", "name", "necessity", "parentId", "sortOrder" ],
         "type" : "object"
       },
       "CategoryRow" : {
@@ -885,6 +938,31 @@
           }
         },
         "required" : [ "amount" ],
+        "type" : "object"
+      },
+      "DebtsResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "people" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Person"
+            },
+            "type" : "array"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "accountId", "currency", "people", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "DeleteAccountRequest" : {
@@ -1421,6 +1499,11 @@
             "maxLength" : 128,
             "minLength" : 0,
             "type" : "string"
+          },
+          "trustedDeviceToken" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
           }
         },
         "required" : [ "ticket" ],
@@ -1925,6 +2008,11 @@
             "maxLength" : 128,
             "minLength" : 0,
             "type" : "string"
+          },
+          "trustedDeviceToken" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
           }
         },
         "required" : [ "email", "password" ],
@@ -1939,6 +2027,9 @@
             "format" : "int64",
             "type" : [ "integer", "null" ]
           },
+          "refreshToken" : {
+            "type" : [ "string", "null" ]
+          },
           "tokenType" : {
             "type" : [ "string", "null" ]
           },
@@ -1946,7 +2037,7 @@
             "type" : [ "string", "null" ]
           }
         },
-        "required" : [ "accessToken", "expiresIn", "tokenType", "twoFactorChallenge" ],
+        "required" : [ "accessToken", "expiresIn", "refreshToken", "tokenType", "twoFactorChallenge" ],
         "type" : "object"
       },
       "LotResponse" : {
@@ -2071,6 +2162,9 @@
           "currency" : {
             "type" : "string"
           },
+          "inflow" : {
+            "type" : "number"
+          },
           "month" : {
             "type" : "string"
           },
@@ -2084,7 +2178,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "activity", "assigned", "available", "categories", "currency", "month", "readyToAssign", "unconvertedCurrencies" ],
+        "required" : [ "activity", "assigned", "available", "categories", "currency", "inflow", "month", "readyToAssign", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "MonthSavings" : {
@@ -2819,6 +2913,30 @@
         "required" : [ "currency", "from", "payees", "to", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "Person" : {
+        "properties" : {
+          "balance" : {
+            "type" : "number"
+          },
+          "lastDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "operations" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "payeeId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          }
+        },
+        "required" : [ "balance", "lastDate", "name", "operations", "payeeId" ],
+        "type" : "object"
+      },
       "PlanResponse" : {
         "properties" : {
           "actual" : {
@@ -3308,6 +3426,16 @@
           }
         },
         "required" : [ "url" ],
+        "type" : "object"
+      },
+      "RefreshTokenRequest" : {
+        "properties" : {
+          "refreshToken" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
         "type" : "object"
       },
       "RegisterRequest" : {
@@ -4114,11 +4242,17 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "refreshToken" : {
+            "type" : [ "string", "null" ]
+          },
           "tokenType" : {
             "type" : "string"
+          },
+          "trustedDeviceToken" : {
+            "type" : [ "string", "null" ]
           }
         },
-        "required" : [ "accessToken", "expiresIn", "tokenType" ],
+        "required" : [ "accessToken", "expiresIn", "refreshToken", "tokenType", "trustedDeviceToken" ],
         "type" : "object"
       },
       "TransactionMarkRequest" : {
@@ -4611,7 +4745,7 @@
     },
     "/api/v1/accounts/summary" : {
       "get" : {
-        "description" : "Accounts that are not archived, at today's NBU rates; balances in a currency without a rate are left out and listed in unconvertedCurrencies. readyToAssign is that of the budget of the current month.",
+        "description" : "Accounts that are not archived, at today's NBU rates; balances in a currency without a rate are left out and listed in unconvertedCurrencies. readyToAssign is the free money of the current month, as in its budget: inflow minus plan.",
         "operationId" : "summary",
         "responses" : {
           "200" : {
@@ -4943,6 +5077,26 @@
         "tags" : [ "Analytics" ]
       }
     },
+    "/api/v1/app/config" : {
+      "get" : {
+        "description" : "Public. The app refuses to run below minSupportedVersionCode and hides features that are off on this server.",
+        "operationId" : "config",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AppConfigResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Versions and features for the native apps",
+        "tags" : [ "App" ]
+      }
+    },
     "/api/v1/auth/forgot-password" : {
       "post" : {
         "operationId" : "forgotPassword",
@@ -5010,7 +5164,7 @@
     },
     "/api/v1/auth/google/complete" : {
       "post" : {
-        "description" : "Exchanges the ticket of the callback for a session, like /login: the access token, or twoFactorChallenge when two-factor authentication is on. The ticket works once and briefly.",
+        "description" : "Exchanges the ticket of the callback for a session, like /login: the access token, or twoFactorChallenge when two-factor authentication is on. The ticket works once and briefly. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie and send trustedDeviceToken in the body.",
         "operationId" : "complete",
         "parameters" : [ {
           "description" : "Set when the browser was trusted at an earlier two-factor sign-in",
@@ -5062,7 +5216,7 @@
     },
     "/api/v1/auth/login" : {
       "post" : {
-        "description" : "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only to /api/v1/auth. With two-factor authentication on, unless the browser is trusted, returns twoFactorChallenge instead, to exchange with a code at /api/v1/auth/login/two-factor.",
+        "description" : "Returns the access token; the refresh token is set in an HttpOnly cookie that is sent only to /api/v1/auth. With two-factor authentication on, unless the device is trusted, returns twoFactorChallenge instead, to exchange with a code at /api/v1/auth/login/two-factor. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie and send it in the body. Native apps send trustedDeviceToken in the body.",
         "operationId" : "login",
         "parameters" : [ {
           "description" : "Set when the browser was trusted at an earlier two-factor sign-in",
@@ -5101,7 +5255,7 @@
     },
     "/api/v1/auth/login/two-factor" : {
       "post" : {
-        "description" : "Exchanges the challenge of the login response and a code of the authenticator app or a recovery code for a session. A wrong code keeps the challenge until it expires; an expired one fails with TWO_FACTOR_EXPIRED. With trustDevice the browser gets a cookie that skips the code for a while.",
+        "description" : "Exchanges the challenge of the login response and a code of the authenticator app or a recovery code for a session. A wrong code keeps the challenge until it expires; an expired one fails with TWO_FACTOR_EXPIRED. With trustDevice the browser gets a cookie that skips the code for a while. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie and send it in the body. Native apps get the trusted device as trustedDeviceToken in the body.",
         "operationId" : "loginTwoFactor",
         "requestBody" : {
           "content" : {
@@ -5131,7 +5285,7 @@
     },
     "/api/v1/auth/logout" : {
       "post" : {
-        "description" : "Succeeds without the cookie or with an unknown token as well",
+        "description" : "Succeeds without a token or with an unknown one as well. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie and send it in the body.",
         "operationId" : "logout",
         "parameters" : [ {
           "description" : "Refresh token set by login or a previous refresh",
@@ -5142,12 +5296,21 @@
             "type" : "string"
           }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          }
+        },
         "responses" : {
           "204" : {
             "description" : "No Content"
           }
         },
-        "summary" : "End the session of the refresh token cookie and delete the cookie",
+        "summary" : "End the session of the refresh token and delete the cookie",
         "tags" : [ "Authentication" ]
       }
     },
@@ -5172,7 +5335,7 @@
     },
     "/api/v1/auth/refresh" : {
       "post" : {
-        "description" : "The refresh token is rotated: the response sets a new cookie and the presented token stops working. Presenting an already rotated token ends the whole session.",
+        "description" : "The refresh token is rotated: the response sets a new cookie and the presented token stops working. Presenting an already rotated token ends the whole session. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie and send it in the body.",
         "operationId" : "refresh",
         "parameters" : [ {
           "description" : "Refresh token set by login or a previous refresh",
@@ -5183,6 +5346,15 @@
             "type" : "string"
           }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          }
+        },
         "responses" : {
           "200" : {
             "content" : {
@@ -5195,7 +5367,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Exchange the refresh token cookie for a new access token",
+        "summary" : "Exchange the refresh token for a new access token",
         "tags" : [ "Authentication" ]
       }
     },
@@ -5900,6 +6072,29 @@
           "bearer" : [ ]
         } ],
         "tags" : [ "Categorization rules" ]
+      }
+    },
+    "/api/v1/debts" : {
+      "get" : {
+        "description" : "Everyone with a debt operation and their balance in the base currency: a transfer to a debt account is money given to its payee, a transfer from one is money received. Positive means the person owes the user. Operations in a currency without a rate are left out and the currency is listed in unconvertedCurrencies.",
+        "operationId" : "debts",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DebtsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Debts with people",
+        "tags" : [ "Debts" ]
       }
     },
     "/api/v1/forecast" : {
@@ -7376,7 +7571,7 @@
     },
     "/api/v1/me/password" : {
       "post" : {
-        "description" : "All sessions are ended, including the current one; a new session is started: the response contains a new access token and sets a new refresh token cookie",
+        "description" : "All sessions are ended, including the current one; a new session is started: the response contains a new access token and sets a new refresh token cookie. Native apps (header X-WebWallet-Client) get the refresh token in refreshToken instead of the cookie.",
         "operationId" : "changePassword",
         "requestBody" : {
           "content" : {

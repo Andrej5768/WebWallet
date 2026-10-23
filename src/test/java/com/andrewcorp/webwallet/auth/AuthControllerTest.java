@@ -1,9 +1,11 @@
 package com.andrewcorp.webwallet.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -12,13 +14,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
 import com.andrewcorp.webwallet.TestClock;
 import com.andrewcorp.webwallet.auth.dto.TokenResponse;
+import com.andrewcorp.webwallet.auth.token.RefreshToken;
 import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
+import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.user.Role;
 import com.andrewcorp.webwallet.user.User;
 import jakarta.servlet.http.Cookie;
@@ -464,12 +469,128 @@ class AuthControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void refreshTokenInTheBodyIsNotAccepted() throws Exception {
+    void webRefreshAcceptsTheTokenFromTheBodyToo() throws Exception {
         createUser("body@test.com", true);
         Cookie cookie = refreshCookie(loginResponse("body@test.com", PASSWORD));
 
-        mockMvc.perform(postJson("/api/v1/auth/refresh", Map.of("refreshToken", cookie.getValue())))
+        MockHttpServletResponse response = mockMvc.perform(
+                        postJson("/api/v1/auth/refresh", Map.of("refreshToken", cookie.getValue())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").value(nullValue()))
+                .andExpect(cookie().httpOnly(REFRESH_COOKIE, true))
+                .andReturn()
+                .getResponse();
+
+        assertThat(refreshCookie(response).getValue()).isNotEqualTo(cookie.getValue());
+    }
+
+    @Test
+    void nativeLoginReturnsTheRefreshTokenInTheBodyAndSetsNoCookie() throws Exception {
+        createUser("android@test.com", true);
+
+        MockHttpServletResponse response = mockMvc.perform(asAndroid(
+                        postJson("/api/v1/auth/login", Map.of("email", "android@test.com", "password", PASSWORD))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(header().doesNotExist("Set-Cookie"))
+                // A body with a token must not be cached
+                .andExpect(header().string("Cache-Control", containsString("no-store")))
+                .andReturn()
+                .getResponse();
+
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(tokens(response))))
+                .andExpect(status().isOk());
+        assertThat(refreshTokens.findAll())
+                .extracting(RefreshToken::getClient)
+                .containsExactly(ClientInfo.Kind.ANDROID);
+    }
+
+    @Test
+    void webLoginKeepsTheCookieAndHasNoRefreshTokenInTheBody() throws Exception {
+        createUser("web@test.com", true);
+
+        mockMvc.perform(postJson("/api/v1/auth/login", Map.of("email", "web@test.com", "password", PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").value(nullValue()))
+                .andExpect(cookie().httpOnly(REFRESH_COOKIE, true));
+
+        assertThat(refreshTokens.findAll()).extracting(RefreshToken::getClient).containsExactly(ClientInfo.Kind.WEB);
+    }
+
+    @Test
+    void nativeRefreshRotatesTheTokenInTheBody() throws Exception {
+        createUser("android-refresh@test.com", true);
+        String first = nativeLogin("android-refresh@test.com").refreshToken();
+
+        MockHttpServletResponse response = mockMvc.perform(
+                        asAndroid(postJson("/api/v1/auth/refresh", Map.of("refreshToken", first))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(header().doesNotExist("Set-Cookie"))
+                .andReturn()
+                .getResponse();
+        TokenResponse refreshed = tokens(response);
+
+        assertThat(refreshed.refreshToken()).isNotEqualTo(first);
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(refreshed)))
+                .andExpect(status().isOk());
+        // The old token is presented again, e.g. by an attacker who stole it: the whole session ends
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/refresh", Map.of("refreshToken", first))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"));
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/refresh", Map.of("refreshToken", refreshed.refreshToken()))))
                 .andExpect(status().isUnauthorized());
+        assertThat(refreshTokens.findAll()).allMatch(RefreshToken::isRevoked);
+    }
+
+    @Test
+    void nativeRefreshWithoutATokenIsRejected() throws Exception {
+        mockMvc.perform(asAndroid(post("/api/v1/auth/refresh")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"));
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/refresh", Map.of("refreshToken", ""))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"));
+    }
+
+    @Test
+    void refreshTokenOfAnotherClientKindRevokesTheSession() throws Exception {
+        createUser("replay@test.com", true);
+        Cookie cookie = refreshCookie(loginResponse("replay@test.com", PASSWORD));
+
+        // The cookie of the browser is replayed by something claiming to be the app
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/refresh", Map.of("refreshToken", cookie.getValue()))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"));
+
+        mockMvc.perform(refresh(cookie)).andExpect(status().isUnauthorized());
+        assertThat(refreshTokens.findAll()).allMatch(RefreshToken::isRevoked);
+    }
+
+    @Test
+    void nativeLogoutRevokesTheSessionWithoutSetCookie() throws Exception {
+        createUser("android-logout@test.com", true);
+        String refreshToken = nativeLogin("android-logout@test.com").refreshToken();
+
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/logout", Map.of("refreshToken", refreshToken))))
+                .andExpect(status().isNoContent())
+                .andExpect(header().doesNotExist("Set-Cookie"));
+
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/refresh", Map.of("refreshToken", refreshToken))))
+                .andExpect(status().isUnauthorized());
+        // Without a token the app is signed out as well
+        mockMvc.perform(asAndroid(post("/api/v1/auth/logout")))
+                .andExpect(status().isNoContent())
+                .andExpect(header().doesNotExist("Set-Cookie"));
+    }
+
+    private TokenResponse nativeLogin(String email) throws Exception {
+        return tokens(
+                mockMvc.perform(asAndroid(postJson("/api/v1/auth/login", Map.of("email", email, "password", PASSWORD))))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse());
     }
 
     @Test
@@ -561,7 +682,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
 
     /** Issues tokens directly, since an unverified user cannot log in. */
     private IssuedTokens loginBypassingVerification(String email) {
-        return tokenService.issueTokens(users.findByEmail(email).orElseThrow());
+        return tokenService.issueTokens(users.findByEmail(email).orElseThrow(), ClientInfo.Kind.WEB);
     }
 
     @Test

@@ -148,6 +148,25 @@ class UserControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void nativeChangePasswordReturnsTheRefreshTokenInTheBody() throws Exception {
+        MockHttpServletResponse response = mockMvc.perform(asAndroid(postJson(
+                                "/api/v1/me/password",
+                                Map.of("currentPassword", PASSWORD, "newPassword", "newPassword123"))
+                        .header("Authorization", bearer(tokens))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(header().doesNotExist("Set-Cookie"))
+                .andReturn()
+                .getResponse();
+        TokenResponse session = tokens(response);
+
+        mockMvc.perform(get("/api/v1/me").header("Authorization", bearer(session)))
+                .andExpect(status().isOk());
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/refresh", Map.of("refreshToken", session.refreshToken()))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void changePasswordVoidsPasswordResetLinks() throws Exception {
         mockMvc.perform(postJson("/api/v1/auth/forgot-password", Map.of("email", user.getEmail())))
                 .andExpect(status().isAccepted());

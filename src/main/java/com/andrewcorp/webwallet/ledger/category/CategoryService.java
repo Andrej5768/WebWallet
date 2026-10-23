@@ -171,6 +171,14 @@ public class CategoryService {
         if (request.getSortOrder() != null) {
             category.setSortOrder(request.getSortOrder());
         }
+        if (request.getCarryOver() != null) {
+            if (request.getCarryOver() && category.getKind() == CategoryKind.INCOME) {
+                throw ApiException.invalid("carryOver", "error.category.carryOver");
+            }
+            category.setCarryOver(request.getCarryOver());
+        } else if (category.getKind() == CategoryKind.INCOME) {
+            category.setCarryOver(false);
+        }
         // Sent as null, the icon, color or necessity is removed
         if (request.iconSent()) {
             category.setIcon(request.getIcon());

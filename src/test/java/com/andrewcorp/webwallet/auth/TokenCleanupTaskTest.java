@@ -41,9 +41,9 @@ class TokenCleanupTaskTest extends AbstractIntegrationTest {
         userTokens.save(new UserToken(
                 user, UserTokenType.PASSWORD_RESET, TokenHasher.hash("valid"), now.plus(Duration.ofHours(1))));
 
-        refreshTokens.save(new RefreshToken(user, UUID.randomUUID(), TokenHasher.hash("old"), longAgo));
-        RefreshToken revoked =
-                new RefreshToken(user, UUID.randomUUID(), TokenHasher.hash("revoked"), now.plus(Duration.ofDays(10)));
+        refreshTokens.save(new RefreshToken(user, UUID.randomUUID(), TokenHasher.hash("old"), longAgo, null));
+        RefreshToken revoked = new RefreshToken(
+                user, UUID.randomUUID(), TokenHasher.hash("revoked"), now.plus(Duration.ofDays(10)), null);
         revoked.revoke(now);
         refreshTokens.save(revoked);
 

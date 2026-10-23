@@ -44,8 +44,8 @@ public class AccountController {
     @Operation(
             summary = "Totals of the accounts in the base currency",
             description = "Accounts that are not archived, at today's NBU rates; balances in a currency without a rate"
-                    + " are left out and listed in unconvertedCurrencies. readyToAssign is that of the budget of the"
-                    + " current month.")
+                    + " are left out and listed in unconvertedCurrencies. readyToAssign is the free money of the"
+                    + " current month, as in its budget: inflow minus plan.")
     @GetMapping("/summary")
     public AccountSummaryResponse summary(@CurrentUserId Long userId) {
         return accountService.summary(userId);

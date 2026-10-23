@@ -8,6 +8,7 @@ import com.andrewcorp.webwallet.auth.token.UserTokenRepository;
 import com.andrewcorp.webwallet.auth.token.UserTokenType;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.config.AppProperties;
 import com.andrewcorp.webwallet.user.User;
 import java.time.Clock;
@@ -62,9 +63,11 @@ public class TokenService {
     /**
      * Starts a new session (refresh token family) for the user. An account that is to be deleted gets no session:
      * the error carries a token that cancels the deletion and signs in.
+     *
+     * @param client the client that keeps the refresh token, see {@link SessionResponse}
      */
     @Transactional(noRollbackFor = ApiException.class)
-    public IssuedTokens issueTokens(User user) {
+    public IssuedTokens issueTokens(User user, ClientInfo.Kind client) {
         if (user.getDeletionScheduledAt() != null) {
             String restoreToken = TokenHasher.newToken();
             userTokens.save(new UserToken(
@@ -76,15 +79,16 @@ public class TokenService {
                     ErrorCode.ACCOUNT_DELETION_SCHEDULED,
                     Map.of("restoreToken", restoreToken, "deletionScheduledAt", user.getDeletionScheduledAt()));
         }
-        return issueTokens(user, UUID.randomUUID());
+        return issueTokens(user, UUID.randomUUID(), client);
     }
 
     /**
      * Exchanges a refresh token for a new token pair. Presenting an already rotated token is treated as theft
-     * and revokes the whole session.
+     * and revokes the whole session, and so is presenting the token of another kind of client: a cookie of the web
+     * client replayed by an app, or the other way round.
      */
     @Transactional(noRollbackFor = ApiException.class)
-    public IssuedTokens refresh(String rawRefreshToken) {
+    public IssuedTokens refresh(String rawRefreshToken, ClientInfo.Kind client) {
         Instant now = clock.instant();
         RefreshToken token = refreshTokens
                 .findByTokenHash(TokenHasher.hash(rawRefreshToken))
@@ -93,13 +97,22 @@ public class TokenService {
         if (token.isExpired(now) || !user.isEnabled()) {
             throw new ApiException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
+        if (token.getClient() != client) {
+            log.warn(
+                    "Refresh token of the {} client presented by the {} client for user {}, revoking the session",
+                    token.getClient(),
+                    client,
+                    user.getId());
+            refreshTokens.revokeFamily(token.getFamilyId(), now);
+            throw new ApiException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
         // Conditional update, so that of two concurrent requests with the same token only one succeeds
         if (refreshTokens.revokeIfActive(token.getId(), now) == 0) {
             log.warn("Reuse of a revoked refresh token detected for user {}, revoking the session", user.getId());
             refreshTokens.revokeFamily(token.getFamilyId(), now);
             throw new ApiException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
-        return issueTokens(user, token.getFamilyId());
+        return issueTokens(user, token.getFamilyId(), client);
     }
 
     /** Ends the session the refresh token belongs to. Unknown tokens are ignored. */
@@ -117,11 +130,11 @@ public class TokenService {
         refreshTokens.revokeAllForUser(user, clock.instant());
     }
 
-    private IssuedTokens issueTokens(User user, UUID familyId) {
+    private IssuedTokens issueTokens(User user, UUID familyId, ClientInfo.Kind client) {
         Instant now = clock.instant();
         String rawRefreshToken = TokenHasher.newToken();
         refreshTokens.save(new RefreshToken(
-                user, familyId, TokenHasher.hash(rawRefreshToken), now.plus(properties.refreshTokenTtl())));
+                user, familyId, TokenHasher.hash(rawRefreshToken), now.plus(properties.refreshTokenTtl()), client));
         return new IssuedTokens(
                 createAccessToken(user, now),
                 rawRefreshToken,

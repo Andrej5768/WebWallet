@@ -8,31 +8,31 @@ import com.andrewcorp.webwallet.budget.BudgetRepository.TransferRow;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.currency.Converters;
 import com.andrewcorp.webwallet.currency.CurrencyConverter;
-import com.andrewcorp.webwallet.ledger.account.Account;
-import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.category.Category;
 import com.andrewcorp.webwallet.ledger.category.CategoryKind;
 import com.andrewcorp.webwallet.ledger.category.CategoryRepository;
 import com.andrewcorp.webwallet.ledger.category.CategoryTree;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Envelope budget (similar to YNAB) in the base currency of the user. Only the money of budget accounts is
- * distributed. The positive rest of an envelope moves to the next month; overspending is taken from the money ready
- * to assign of the next month. Credit cards are treated like cash: spending on them uses the envelopes, and paying
- * the card back is a transfer within the budget.
+ * Budget of a month in the base currency of the user: a plan per expense category, compared with the spending of the
+ * month, as in Zen Money. Only the money of budget accounts counts. By default a plan is for its month alone: what is
+ * left or overspent expires with the month. A category with carry-over is an envelope as in YNAB: its positive rest
+ * moves to the next month and its overspending is taken from the free money of the next month. Credit cards are
+ * treated like cash: spending on them uses the plan, and paying the card back is a transfer within the budget.
  */
 @Service
 public class BudgetService {
@@ -40,20 +40,11 @@ public class BudgetService {
     private final Converters converters;
     private final BudgetRepository budget;
     private final CategoryRepository categories;
-    private final AccountRepository accounts;
-    private final Clock clock;
 
-    public BudgetService(
-            Converters converters,
-            BudgetRepository budget,
-            CategoryRepository categories,
-            AccountRepository accounts,
-            Clock clock) {
+    public BudgetService(Converters converters, BudgetRepository budget, CategoryRepository categories) {
         this.converters = converters;
         this.budget = budget;
         this.categories = categories;
-        this.accounts = accounts;
-        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -146,7 +137,7 @@ public class BudgetService {
                         });
     }
 
-    /** Computes the envelopes month by month from the first month with data up to the requested one. */
+    /** Computes the month from the first month with data up to the requested one, for the carry-over. */
     private final class Calculation {
 
         private final Long userId;
@@ -154,10 +145,10 @@ public class BudgetService {
         private final CurrencyConverter converter;
         private final Map<YearMonth, Map<Long, BigDecimal>> assignedByMonth = new HashMap<>();
         private final Map<YearMonth, Map<Long, BigDecimal>> activityByMonth = new HashMap<>();
-        /** Money that became available to assign: income, inflows from outside the budget, opening balances. */
-        private BigDecimal inflow = BigDecimal.ZERO;
-        /** Spending without a category, taken directly from the money ready to assign. */
-        private BigDecimal uncategorized = BigDecimal.ZERO;
+        /** Income and transfers into the budget (minus those out of it), by month. */
+        private final Map<YearMonth, BigDecimal> inflowByMonth = new HashMap<>();
+        /** Spending without a category, by month: taken directly from the free money of the month. */
+        private final Map<YearMonth, BigDecimal> uncategorizedByMonth = new HashMap<>();
 
         Calculation(Long userId, YearMonth month, CurrencyConverter converter) {
             this.userId = userId;
@@ -170,7 +161,8 @@ public class BudgetService {
             loadAssignments();
             loadSplits(end);
             loadTransfers(end);
-            loadOpeningBalances(end);
+            CategoryTree tree = categories.tree(userId);
+            Set<Long> carryOver = carryOverCategories(tree);
 
             TreeSet<YearMonth> months = new TreeSet<>();
             months.addAll(assignedByMonth.keySet());
@@ -178,29 +170,46 @@ public class BudgetService {
             months.add(month);
 
             Map<Long, BigDecimal> available = new HashMap<>();
-            BigDecimal assignedTotal = BigDecimal.ZERO;
+            // Overspending of the envelopes at the end of the previous month, charged to this month's free money
             BigDecimal overspent = BigDecimal.ZERO;
-            boolean first = true;
-            for (YearMonth current : months.headSet(month, true)) {
-                if (!first) {
-                    // Overspending of a finished month is covered by the money ready to assign
+            for (YearMonth current = months.first(); !current.isAfter(month); current = current.plusMonths(1)) {
+                if (!current.equals(months.first())) {
+                    overspent = BigDecimal.ZERO;
                     for (Map.Entry<Long, BigDecimal> entry : available.entrySet()) {
-                        if (entry.getValue().signum() < 0) {
+                        if (!carryOver.contains(entry.getKey())) {
+                            // A plan is for its month only
+                            entry.setValue(BigDecimal.ZERO);
+                        } else if (entry.getValue().signum() < 0) {
                             overspent = overspent.add(entry.getValue());
                             entry.setValue(BigDecimal.ZERO);
                         }
                     }
                 }
-                first = false;
                 Map<Long, BigDecimal> assigned = assignedByMonth.getOrDefault(current, Map.of());
                 Map<Long, BigDecimal> activity = activityByMonth.getOrDefault(current, Map.of());
                 assigned.forEach((category, amount) -> available.merge(category, amount, BigDecimal::add));
                 activity.forEach((category, amount) -> available.merge(category, amount, BigDecimal::add));
-                assignedTotal = assignedTotal.add(sum(assigned));
             }
-            BigDecimal readyToAssign =
-                    inflow.add(uncategorized).subtract(assignedTotal).add(overspent);
-            return response(readyToAssign, available);
+            BigDecimal inflow = inflowByMonth.getOrDefault(month, BigDecimal.ZERO);
+            BigDecimal readyToAssign = inflow.add(uncategorizedByMonth.getOrDefault(month, BigDecimal.ZERO))
+                    .subtract(sum(assignedByMonth.getOrDefault(month, Map.of())))
+                    .add(overspent);
+            return response(tree, readyToAssign, inflow, available);
+        }
+
+        private Set<Long> carryOverCategories(CategoryTree tree) {
+            Set<Long> ids = new HashSet<>();
+            for (Category parent : tree.topLevel(CategoryKind.EXPENSE)) {
+                if (parent.isCarryOver()) {
+                    ids.add(parent.getId());
+                }
+                for (Category child : tree.children(parent.getId())) {
+                    if (child.isCarryOver()) {
+                        ids.add(child.getId());
+                    }
+                }
+            }
+            return ids;
         }
 
         private void loadAssignments() {
@@ -220,38 +229,28 @@ public class BudgetService {
                             .computeIfAbsent(YearMonth.from(row.getDate()), m -> new HashMap<>())
                             .merge(row.getCategoryId(), income ? amount : amount.negate(), BigDecimal::add);
                 } else if (income) {
-                    inflow = inflow.add(amount);
+                    inflowByMonth.merge(YearMonth.from(row.getDate()), amount, BigDecimal::add);
                 } else {
-                    uncategorized = uncategorized.subtract(amount);
+                    uncategorizedByMonth.merge(YearMonth.from(row.getDate()), amount.negate(), BigDecimal::add);
                 }
             }
         }
 
         private void loadTransfers(LocalDate end) {
             for (TransferRow row : budget.findBudgetBoundaryTransfers(userId, end, TransactionType.TRANSFER)) {
-                if (row.getFromBudget()) {
-                    inflow = inflow.subtract(converter.convert(row.getAmount(), row.getCurrency(), row.getDate()));
-                } else {
-                    inflow = inflow.add(converter.convert(row.getToAmount(), row.getToCurrency(), row.getDate()));
-                }
+                BigDecimal amount = row.getFromBudget()
+                        ? converter
+                                .convert(row.getAmount(), row.getCurrency(), row.getDate())
+                                .negate()
+                        : converter.convert(row.getToAmount(), row.getToCurrency(), row.getDate());
+                inflowByMonth.merge(YearMonth.from(row.getDate()), amount, BigDecimal::add);
             }
         }
 
-        private void loadOpeningBalances(LocalDate end) {
-            LocalDate today = LocalDate.now(clock);
-            LocalDate rateDate = end.isAfter(today) ? today : end;
-            for (Account account : accounts.findByUserIdOrderBySortOrderAscIdAsc(userId)) {
-                if (account.isInBudget()) {
-                    inflow =
-                            inflow.add(converter.convert(account.getOpeningBalance(), account.getCurrency(), rateDate));
-                }
-            }
-        }
-
-        private MonthResponse response(BigDecimal readyToAssign, Map<Long, BigDecimal> available) {
+        private MonthResponse response(
+                CategoryTree tree, BigDecimal readyToAssign, BigDecimal inflow, Map<Long, BigDecimal> available) {
             Map<Long, BigDecimal> assigned = assignedByMonth.getOrDefault(month, Map.of());
             Map<Long, BigDecimal> activity = activityByMonth.getOrDefault(month, Map.of());
-            CategoryTree tree = categories.tree(userId);
             List<CategoryRow> rows = new ArrayList<>();
             for (Category parent : tree.topLevel(CategoryKind.EXPENSE)) {
                 List<CategoryRow> children = tree.children(parent.getId()).stream()
@@ -267,6 +266,7 @@ public class BudgetService {
                     month,
                     converter.target(),
                     readyToAssign,
+                    inflow,
                     sum(rows, CategoryRow::assigned),
                     sum(rows, CategoryRow::activity),
                     sum(rows, CategoryRow::available),

@@ -15,6 +15,7 @@ import com.andrewcorp.webwallet.bank.BankConnection;
 import com.andrewcorp.webwallet.bank.BankConnectionRepository;
 import com.andrewcorp.webwallet.bank.BankProvider;
 import com.andrewcorp.webwallet.common.crypto.SecretCipher;
+import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.investment.Instrument;
 import com.andrewcorp.webwallet.investment.InstrumentRepository;
 import com.andrewcorp.webwallet.investment.InstrumentType;
@@ -248,6 +249,25 @@ class AccountDataTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void nativeRestoreReturnsTheRefreshTokenInTheBody() throws Exception {
+        requestDeletion(Map.of("password", PASSWORD), auth);
+        Map<String, Object> blocked = json(
+                asAndroid(postJson("/api/v1/auth/login", Map.of("email", user.getEmail(), "password", PASSWORD))), 403);
+
+        MockHttpServletResponse restored = mockMvc.perform(
+                        asAndroid(postJson("/api/v1/auth/restore", Map.of("token", blocked.get("restoreToken")))))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Set-Cookie"))
+                .andReturn()
+                .getResponse();
+        TokenResponse session = tokens(restored);
+
+        assertThat(session.refreshToken()).isNotBlank();
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/refresh", Map.of("refreshToken", session.refreshToken()))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void theEmailedLinkCancelsWithoutSigningIn() throws Exception {
         requestDeletion(Map.of("password", PASSWORD), auth);
 
@@ -277,7 +297,8 @@ class AccountDataTest extends AbstractIntegrationTest {
         User google = new User("google@test.com", null, "Olena", null, "uk");
         google.setEmailVerified(true);
         google = users.save(google);
-        String googleAuth = "Bearer " + tokenService.issueTokens(google).accessToken();
+        String googleAuth = "Bearer "
+                + tokenService.issueTokens(google, ClientInfo.Kind.WEB).accessToken();
 
         mockMvc.perform(postJson("/api/v1/me/delete", Map.of("confirmEmail", "other@test.com"), googleAuth))
                 .andExpect(status().isBadRequest())

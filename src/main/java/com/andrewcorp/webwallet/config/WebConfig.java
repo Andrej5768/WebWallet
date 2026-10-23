@@ -1,7 +1,10 @@
 package com.andrewcorp.webwallet.config;
 
+import com.andrewcorp.webwallet.common.web.ClientInfo;
+import com.andrewcorp.webwallet.common.web.ClientInfoResolver;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.common.web.CurrentUserIdResolver;
+import com.andrewcorp.webwallet.monitoring.ClientInfoFilter;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -11,8 +14,10 @@ import java.util.Locale;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.LocaleResolver;
@@ -27,6 +32,8 @@ public class WebConfig implements WebMvcConfigurer {
     static {
         // The current user is taken from the access token, it is not a request parameter
         SpringDocUtils.getConfig().addAnnotationsToIgnore(CurrentUserId.class);
+        // The client is taken from the headers of the request, it is not a request parameter either
+        SpringDocUtils.getConfig().addRequestWrapperToIgnore(ClientInfo.class);
     }
 
     public static final Locale UKRAINIAN = Locale.forLanguageTag("uk");
@@ -43,6 +50,16 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(new CurrentUserIdResolver());
+        resolvers.add(new ClientInfoResolver());
+    }
+
+    /** Tells the client of every API request apart before anything else looks at it, see {@link ClientInfoFilter}. */
+    @Bean
+    public FilterRegistrationBean<ClientInfoFilter> clientInfoFilter() {
+        FilterRegistrationBean<ClientInfoFilter> registration = new FilterRegistrationBean<>(new ClientInfoFilter());
+        registration.addUrlPatterns("/api/*");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
+        return registration;
     }
 
     @Bean

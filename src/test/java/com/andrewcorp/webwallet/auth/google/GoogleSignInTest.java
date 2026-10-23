@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.auth.google;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -9,16 +10,22 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.andrewcorp.webwallet.AbstractIntegrationTest;
+import com.andrewcorp.webwallet.auth.dto.TokenResponse;
+import com.andrewcorp.webwallet.auth.token.TokenHasher;
 import com.andrewcorp.webwallet.auth.twofactor.Totp;
+import com.andrewcorp.webwallet.auth.twofactor.TrustedDevice;
+import com.andrewcorp.webwallet.auth.twofactor.TrustedDeviceRepository;
 import com.andrewcorp.webwallet.common.crypto.SecretCipher;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.user.User;
 import jakarta.servlet.http.Cookie;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +46,9 @@ class GoogleSignInTest extends AbstractIntegrationTest {
 
     @Autowired
     private SecretCipher cipher;
+
+    @Autowired
+    private TrustedDeviceRepository trustedDevices;
 
     @BeforeEach
     void googlePage() {
@@ -178,6 +188,46 @@ class GoogleSignInTest extends AbstractIntegrationTest {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getCookie(REFRESH_COOKIE)).isNull();
         assertThat(response.getContentAsString()).contains("twoFactorChallenge");
+    }
+
+    @Test
+    void nativeGoogleCompleteReturnsTheRefreshTokenInTheBody() throws Exception {
+        User user = createVerifiedUser();
+        googleReturns(new GoogleIdentity("sub-1", user.getEmail(), true, "John", null));
+        String ticket = ticket(callback(startSignIn(), "code-1"));
+
+        MockHttpServletResponse response = mockMvc.perform(
+                        asAndroid(postJson("/api/v1/auth/google/complete", Map.of("ticket", ticket))))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Set-Cookie"))
+                .andReturn()
+                .getResponse();
+        TokenResponse session = tokens(response);
+
+        assertThat(session.refreshToken()).isNotBlank();
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/refresh", Map.of("refreshToken", session.refreshToken()))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void nativeGoogleCompleteHonoursTheTrustedDeviceTokenFromTheBody() throws Exception {
+        User user = createVerifiedUser();
+        user.setTotpSecret(cipher.encrypt(Totp.newSecret()), Instant.now());
+        users.save(user);
+        // The app signed in with the code once and trusted the device
+        String deviceToken = TokenHasher.newToken();
+        trustedDevices.save(new TrustedDevice(
+                user.getId(), TokenHasher.hash(deviceToken), Instant.now().plus(Duration.ofDays(1))));
+        googleReturns(new GoogleIdentity("sub-1", user.getEmail(), true, "John", null));
+        String ticket = ticket(callback(startSignIn(), "code-1"));
+
+        Map<String, Object> body = Map.of("ticket", ticket, "trustedDeviceToken", deviceToken);
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/google/complete", body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.twoFactorChallenge").value(nullValue()))
+                .andExpect(header().doesNotExist("Set-Cookie"));
     }
 
     @Test

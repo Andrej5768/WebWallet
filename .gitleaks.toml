@@ -1,0 +1,13 @@
+# gitleaks: the default rules, minus the placeholder keys of the committed test profile.
+# Production reads JWT_SECRET and ENCRYPTION_KEY from the environment; nothing real belongs in these files.
+title = "WebWallet"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Placeholder keys of the test profile and of the removed local profile"
+paths = [
+  '''src/test/resources/application-test\.properties''',
+  '''src/main/resources/application-local\.properties''',
+]

@@ -49,6 +49,10 @@ public class Category {
     @Enumerated(EnumType.STRING)
     private Necessity necessity;
 
+    /** Whether the budget rest of the category moves to the next month (an envelope) instead of expiring with it. */
+    @Column(nullable = false)
+    private boolean carryOver;
+
     private String externalSource;
 
     private String externalId;
@@ -100,6 +104,14 @@ public class Category {
 
     public void setArchived(boolean archived) {
         this.archived = archived;
+    }
+
+    public boolean isCarryOver() {
+        return carryOver;
+    }
+
+    public void setCarryOver(boolean carryOver) {
+        this.carryOver = carryOver;
     }
 
     public String getExternalSource() {

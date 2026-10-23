@@ -10,6 +10,7 @@ import com.andrewcorp.webwallet.auth.token.UserTokenType;
 import com.andrewcorp.webwallet.common.crypto.SecretCipher;
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.config.AppProperties;
 import com.andrewcorp.webwallet.user.User;
 import com.andrewcorp.webwallet.user.UserRepository;
@@ -179,7 +180,7 @@ public class TwoFactorService {
      * so that the user can try again until it expires or the attempts run out.
      */
     @Transactional(noRollbackFor = ApiException.class)
-    public Login completeLogin(String challenge, String code, boolean trustDevice) {
+    public Login completeLogin(String challenge, String code, boolean trustDevice, ClientInfo.Kind client) {
         Instant now = clock.instant();
         UserToken token = userTokens
                 .findByTokenHashAndType(TokenHasher.hash(challenge), UserTokenType.TWO_FACTOR_LOGIN)
@@ -195,7 +196,7 @@ public class TwoFactorService {
             throw new ApiException(ErrorCode.ACCOUNT_DISABLED);
         }
         String deviceToken = trustDevice ? trust(user) : null;
-        return new Login(tokenService.issueTokens(user), deviceToken);
+        return new Login(tokenService.issueTokens(user, client), deviceToken);
     }
 
     /** Checks a code of the app or a recovery code, e.g. before the account is deleted. */
