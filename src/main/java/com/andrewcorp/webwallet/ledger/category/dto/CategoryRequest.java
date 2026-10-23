@@ -39,6 +39,9 @@ public class CategoryRequest {
     @Schema(nullable = true)
     private Necessity necessity;
 
+    /** Only for expense categories: the budget rest moves to the next month instead of expiring with it. */
+    private Boolean carryOver;
+
     private boolean iconSent;
     private boolean colorSent;
     private boolean necessitySent;
@@ -108,6 +111,14 @@ public class CategoryRequest {
     public void setNecessity(Necessity necessity) {
         this.necessity = necessity;
         this.necessitySent = true;
+    }
+
+    public Boolean getCarryOver() {
+        return carryOver;
+    }
+
+    public void setCarryOver(Boolean carryOver) {
+        this.carryOver = carryOver;
     }
 
     /** Whether the icon was sent, possibly as null. */

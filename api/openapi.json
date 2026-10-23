@@ -546,6 +546,9 @@
           "archived" : {
             "type" : "boolean"
           },
+          "carryOver" : {
+            "type" : "boolean"
+          },
           "color" : {
             "enum" : [ "blue", "green", "orange", "violet", "teal", "pink", "amber", "slate", "red", "indigo", "cyan", "lime", null ],
             "type" : [ "string", "null" ]
@@ -582,6 +585,9 @@
       "CategoryResponse" : {
         "properties" : {
           "archived" : {
+            "type" : "boolean"
+          },
+          "carryOver" : {
             "type" : "boolean"
           },
           "children" : {
@@ -621,7 +627,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "archived", "children", "color", "icon", "id", "kind", "name", "necessity", "parentId", "sortOrder" ],
+        "required" : [ "archived", "carryOver", "children", "color", "icon", "id", "kind", "name", "necessity", "parentId", "sortOrder" ],
         "type" : "object"
       },
       "CategoryRow" : {
@@ -2131,6 +2137,9 @@
           "currency" : {
             "type" : "string"
           },
+          "inflow" : {
+            "type" : "number"
+          },
           "month" : {
             "type" : "string"
           },
@@ -2144,7 +2153,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "activity", "assigned", "available", "categories", "currency", "month", "readyToAssign", "unconvertedCurrencies" ],
+        "required" : [ "activity", "assigned", "available", "categories", "currency", "inflow", "month", "readyToAssign", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "MonthSavings" : {
@@ -4687,7 +4696,7 @@
     },
     "/api/v1/accounts/summary" : {
       "get" : {
-        "description" : "Accounts that are not archived, at today's NBU rates; balances in a currency without a rate are left out and listed in unconvertedCurrencies. readyToAssign is that of the budget of the current month.",
+        "description" : "Accounts that are not archived, at today's NBU rates; balances in a currency without a rate are left out and listed in unconvertedCurrencies. readyToAssign is the free money of the current month, as in its budget: inflow minus plan.",
         "operationId" : "summary",
         "responses" : {
           "200" : {

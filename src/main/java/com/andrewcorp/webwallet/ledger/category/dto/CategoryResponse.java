@@ -21,6 +21,7 @@ public record CategoryResponse(
         @Schema(nullable = true) String icon,
         @Schema(nullable = true) PaletteColor color,
         @Schema(nullable = true) Necessity necessity,
+        boolean carryOver,
         List<CategoryResponse> children) {
 
     public static CategoryResponse from(Category category, List<CategoryResponse> children) {
@@ -34,6 +35,7 @@ public record CategoryResponse(
                 category.getIcon(),
                 category.getColor(),
                 category.getNecessity(),
+                category.isCarryOver(),
                 children);
     }
 }
