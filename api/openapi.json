@@ -940,6 +940,31 @@
         "required" : [ "amount" ],
         "type" : "object"
       },
+      "DebtsResponse" : {
+        "properties" : {
+          "accountId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "people" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Person"
+            },
+            "type" : "array"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "accountId", "currency", "people", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
       "DeleteAccountRequest" : {
         "properties" : {
           "code" : {
@@ -2886,6 +2911,30 @@
           }
         },
         "required" : [ "currency", "from", "payees", "to", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "Person" : {
+        "properties" : {
+          "balance" : {
+            "type" : "number"
+          },
+          "lastDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "operations" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "payeeId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          }
+        },
+        "required" : [ "balance", "lastDate", "name", "operations", "payeeId" ],
         "type" : "object"
       },
       "PlanResponse" : {
@@ -6023,6 +6072,29 @@
           "bearer" : [ ]
         } ],
         "tags" : [ "Categorization rules" ]
+      }
+    },
+    "/api/v1/debts" : {
+      "get" : {
+        "description" : "Everyone with a debt operation and their balance in the base currency: a transfer to a debt account is money given to its payee, a transfer from one is money received. Positive means the person owes the user. Operations in a currency without a rate are left out and the currency is listed in unconvertedCurrencies.",
+        "operationId" : "debts",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DebtsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Debts with people",
+        "tags" : [ "Debts" ]
       }
     },
     "/api/v1/forecast" : {
