@@ -65,9 +65,11 @@ public final class MonobankDtos {
     /**
      * @param lastError  error of the last request to the bank, if it failed
      * @param webhook    whether the webhook is registered at the bank, so that new operations arrive instantly
-     * @param syncMode   INTERVAL, DAILY or WEBHOOK
-     * @param nextSyncAt when the accounts are requested next; in the past while a synchronization is in progress
-     *                   (e.g. the history is being loaded)
+     * @param syncMode      INTERVAL, DAILY, WEBHOOK or MANUAL
+     * @param nextSyncAt    when the accounts are requested next; in the past while a synchronization is in progress
+     *                      (e.g. the history is being loaded), null when nothing is scheduled (MANUAL mode)
+     * @param nextRequestAt the earliest moment the bank can be asked again: it allows one request a minute, so a
+     *                      synchronization asked for now starts then; null before the first request
      */
     public record ConnectionResponse(
             String clientName,
@@ -86,7 +88,8 @@ public final class MonobankDtos {
             @JsonFormat(pattern = "HH:mm") @Schema(type = "string", format = "time", example = "06:00")
             LocalTime dailyAt,
 
-            Instant nextSyncAt,
+            @Schema(nullable = true) Instant nextSyncAt,
+            @Schema(nullable = true) Instant nextRequestAt,
             List<LinkResponse> accounts) {}
 
     /**

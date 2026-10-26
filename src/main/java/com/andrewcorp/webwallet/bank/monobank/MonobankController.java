@@ -66,11 +66,21 @@ public class MonobankController {
             description = "INTERVAL: every 15 minutes from windowStart to windowEnd (Kyiv time) and once at night"
                     + " halfway between windowEnd and windowStart; DAILY: once a day at dailyAt; WEBHOOK: the bank"
                     + " pushes new operations (needs the public URL of the server) and the accounts are also checked"
-                    + " once a day at dailyAt. Omitted times are kept.")
+                    + " once a day at dailyAt; MANUAL: only on request. Omitted times are kept.")
     @SecurityRequirement(name = "bearer")
     @PutMapping("/schedule")
     public ConnectionResponse schedule(@CurrentUserId Long userId, @Valid @RequestBody ScheduleRequest request) {
         return monobank.schedule(userId, request);
+    }
+
+    @Operation(
+            summary = "Synchronize now",
+            description = "The accounts are requested in the background as soon as the bank allows the next request"
+                    + " (one a minute), see nextRequestAt; in any mode.")
+    @SecurityRequirement(name = "bearer")
+    @PostMapping("/sync")
+    public ConnectionResponse syncNow(@CurrentUserId Long userId) {
+        return monobank.syncNow(userId);
     }
 
     @Operation(summary = "Disconnect Monobank; imported transactions stay")

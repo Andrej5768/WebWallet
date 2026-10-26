@@ -856,7 +856,7 @@
             "type" : "string"
           },
           "syncMode" : {
-            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK", "MANUAL" ],
             "type" : "string"
           },
           "token" : {
@@ -906,12 +906,16 @@
             "format" : "date-time",
             "type" : [ "string", "null" ]
           },
+          "nextRequestAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
           "nextSyncAt" : {
             "format" : "date-time",
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "syncMode" : {
-            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK", "MANUAL" ],
             "type" : "string"
           },
           "webhook" : {
@@ -928,7 +932,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "accounts", "clientName", "connectedAt", "dailyAt", "lastError", "lastRequestAt", "nextSyncAt", "syncMode", "webhook", "windowEnd", "windowStart" ],
+        "required" : [ "accounts", "clientName", "connectedAt", "dailyAt", "lastError", "lastRequestAt", "nextRequestAt", "nextSyncAt", "syncMode", "webhook", "windowEnd", "windowStart" ],
         "type" : "object"
       },
       "ContributionRequest" : {
@@ -3730,7 +3734,7 @@
             "type" : "string"
           },
           "syncMode" : {
-            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK", "MANUAL" ],
             "type" : "string"
           },
           "windowEnd" : {
@@ -5598,7 +5602,7 @@
     },
     "/api/v1/banks/monobank/schedule" : {
       "put" : {
-        "description" : "INTERVAL: every 15 minutes from windowStart to windowEnd (Kyiv time) and once at night halfway between windowEnd and windowStart; DAILY: once a day at dailyAt; WEBHOOK: the bank pushes new operations (needs the public URL of the server) and the accounts are also checked once a day at dailyAt. Omitted times are kept.",
+        "description" : "INTERVAL: every 15 minutes from windowStart to windowEnd (Kyiv time) and once at night halfway between windowEnd and windowStart; DAILY: once a day at dailyAt; WEBHOOK: the bank pushes new operations (needs the public URL of the server) and the accounts are also checked once a day at dailyAt; MANUAL: only on request. Omitted times are kept.",
         "operationId" : "schedule",
         "requestBody" : {
           "content" : {
@@ -5626,6 +5630,29 @@
           "bearer" : [ ]
         } ],
         "summary" : "Change when Monobank is synchronized",
+        "tags" : [ "Monobank" ]
+      }
+    },
+    "/api/v1/banks/monobank/sync" : {
+      "post" : {
+        "description" : "The accounts are requested in the background as soon as the bank allows the next request (one a minute), see nextRequestAt; in any mode.",
+        "operationId" : "syncNow",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConnectionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Synchronize now",
         "tags" : [ "Monobank" ]
       }
     },

@@ -172,7 +172,7 @@ class MonobankSyncTest extends AbstractIntegrationTest {
         tx.executeWithoutResult(status -> {
             BankConnection connection = connection();
             Instant now = TestClock.INSTANCE.instant();
-            if (connection.getNextSyncAt().isAfter(now)) {
+            if (connection.getNextSyncAt() == null || connection.getNextSyncAt().isAfter(now)) {
                 connection.setNextSyncAt(now);
             }
         });
@@ -787,6 +787,65 @@ class MonobankSyncTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.windowEnd").value("18:00"))
                 .andExpect(jsonPath("$.dailyAt").value("07:30"));
         assertThat(connection().getNextSyncAt()).isEqualTo(at(day.plusDays(1), "01:30"));
+    }
+
+    @Test
+    void manualModeSynchronizesOnlyOnRequest() throws Exception {
+        LocalDate day = LocalDate.now(SyncSchedule.ZONE).plusDays(1);
+        TestClock.INSTANCE.set(at(day, "10:07"));
+        Map<String, Object> connected = json(
+                postJson(
+                        "/api/v1/banks/monobank",
+                        Map.of(
+                                "token",
+                                TOKEN,
+                                "syncMode",
+                                "MANUAL",
+                                "since",
+                                LocalDate.now().minusDays(5)),
+                        auth),
+                200);
+        // The history is still loaded right away
+        assertThat(connected).containsEntry("syncMode", "MANUAL");
+        assertThat(connection().getNextSyncAt()).isBetween(at(day, "10:07"), at(day, "10:08"));
+        assertThat(syncAll()).isEqualTo(4);
+
+        // Then nothing is scheduled
+        assertThat(connection().getNextSyncAt()).isNull();
+        TestClock.INSTANCE.set(at(day, "12:00"));
+        assertThat(service.dueConnections()).isEmpty();
+        assertThat(service.syncStep(connection().getId())).isFalse();
+        mockMvc.perform(get("/api/v1/banks/monobank").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nextSyncAt").value((Object) null))
+                .andExpect(jsonPath("$.nextRequestAt").exists());
+
+        // The user asks: the bank is requested as soon as its limit allows
+        tx.executeWithoutResult(status -> connection().setLastRequestAt(at(day, "11:59:30")));
+        Map<String, Object> asked = json(postJson("/api/v1/banks/monobank/sync", Map.of(), auth), 200);
+        assertThat(Instant.parse((String) asked.get("nextSyncAt"))).isBetween(at(day, "12:00"), at(day, "12:01"));
+        assertThat(Instant.parse((String) asked.get("nextRequestAt"))).isEqualTo(at(day, "12:00:31"));
+        assertThat(service.dueConnections()).isEmpty();
+        TestClock.INSTANCE.set(at(day, "12:00:31"));
+        assertThat(service.dueConnections()).containsExactly(connection().getId());
+        int requests = 0;
+        while (service.syncStep(connection().getId())) {
+            requests++;
+        }
+        assertThat(requests).isEqualTo(4);
+        assertThat(connection().getNextSyncAt()).isNull();
+
+        // Switching to a schedule plans the next run; asking in a scheduled mode moves the run to now
+        TestClock.INSTANCE.set(at(day, "12:01:40"));
+        json(putJson("/api/v1/banks/monobank/schedule", Map.of("syncMode", "DAILY", "dailyAt", "07:30"), auth), 200);
+        assertThat(connection().getNextSyncAt()).isEqualTo(at(day.plusDays(1), "07:30"));
+        json(postJson("/api/v1/banks/monobank/sync", Map.of(), auth), 200);
+        Instant due = connection().getNextSyncAt();
+        assertThat(due).isBetween(at(day, "12:01:40"), at(day, "12:01:50"));
+        // A synchronization in progress is not moved
+        TestClock.INSTANCE.set(at(day, "12:02:00"));
+        json(postJson("/api/v1/banks/monobank/sync", Map.of(), auth), 200);
+        assertThat(connection().getNextSyncAt()).isEqualTo(due);
     }
 
     @Test

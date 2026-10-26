@@ -7,5 +7,7 @@ public enum SyncMode {
     /** Once a day. */
     DAILY,
     /** The bank pushes new operations; the accounts are also checked once a day. */
-    WEBHOOK
+    WEBHOOK,
+    /** Only when the user asks. */
+    MANUAL
 }
