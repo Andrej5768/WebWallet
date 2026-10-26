@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.ledger.transaction;
 
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.common.web.PageResponse;
+import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionBatchRequest;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionFilter;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionRequest;
 import com.andrewcorp.webwallet.ledger.transaction.dto.TransactionResponse;
@@ -13,6 +14,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.util.List;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -74,6 +76,17 @@ public class TransactionController {
     @ResponseStatus(HttpStatus.CREATED)
     public TransactionResponse create(@CurrentUserId Long userId, @Valid @RequestBody TransactionRequest request) {
         return transactionService.create(userId, request);
+    }
+
+    @Operation(
+            summary = "Create several transactions at once",
+            description = "All of them are created, or none when one is invalid: the field of a violation is then"
+                    + " transactions[i].field.")
+    @PostMapping("/batch")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<TransactionResponse> createBatch(
+            @CurrentUserId Long userId, @Valid @RequestBody TransactionBatchRequest request) {
+        return transactionService.createAll(userId, request.transactions());
     }
 
     @PutMapping("/{id}")

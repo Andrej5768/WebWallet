@@ -30,7 +30,8 @@ public interface BudgetRepository extends JpaRepository<BudgetAssignment, Long> 
             select t.date as date, a.currency as currency, t.type as type, c.id as categoryId, c.kind as kind,
                    sum(s.amount) as amount
             from TransactionSplit s join s.transaction t join t.account a left join s.category c
-            where t.userId = :userId and a.inBudget = true and t.type <> :transfer and t.date <= :until
+            where t.userId = :userId and a.inBudget = true and t.type <> :transfer and t.adjustment = false
+              and t.date <= :until
             group by t.date, a.currency, t.type, c.id, c.kind""")
     List<SplitRow> findBudgetSplits(Long userId, LocalDate until, TransactionType transfer);
 

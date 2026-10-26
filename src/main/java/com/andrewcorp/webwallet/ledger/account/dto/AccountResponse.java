@@ -10,6 +10,7 @@ import java.math.BigDecimal;
  * @param balanceInBase   the balance in the base currency of the user at today's NBU rate; null when there is no rate
  * @param availableCredit of a credit card with a limit: the limit plus the balance, in the account currency; may be
  *                        negative when the limit is exceeded
+ * @param operations      number of transactions of the account, the transfers into it included: how much it is used
  */
 public record AccountResponse(
         Long id,
@@ -24,9 +25,10 @@ public record AccountResponse(
         @Schema(nullable = true) BigDecimal creditLimit,
         @Schema(nullable = true) BigDecimal availableCredit,
         @Schema(nullable = true) BigDecimal interestRate,
-        int sortOrder) {
+        int sortOrder,
+        long operations) {
 
-    public static AccountResponse from(Account account, BigDecimal balance, BigDecimal balanceInBase) {
+    public static AccountResponse from(Account account, BigDecimal balance, BigDecimal balanceInBase, long operations) {
         return new AccountResponse(
                 account.getId(),
                 account.getName(),
@@ -40,7 +42,8 @@ public record AccountResponse(
                 account.getCreditLimit(),
                 availableCredit(account, balance),
                 account.getInterestRate(),
-                account.getSortOrder());
+                account.getSortOrder(),
+                operations);
     }
 
     /** The limit plus the balance of a credit card with a limit, null for other accounts. */

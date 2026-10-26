@@ -60,8 +60,10 @@ public class BankConnection {
     @Column(nullable = false)
     private LocalTime dailyAt = LocalTime.of(6, 0);
 
-    /** Due moment of the next synchronization; every linked account is then requested up to at least this moment. */
-    @Column(nullable = false)
+    /**
+     * Due moment of the next synchronization; every linked account is then requested up to at least this moment. Null
+     * when none is scheduled: the {@link SyncMode#MANUAL} mode waits for the user.
+     */
     private Instant nextSyncAt;
 
     /** When the accounts of the bank, with their credit limits, were read last. */

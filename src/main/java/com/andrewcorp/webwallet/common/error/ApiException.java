@@ -38,6 +38,17 @@ public class ApiException extends RuntimeException {
                 ErrorCode.VALIDATION_FAILED, List.of(new FieldViolation(field, messageKey, args)), Map.of());
     }
 
+    /** The same error with its field violations inside the given field, e.g. {@code items[2]} of a list. */
+    public ApiException nestedIn(String field) {
+        return new ApiException(
+                code,
+                violations.stream()
+                        .map(violation -> new FieldViolation(
+                                field + "." + violation.field(), violation.messageKey(), violation.args()))
+                        .toList(),
+                properties);
+    }
+
     public ErrorCode code() {
         return code;
     }

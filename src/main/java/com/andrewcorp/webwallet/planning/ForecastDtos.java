@@ -29,8 +29,22 @@ public final class ForecastDtos {
             @Schema(nullable = true) ForecastDay lowest,
             List<String> unconvertedCurrencies) {}
 
-    /** @param actual whether the balance is the actual one (up to today) or forecast */
-    public record ForecastDay(LocalDate date, BigDecimal balance, boolean actual) {}
+    /**
+     * @param actual     whether the balance is the actual one (up to today) or forecast
+     * @param operations transactions of the day that changed the money of cash and cards; of a day ahead, the ones
+     *                   entered ahead of time
+     */
+    public record ForecastDay(LocalDate date, BigDecimal balance, boolean actual, List<ForecastOperation> operations) {}
+
+    /**
+     * @param name   the payee, otherwise the comment; null when the transaction has neither
+     * @param amount the change of the balance in the base currency, negative for money leaving
+     */
+    public record ForecastOperation(
+            Long id,
+            @Schema(nullable = true) String name,
+            @Schema(nullable = true) Long categoryId,
+            BigDecimal amount) {}
 
     /**
      * @param date    the scheduled date; an overdue occurrence is expected tomorrow

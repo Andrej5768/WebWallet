@@ -182,8 +182,22 @@ public class MonobankService {
         checkWebhookMode(request.syncMode());
         applySchedule(connection, request.syncMode(), request.windowStart(), request.windowEnd(), request.dailyAt());
         Instant now = clock.instant();
-        if (connection.getNextSyncAt().isAfter(now)) {
+        if (connection.getNextSyncAt() == null || connection.getNextSyncAt().isAfter(now)) {
             connection.setNextSyncAt(SyncSchedule.next(connection, now));
+        }
+        return status(connection);
+    }
+
+    /**
+     * Asks for a synchronization now, in any mode. The bank allows one request a minute, so the first request waits
+     * for that moment, see {@link ConnectionResponse#nextRequestAt()}.
+     */
+    @Transactional
+    public ConnectionResponse syncNow(Long userId) {
+        BankConnection connection = connection(userId);
+        Instant now = clock.instant();
+        if (connection.getNextSyncAt() == null || connection.getNextSyncAt().isAfter(now)) {
+            connection.setNextSyncAt(now);
         }
         return status(connection);
     }
@@ -321,7 +335,7 @@ public class MonobankService {
                     false);
         }
         Instant due = connection.getNextSyncAt();
-        if (due.isAfter(now)) {
+        if (due == null || due.isAfter(now)) {
             return null;
         }
         // Once a day the accounts are read again: a raised credit limit changes what the balances mean
@@ -600,6 +614,9 @@ public class MonobankService {
                 connection.getWindowEnd(),
                 connection.getDailyAt(),
                 connection.getNextSyncAt(),
+                connection.getLastRequestAt() == null
+                        ? null
+                        : connection.getLastRequestAt().plus(REQUEST_INTERVAL),
                 linkResponses);
     }
 

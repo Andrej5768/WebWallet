@@ -413,6 +413,7 @@ public class RecurringService {
                 recurring.getPayee() != null ? recurring.getPayee().getId() : null,
                 null,
                 recurring.getComment(),
+                null,
                 null);
         Long id = transactionService.create(recurring.getUserId(), request).id();
         return transactions.getReferenceById(id);

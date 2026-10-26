@@ -81,6 +81,24 @@ public class TransactionService {
         return TransactionResponse.from(transactions.save(transaction), null);
     }
 
+    /** Creates the transactions together: all of them, or none when one is invalid. */
+    @Transactional
+    public List<TransactionResponse> createAll(Long userId, List<TransactionRequest> requests) {
+        List<Transaction> created = new ArrayList<>();
+        for (int i = 0; i < requests.size(); i++) {
+            Transaction transaction = new Transaction(userId);
+            try {
+                apply(userId, transaction, requests.get(i));
+            } catch (ApiException e) {
+                throw e.nestedIn("transactions[" + i + "]");
+            }
+            created.add(transaction);
+        }
+        return transactions.saveAll(created).stream()
+                .map(transaction -> TransactionResponse.from(transaction, null))
+                .toList();
+    }
+
     @Transactional
     public TransactionResponse update(Long userId, Long id, TransactionRequest request) {
         Transaction transaction = find(userId, id);
@@ -157,6 +175,14 @@ public class TransactionService {
         }
         // Edited by the user: the bank no longer changes or deletes it
         transaction.setHold(false);
+        boolean adjustment = Boolean.TRUE.equals(request.adjustment());
+        if (adjustment
+                && (request.type() == TransactionType.TRANSFER
+                        || request.categoryId() != null
+                        || (request.splits() != null && !request.splits().isEmpty()))) {
+            throw ApiException.invalid("adjustment", "error.transaction.adjustment");
+        }
+        transaction.setAdjustment(adjustment);
         transaction.setType(request.type());
         transaction.setDate(request.date());
         transaction.setAccount(account);

@@ -76,6 +76,10 @@
           "openingBalance" : {
             "type" : "number"
           },
+          "operations" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
           "sortOrder" : {
             "format" : "int32",
             "type" : "integer"
@@ -85,7 +89,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "archived", "availableCredit", "balance", "balanceInBase", "creditLimit", "currency", "id", "inBudget", "interestRate", "name", "openingBalance", "sortOrder", "type" ],
+        "required" : [ "archived", "availableCredit", "balance", "balanceInBase", "creditLimit", "currency", "id", "inBudget", "interestRate", "name", "openingBalance", "operations", "sortOrder", "type" ],
         "type" : "object"
       },
       "AccountSummaryResponse" : {
@@ -856,7 +860,7 @@
             "type" : "string"
           },
           "syncMode" : {
-            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK", "MANUAL" ],
             "type" : "string"
           },
           "token" : {
@@ -906,12 +910,16 @@
             "format" : "date-time",
             "type" : [ "string", "null" ]
           },
+          "nextRequestAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
           "nextSyncAt" : {
             "format" : "date-time",
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "syncMode" : {
-            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK", "MANUAL" ],
             "type" : "string"
           },
           "webhook" : {
@@ -928,7 +936,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "accounts", "clientName", "connectedAt", "dailyAt", "lastError", "lastRequestAt", "nextSyncAt", "syncMode", "webhook", "windowEnd", "windowStart" ],
+        "required" : [ "accounts", "clientName", "connectedAt", "dailyAt", "lastError", "lastRequestAt", "nextRequestAt", "nextSyncAt", "syncMode", "webhook", "windowEnd", "windowStart" ],
         "type" : "object"
       },
       "ContributionRequest" : {
@@ -1270,9 +1278,15 @@
           "date" : {
             "format" : "date",
             "type" : "string"
+          },
+          "operations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ForecastOperation"
+            },
+            "type" : "array"
           }
         },
-        "required" : [ "actual", "balance", "date" ],
+        "required" : [ "actual", "balance", "date", "operations" ],
         "type" : "object"
       },
       "ForecastEvent" : {
@@ -1300,6 +1314,26 @@
           }
         },
         "required" : [ "amount", "categoryId", "date", "name", "overdue", "recurringId" ],
+        "type" : "object"
+      },
+      "ForecastOperation" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "amount", "categoryId", "id", "name" ],
         "type" : "object"
       },
       "ForecastResponse" : {
@@ -3730,7 +3764,7 @@
             "type" : "string"
           },
           "syncMode" : {
-            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK" ],
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK", "MANUAL" ],
             "type" : "string"
           },
           "windowEnd" : {
@@ -4255,6 +4289,20 @@
         "required" : [ "accessToken", "expiresIn", "refreshToken", "tokenType", "trustedDeviceToken" ],
         "type" : "object"
       },
+      "TransactionBatchRequest" : {
+        "properties" : {
+          "transactions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TransactionRequest"
+            },
+            "maxItems" : 100,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        },
+        "required" : [ "transactions" ],
+        "type" : "object"
+      },
       "TransactionMarkRequest" : {
         "properties" : {
           "included" : {
@@ -4268,6 +4316,9 @@
           "accountId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "adjustment" : {
+            "type" : "boolean"
           },
           "amount" : {
             "exclusiveMinimum" : 0,
@@ -4340,6 +4391,9 @@
           "accountId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "adjustment" : {
+            "type" : "boolean"
           },
           "amount" : {
             "type" : "number"
@@ -4414,7 +4468,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "accountId", "amount", "comment", "createdAt", "currency", "date", "id", "originalAmount", "originalCurrency", "payee", "recurring", "source", "splits", "tagIds", "toAccountId", "toAmount", "toCurrency", "type" ],
+        "required" : [ "accountId", "adjustment", "amount", "comment", "createdAt", "currency", "date", "id", "originalAmount", "originalCurrency", "payee", "recurring", "source", "splits", "tagIds", "toAccountId", "toAmount", "toCurrency", "type" ],
         "type" : "object"
       },
       "TransactionTaxResponse" : {
@@ -5598,7 +5652,7 @@
     },
     "/api/v1/banks/monobank/schedule" : {
       "put" : {
-        "description" : "INTERVAL: every 15 minutes from windowStart to windowEnd (Kyiv time) and once at night halfway between windowEnd and windowStart; DAILY: once a day at dailyAt; WEBHOOK: the bank pushes new operations (needs the public URL of the server) and the accounts are also checked once a day at dailyAt. Omitted times are kept.",
+        "description" : "INTERVAL: every 15 minutes from windowStart to windowEnd (Kyiv time) and once at night halfway between windowEnd and windowStart; DAILY: once a day at dailyAt; WEBHOOK: the bank pushes new operations (needs the public URL of the server) and the accounts are also checked once a day at dailyAt; MANUAL: only on request. Omitted times are kept.",
         "operationId" : "schedule",
         "requestBody" : {
           "content" : {
@@ -5626,6 +5680,29 @@
           "bearer" : [ ]
         } ],
         "summary" : "Change when Monobank is synchronized",
+        "tags" : [ "Monobank" ]
+      }
+    },
+    "/api/v1/banks/monobank/sync" : {
+      "post" : {
+        "description" : "The accounts are requested in the background as soon as the bank allows the next request (one a minute), see nextRequestAt; in any mode.",
+        "operationId" : "syncNow",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConnectionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Synchronize now",
         "tags" : [ "Monobank" ]
       }
     },
@@ -9388,6 +9465,42 @@
         "security" : [ {
           "bearer" : [ ]
         } ],
+        "tags" : [ "Transactions" ]
+      }
+    },
+    "/api/v1/transactions/batch" : {
+      "post" : {
+        "description" : "All of them are created, or none when one is invalid: the field of a violation is then transactions[i].field.",
+        "operationId" : "createBatch",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TransactionBatchRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/TransactionResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Create several transactions at once",
         "tags" : [ "Transactions" ]
       }
     },

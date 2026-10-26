@@ -77,7 +77,7 @@ public interface PlanningRepository extends Repository<Transaction, Long> {
             select t.id as id, t.date as date, t.account.id as accountId, t.amount as amount
             from Transaction t
             where t.userId = :userId and t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.EXPENSE
-              and t.date between :from and :to""")
+              and t.adjustment = false and t.date between :from and :to""")
     List<Expense> findExpenses(Long userId, LocalDate from, LocalDate to);
 
     /** Date of the newest transaction of the user, possibly ahead of today. */
@@ -100,6 +100,14 @@ public interface PlanningRepository extends Repository<Transaction, Long> {
               and s.category is not null and t.date between :from and :to and a.inBudget = true
             group by t.date, a.currency, s.category.id""")
     List<CategoryAmount> findRecurringExpenses(Long userId, LocalDate from, LocalDate to);
+
+    /** Transactions from the date on with their accounts, payees and splits, oldest first. */
+    @Query("""
+            select distinct t from Transaction t join fetch t.account left join fetch t.toAccount
+              left join fetch t.payee left join fetch t.splits
+            where t.userId = :userId and t.date >= :from
+            order by t.date, t.id""")
+    List<Transaction> findFrom(Long userId, LocalDate from);
 
     interface CategoryAmount {
         LocalDate getDate();

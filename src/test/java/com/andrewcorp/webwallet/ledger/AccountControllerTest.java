@@ -103,6 +103,28 @@ class AccountControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void countsTheOperationsOfEveryAccount() throws Exception {
+        Long card = createAccount(auth, "Card", "CARD", "UAH", 100);
+        Long cash = createAccount(auth, "Cash", "CASH", "UAH", 0);
+        Long unused = createAccount(auth, "Unused", "CASH", "UAH", 0);
+        Map<String, Object> expense = Map.of("type", "EXPENSE", "date", "2026-10-01", "accountId", card, "amount", 1);
+        json(postJson("/api/v1/transactions", expense, auth), 201);
+        json(postJson("/api/v1/transactions", expense, auth), 201);
+        Map<String, Object> transfer =
+                Map.of("type", "TRANSFER", "date", "2026-10-02", "accountId", card, "toAccountId", cash, "amount", 10);
+        json(postJson("/api/v1/transactions", transfer, auth), 201);
+
+        mockMvc.perform(get("/api/v1/accounts").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].operations").value(3))
+                .andExpect(jsonPath("$[1].operations").value(1))
+                .andExpect(jsonPath("$[2].operations").value(0));
+        mockMvc.perform(get("/api/v1/accounts/" + cash).header("Authorization", auth))
+                .andExpect(jsonPath("$.operations").value(1));
+        assertThat(unused).isNotNull();
+    }
+
+    @Test
     void listReturnsOnlyOwnAccountsSorted() throws Exception {
         Map<String, Object> second = account("Second", "CASH", "UAH");
         second.put("sortOrder", 2);

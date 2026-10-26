@@ -131,7 +131,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     @Query("""
             select t from Transaction t join t.splits s
             where t.userId = :userId and t.type <> com.andrewcorp.webwallet.ledger.transaction.TransactionType.TRANSFER
-              and s.category is null and size(t.splits) = 1""")
+              and t.adjustment = false and s.category is null and size(t.splits) = 1""")
     List<Transaction> findUncategorized(Long userId);
 
     /**
@@ -142,7 +142,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             select distinct t from Transaction t join fetch t.account left join fetch t.payee
               left join fetch t.splits s left join fetch s.category
             where t.userId = :userId and t.date between :from and :to
-              and (t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.INCOME or t.id in :ids)""")
+              and ((t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.INCOME
+                    and t.adjustment = false) or t.id in :ids)""")
     List<Transaction> findTaxCandidates(Long userId, LocalDate from, LocalDate to, Collection<Long> ids);
 
     /** Category of the latest categorized transaction with this payee, to categorize new ones the same way. */
@@ -186,12 +187,29 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
 
     boolean existsByAccountIdOrToAccountId(Long accountId, Long toAccountId);
 
+    /** Number of transactions of each account as the source account. */
+    @Query("select t.account.id as accountId, count(t) as count from Transaction t"
+            + " where t.userId = :userId group by t.account.id")
+    List<AccountCount> sourceCounts(Long userId);
+
+    /** Number of transfers into each account. */
+    @Query("select t.toAccount.id as accountId, count(t) as count from Transaction t"
+            + " where t.userId = :userId and t.toAccount is not null group by t.toAccount.id")
+    List<AccountCount> targetCounts(Long userId);
+
     /** Ids of all bank operations of the user, to recognize many operations of an import at once. */
     @Query("select t.bankId from Transaction t where t.userId = :userId and t.bankId is not null")
     Set<String> findBankIds(Long userId);
 
     @Query("select t.toBankId from Transaction t where t.userId = :userId and t.toBankId is not null")
     Set<String> findToBankIds(Long userId);
+
+    interface AccountCount {
+
+        Long getAccountId();
+
+        long getCount();
+    }
 
     interface AccountChange {
 

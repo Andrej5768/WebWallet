@@ -16,6 +16,7 @@ import java.util.List;
  * When a connection is synchronized, in Kyiv time. {@link SyncMode#INTERVAL}: every 15 minutes from the start of the
  * window to its end, and once at night, halfway between the end of the window and its next start (03:30 for the
  * default 08:00–23:00). {@link SyncMode#DAILY} and {@link SyncMode#WEBHOOK}: once a day at the daily time.
+ * {@link SyncMode#MANUAL}: never, the user asks for a synchronization.
  */
 final class SyncSchedule {
 
@@ -33,8 +34,11 @@ final class SyncSchedule {
                 after);
     }
 
-    /** The first synchronization strictly after the moment. */
+    /** The first synchronization strictly after the moment; null when the connection is synchronized by hand only. */
     static Instant next(SyncMode mode, LocalTime windowStart, LocalTime windowEnd, LocalTime dailyAt, Instant after) {
+        if (mode == SyncMode.MANUAL) {
+            return null;
+        }
         LocalDate today = after.atZone(ZONE).toLocalDate();
         Instant next = null;
         // The night run of the day before may fall on today

@@ -13,6 +13,7 @@ import com.andrewcorp.webwallet.ledger.account.dto.AccountResponse;
 import com.andrewcorp.webwallet.ledger.account.dto.AccountSummaryResponse;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository.AccountChange;
+import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository.AccountCount;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -56,10 +57,14 @@ public class AccountService {
     @Transactional(readOnly = true)
     public List<AccountResponse> list(Long userId) {
         Map<Long, BigDecimal> balances = balances(userId);
+        Map<Long, Long> operations = operationCounts(userId);
         CurrencyConverter converter = converter(userId);
         return accounts.findByUserIdOrderBySortOrderAscIdAsc(userId).stream()
                 .map(account -> response(
-                        account, balances.getOrDefault(account.getId(), account.getOpeningBalance()), converter))
+                        account,
+                        balances.getOrDefault(account.getId(), account.getOpeningBalance()),
+                        converter,
+                        operations.getOrDefault(account.getId(), 0L)))
                 .toList();
     }
 
@@ -114,7 +119,7 @@ public class AccountService {
         }
         Account account = new Account(userId, request.name().trim(), request.type(), request.currency());
         apply(account, request);
-        return response(accounts.save(account), account.getOpeningBalance(), converter(userId));
+        return response(accounts.save(account), account.getOpeningBalance(), converter(userId), 0L);
     }
 
     @Transactional
@@ -208,12 +213,29 @@ public class AccountService {
         return response(
                 account,
                 balances(userId).getOrDefault(account.getId(), account.getOpeningBalance()),
-                converter(userId));
+                converter(userId),
+                operationCounts(userId).getOrDefault(account.getId(), 0L));
     }
 
-    private AccountResponse response(Account account, BigDecimal balance, CurrencyConverter converter) {
+    private AccountResponse response(
+            Account account, BigDecimal balance, CurrencyConverter converter, long operations) {
         return AccountResponse.from(
-                account, balance, converter.convertIfKnown(balance, account.getCurrency(), LocalDate.now(clock)));
+                account,
+                balance,
+                converter.convertIfKnown(balance, account.getCurrency(), LocalDate.now(clock)),
+                operations);
+    }
+
+    /** Number of transactions of every account, as the source account or the target of transfers. */
+    private Map<Long, Long> operationCounts(Long userId) {
+        Map<Long, Long> counts = new HashMap<>();
+        for (AccountCount count : transactions.sourceCounts(userId)) {
+            counts.merge(count.getAccountId(), count.getCount(), Long::sum);
+        }
+        for (AccountCount count : transactions.targetCounts(userId)) {
+            counts.merge(count.getAccountId(), count.getCount(), Long::sum);
+        }
+        return counts;
     }
 
     private CurrencyConverter converter(Long userId) {
