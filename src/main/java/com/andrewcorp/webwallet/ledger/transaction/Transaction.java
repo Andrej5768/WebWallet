@@ -114,6 +114,13 @@ public class Transaction {
     /** Classification of the operation by the bank, e.g. "Супермаркети та продукти". */
     private String bankCategory;
 
+    /**
+     * A balance correction, e.g. to match the balance a bank reports: counted in the balance of the account, left out
+     * of the reports, the budget, the forecast and the taxes.
+     */
+    @Column(nullable = false)
+    private boolean adjustment;
+
     @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id")
     private List<TransactionSplit> splits = new ArrayList<>();
@@ -305,6 +312,14 @@ public class Transaction {
 
     public void setHold(boolean hold) {
         this.hold = hold;
+    }
+
+    public boolean isAdjustment() {
+        return adjustment;
+    }
+
+    public void setAdjustment(boolean adjustment) {
+        this.adjustment = adjustment;
     }
 
     public String getToExternalId() {

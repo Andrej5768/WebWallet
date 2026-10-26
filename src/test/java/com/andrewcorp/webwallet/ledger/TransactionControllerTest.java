@@ -590,6 +590,81 @@ class TransactionControllerTest extends AbstractIntegrationTest {
         assertThat(ids("q=nothing")).isEmpty();
     }
 
+    // balance corrections and batches
+
+    @Test
+    void adjustmentIsCountedInTheBalanceOnly() throws Exception {
+        Map<String, Object> body = expense(card, 100);
+        body.put("adjustment", true);
+        mockMvc.perform(postJson("/api/v1/transactions", body, auth))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.adjustment").value(true))
+                .andExpect(jsonPath("$.splits[0].categoryId").doesNotExist());
+        Map<String, Object> income = expense(card, 30);
+        income.put("type", "INCOME");
+        income.put("adjustment", true);
+        json(postJson("/api/v1/transactions", income, auth), 201);
+        Map<String, Object> real = expense(card, 10);
+        real.put("categoryId", groceries);
+        json(postJson("/api/v1/transactions", real, auth), 201);
+
+        assertThat(balance(card)).isEqualTo(920);
+        String period = "?from=2026-10-01&to=2026-10-31";
+        mockMvc.perform(get("/api/v1/reports/income-expense" + period).header("Authorization", auth))
+                .andExpect(jsonPath("$.income").value(0))
+                .andExpect(jsonPath("$.expense").value(10));
+        mockMvc.perform(get("/api/v1/reports/spending" + period).header("Authorization", auth))
+                .andExpect(jsonPath("$.total").value(10))
+                .andExpect(jsonPath("$.uncategorized").value(0));
+
+        // A correction has no category and is not a transfer
+        body.put("categoryId", groceries);
+        mockMvc.perform(postJson("/api/v1/transactions", body, auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("adjustment"));
+        Map<String, Object> transfer = expense(card, 100);
+        transfer.put("type", "TRANSFER");
+        transfer.put("toAccountId", cash);
+        transfer.put("adjustment", true);
+        mockMvc.perform(postJson("/api/v1/transactions", transfer, auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("adjustment"));
+    }
+
+    @Test
+    void batchCreatesAllOrNothing() throws Exception {
+        Map<String, Object> first = expense(card, 100);
+        first.put("categoryId", groceries);
+        Map<String, Object> second = expense(cash, 20);
+        second.put("type", "INCOME");
+        second.put("categoryId", salary);
+        second.put("payeeName", "Client");
+
+        mockMvc.perform(postJson("/api/v1/transactions/batch", Map.of("transactions", List.of(first, second)), auth))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].amount").value(100))
+                .andExpect(jsonPath("$[1].payee.name").value("Client"));
+        assertThat(balance(card)).isEqualTo(900);
+        assertThat(balance(cash)).isEqualTo(20);
+
+        // The second one is invalid: the first is not created either
+        Map<String, Object> wrongCategory = expense(card, 5);
+        wrongCategory.put("categoryId", salary);
+        mockMvc.perform(postJson(
+                        "/api/v1/transactions/batch", Map.of("transactions", List.of(first, wrongCategory)), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("transactions[1].categoryId"));
+        Map<String, Object> noAmount = new HashMap<>(first);
+        noAmount.remove("amount");
+        mockMvc.perform(postJson("/api/v1/transactions/batch", Map.of("transactions", List.of(first, noAmount)), auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("transactions[1].amount"));
+        mockMvc.perform(postJson("/api/v1/transactions/batch", Map.of("transactions", List.of()), auth))
+                .andExpect(status().isBadRequest());
+        assertThat(balance(card)).isEqualTo(900);
+    }
+
     @SuppressWarnings("unchecked")
     private List<Long> ids(String query) throws Exception {
         Map<String, Object> page = json(get("/api/v1/transactions?" + query).header("Authorization", auth), 200);

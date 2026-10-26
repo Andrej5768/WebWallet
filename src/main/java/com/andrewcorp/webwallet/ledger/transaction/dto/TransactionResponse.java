@@ -29,6 +29,7 @@ public record TransactionResponse(
         List<SplitResponse> splits,
         List<Long> tagIds,
         TransactionSource source,
+        boolean adjustment,
         Instant createdAt,
         @Schema(nullable = true) RecurringRef recurring) {
 
@@ -76,6 +77,7 @@ public record TransactionResponse(
                 t.getSplits().stream().map(SplitResponse::from).toList(),
                 t.getTags().stream().map(Tag::getId).sorted().toList(),
                 t.getSource(),
+                t.isAdjustment(),
                 t.getCreatedAt(),
                 recurring);
     }

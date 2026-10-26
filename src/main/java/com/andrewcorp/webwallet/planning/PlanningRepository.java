@@ -77,7 +77,7 @@ public interface PlanningRepository extends Repository<Transaction, Long> {
             select t.id as id, t.date as date, t.account.id as accountId, t.amount as amount
             from Transaction t
             where t.userId = :userId and t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.EXPENSE
-              and t.date between :from and :to""")
+              and t.adjustment = false and t.date between :from and :to""")
     List<Expense> findExpenses(Long userId, LocalDate from, LocalDate to);
 
     /** Date of the newest transaction of the user, possibly ahead of today. */

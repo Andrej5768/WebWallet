@@ -21,7 +21,8 @@ public interface ReportRepository extends Repository<Transaction, Long> {
             select t.date as date, a.currency as currency, t.type as type, c.id as categoryId, c.kind as kind,
                    sum(s.amount) as amount
             from TransactionSplit s join s.transaction t join t.account a left join s.category c
-            where t.userId = :userId and t.type <> :transfer and t.date between :from and :to
+            where t.userId = :userId and t.type <> :transfer and t.adjustment = false
+              and t.date between :from and :to
             group by t.date, a.currency, t.type, c.id, c.kind""")
     List<SplitRow> findSplits(Long userId, LocalDate from, LocalDate to, TransactionType transfer);
 
@@ -35,7 +36,7 @@ public interface ReportRepository extends Repository<Transaction, Long> {
                             then s.amount else -s.amount end) as amount,
                    count(distinct t.id) as transactions
             from TransactionSplit s join s.transaction t join t.payee p join t.account a left join s.category c
-            where t.userId = :userId and t.date between :from and :to
+            where t.userId = :userId and t.date between :from and :to and t.adjustment = false
               and (t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.EXPENSE
                    or (t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.INCOME
                        and c.kind = com.andrewcorp.webwallet.ledger.category.CategoryKind.EXPENSE))

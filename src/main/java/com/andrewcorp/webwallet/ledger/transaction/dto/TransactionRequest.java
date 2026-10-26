@@ -21,6 +21,9 @@ import java.util.List;
  * @param splits           breakdown of an expense or income by category; the amounts must sum up to {@code amount}
  * @param payeeId          existing payee
  * @param payeeName        payee by name, created if it does not exist; used when {@code payeeId} is empty
+ * @param adjustment       a balance correction, e.g. to match the balance reported by a bank: an expense or income
+ *                         without a category, counted in the balance of the account but left out of the reports, the
+ *                         budget, the forecast and the taxes
  */
 public record TransactionRequest(
         @NotNull TransactionType type,
@@ -38,7 +41,8 @@ public record TransactionRequest(
         Long payeeId,
         @Size(max = 200) String payeeName,
         @Size(max = 1000) String comment,
-        @Size(max = 50) List<Long> tagIds) {
+        @Size(max = 50) List<Long> tagIds,
+        Boolean adjustment) {
 
     public record SplitRequest(
             Long categoryId,

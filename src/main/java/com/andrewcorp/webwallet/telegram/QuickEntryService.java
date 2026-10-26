@@ -174,6 +174,7 @@ class QuickEntryService {
                 guess.payee() != null ? guess.payee().getId() : null,
                 null,
                 description,
+                null,
                 null);
         Long id = transactionService.create(userId, request).id();
         Transaction transaction = transactions.findById(id).orElseThrow();
@@ -414,7 +415,8 @@ class QuickEntryService {
                                 : null,
                         null,
                         transaction.getComment(),
-                        transaction.getTags().stream().map(Tag::getId).toList()));
+                        transaction.getTags().stream().map(Tag::getId).toList(),
+                        transaction.isAdjustment()));
     }
 
     private Account sameCurrency(Transaction transaction, Long accountId) {
