@@ -6,9 +6,11 @@ import com.andrewcorp.webwallet.ledger.account.Account;
 import com.andrewcorp.webwallet.ledger.account.AccountRepository;
 import com.andrewcorp.webwallet.ledger.account.AccountService;
 import com.andrewcorp.webwallet.ledger.account.AccountType;
+import com.andrewcorp.webwallet.ledger.transaction.Transaction;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionType;
 import com.andrewcorp.webwallet.planning.ForecastDtos.ForecastDay;
 import com.andrewcorp.webwallet.planning.ForecastDtos.ForecastEvent;
+import com.andrewcorp.webwallet.planning.ForecastDtos.ForecastOperation;
 import com.andrewcorp.webwallet.planning.ForecastDtos.ForecastResponse;
 import com.andrewcorp.webwallet.planning.PlanningRepository.DayChange;
 import com.andrewcorp.webwallet.planning.PlanningRepository.Expense;
@@ -113,9 +115,10 @@ public class ForecastService {
             balance = balance.subtract(later);
         }
         BigDecimal todayBalance = balance;
+        Map<LocalDate, List<ForecastOperation>> operations = operationsByDay(userId, first, scope, converter, today);
         List<ForecastDay> actual = new ArrayList<>();
         for (LocalDate date = today; !date.isBefore(first); date = date.minusDays(1)) {
-            actual.add(0, new ForecastDay(date, balance, true));
+            actual.add(0, new ForecastDay(date, balance, true, operations.getOrDefault(date, List.of())));
             balance = balance.subtract(changes.getOrDefault(date, BigDecimal.ZERO));
         }
 
@@ -145,7 +148,7 @@ public class ForecastService {
             balance = balance.subtract(daily)
                     .add(eventsByDay.getOrDefault(date, BigDecimal.ZERO))
                     .add(changes.getOrDefault(date, BigDecimal.ZERO));
-            ForecastDay day = new ForecastDay(date, balance, false);
+            ForecastDay day = new ForecastDay(date, balance, false, operations.getOrDefault(date, List.of()));
             days.add(day);
             if (lowest == null || balance.compareTo(lowest.balance()) < 0) {
                 lowest = day;
@@ -179,6 +182,53 @@ public class ForecastService {
         }
         long days = ChronoUnit.DAYS.between(from, today) + 1;
         return total.divide(BigDecimal.valueOf(days), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * The transactions from the date on that change the money of the accounts, by day, in the base currency at
+     * today's rate like the balances of the days.
+     */
+    private Map<LocalDate, List<ForecastOperation>> operationsByDay(
+            Long userId, LocalDate from, Map<Long, Account> scope, CurrencyConverter converter, LocalDate today) {
+        Map<LocalDate, List<ForecastOperation>> byDay = new HashMap<>();
+        for (Transaction transaction : planning.findFrom(userId, from)) {
+            BigDecimal amount = effect(transaction, scope, converter, today);
+            if (amount.signum() == 0) {
+                continue;
+            }
+            String name =
+                    transaction.getPayee() != null ? transaction.getPayee().getName() : transaction.getComment();
+            Long categoryId = transaction.singleCategory() == null
+                    ? null
+                    : transaction.singleCategory().getId();
+            byDay.computeIfAbsent(transaction.getDate(), date -> new ArrayList<>())
+                    .add(new ForecastOperation(transaction.getId(), name, categoryId, amount));
+        }
+        return byDay;
+    }
+
+    /** How the transaction changed the money of the accounts, in the base currency; 0 between two of them. */
+    private static BigDecimal effect(
+            Transaction transaction, Map<Long, Account> scope, CurrencyConverter converter, LocalDate date) {
+        Account source = scope.get(transaction.getAccount().getId());
+        if (transaction.getType() != TransactionType.TRANSFER) {
+            if (source == null) {
+                return BigDecimal.ZERO;
+            }
+            BigDecimal amount = converter.convert(transaction.getAmount(), source.getCurrency(), date);
+            return transaction.getType() == TransactionType.INCOME ? amount : amount.negate();
+        }
+        Account target = transaction.getToAccount() == null
+                ? null
+                : scope.get(transaction.getToAccount().getId());
+        if ((source != null) == (target != null)) {
+            return BigDecimal.ZERO;
+        }
+        return source != null
+                ? converter
+                        .convert(transaction.getAmount(), source.getCurrency(), date)
+                        .negate()
+                : converter.convert(transaction.getToAmount(), target.getCurrency(), date);
     }
 
     /** How the occurrence changes the money of the accounts, in the base currency; 0 between two of them. */

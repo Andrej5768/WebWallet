@@ -12,6 +12,7 @@ import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -98,6 +99,18 @@ class ForecastControllerTest extends AbstractIntegrationTest {
         List<Map<String, Object>> events = (List<Map<String, Object>>) forecast.get("events");
         assertThat(events).extracting(event -> event.get("name")).containsExactly("Rent", "Savings", "Salary");
         assertThat(number(events.get(1).get("amount"))).isEqualTo(-1000);
+
+        // The operations of the day that moved the money of cash and cards, also those entered ahead of time
+        List<Map<String, Object>> operations =
+                (List<Map<String, Object>>) days.get(4).get("operations");
+        assertThat(operations).hasSize(1);
+        assertThat(number(operations.get(0).get("amount"))).isEqualTo(-900);
+        assertThat(days.get(11).get("operations"))
+                .asInstanceOf(InstanceOfAssertFactories.LIST)
+                .isEmpty();
+        operations = (List<Map<String, Object>>) days.get(19).get("operations");
+        assertThat(operations).hasSize(1);
+        assertThat(number(operations.get(0).get("amount"))).isEqualTo(-100);
 
         Map<String, Object> lowest = (Map<String, Object>) forecast.get("lowest");
         assertThat(lowest).containsEntry("date", "2030-01-29");

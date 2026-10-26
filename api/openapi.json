@@ -1278,9 +1278,15 @@
           "date" : {
             "format" : "date",
             "type" : "string"
+          },
+          "operations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ForecastOperation"
+            },
+            "type" : "array"
           }
         },
-        "required" : [ "actual", "balance", "date" ],
+        "required" : [ "actual", "balance", "date", "operations" ],
         "type" : "object"
       },
       "ForecastEvent" : {
@@ -1308,6 +1314,26 @@
           }
         },
         "required" : [ "amount", "categoryId", "date", "name", "overdue", "recurringId" ],
+        "type" : "object"
+      },
+      "ForecastOperation" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "amount", "categoryId", "id", "name" ],
         "type" : "object"
       },
       "ForecastResponse" : {
