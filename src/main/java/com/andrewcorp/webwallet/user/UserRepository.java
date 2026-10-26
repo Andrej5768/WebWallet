@@ -16,6 +16,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("select u.id from User u where u.deletionScheduledAt < :now")
     List<Long> findIdsScheduledBefore(Instant now);
 
+    @Query("select u.id from User u where u.demoExpiresAt < :now")
+    List<Long> findDemoIdsExpiredBefore(Instant now);
+
     /** The token version of an enabled user, used to validate access tokens. */
     @Query("select u.tokenVersion from User u where u.id = :id and u.enabled = true")
     Optional<Integer> findActiveTokenVersion(Long id);

@@ -19,7 +19,18 @@ public record AppProperties(
         @NotNull Auth auth,
         @NotNull Google google,
         @NotNull Telegram telegram,
-        @NotNull Android android) {
+        @NotNull Android android,
+        @NotNull Demo demo) {
+
+    /**
+     * The demo sandbox: an account opened without registration, filled with example data and deleted after
+     * {@code ttl}. {@code maxPerIp} sandboxes per {@code window} from one client IP.
+     */
+    public record Demo(
+            @DefaultValue("true") boolean enabled,
+            @DefaultValue("24h") @NotNull Duration ttl,
+            @DefaultValue("5") @Positive int maxPerIp,
+            @DefaultValue("1h") @NotNull Duration window) {}
 
     /** A page of the web client, e.g. {@code /transactions}; a slash at the end of the configured URL is ignored. */
     public String frontendUrl(String path) {

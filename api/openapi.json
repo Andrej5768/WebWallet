@@ -183,6 +183,9 @@
       },
       "AppFeatures" : {
         "properties" : {
+          "demo" : {
+            "type" : "boolean"
+          },
           "googleSignIn" : {
             "type" : "boolean"
           },
@@ -196,7 +199,7 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "googleSignIn", "marketSearch", "push", "telegram" ],
+        "required" : [ "demo", "googleSignIn", "marketSearch", "push", "telegram" ],
         "type" : "object"
       },
       "ApplyResponse" : {
@@ -220,11 +223,14 @@
       },
       "AuthOptionsResponse" : {
         "properties" : {
+          "demo" : {
+            "type" : "boolean"
+          },
           "googleSignIn" : {
             "type" : "boolean"
           }
         },
-        "required" : [ "googleSignIn" ],
+        "required" : [ "demo", "googleSignIn" ],
         "type" : "object"
       },
       "BenchmarkInfo" : {
@@ -747,6 +753,28 @@
           }
         },
         "required" : [ "currentPassword", "newPassword" ],
+        "type" : "object"
+      },
+      "ClaimRequest" : {
+        "properties" : {
+          "email" : {
+            "format" : "email",
+            "maxLength" : 254,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "firstName" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "password" : {
+            "maxLength" : 72,
+            "minLength" : 8,
+            "type" : "string"
+          }
+        },
+        "required" : [ "email", "firstName", "password" ],
         "type" : "object"
       },
       "CompareDay" : {
@@ -4676,6 +4704,13 @@
             "format" : "date-time",
             "type" : "string"
           },
+          "demo" : {
+            "type" : "boolean"
+          },
+          "demoExpiresAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
           "email" : {
             "type" : "string"
           },
@@ -4713,7 +4748,7 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "baseCurrency", "createdAt", "email", "emailVerified", "firstName", "googleEmail", "hasPassword", "id", "lastName", "locale", "recoveryCodesLeft", "role", "twoFactorEnabled" ],
+        "required" : [ "baseCurrency", "createdAt", "demo", "demoExpiresAt", "email", "emailVerified", "firstName", "googleEmail", "hasPassword", "id", "lastName", "locale", "recoveryCodesLeft", "role", "twoFactorEnabled" ],
         "type" : "object"
       },
       "VerifyEmailRequest" : {
@@ -5149,6 +5184,26 @@
         },
         "summary" : "Versions and features for the native apps",
         "tags" : [ "App" ]
+      }
+    },
+    "/api/v1/auth/demo" : {
+      "post" : {
+        "description" : "Public. Creates an account with example data in the language of Accept-Language and starts a session like /api/v1/auth/login; the account is deleted after a day unless it is claimed at /api/v1/me/demo/claim. Limited per client IP; 404 when the demo is off.",
+        "operationId" : "startDemo",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Open a demo sandbox and sign in to it",
+        "tags" : [ "Demo" ]
       }
     },
     "/api/v1/auth/forgot-password" : {
@@ -7571,6 +7626,29 @@
         } ],
         "summary" : "Delete the account",
         "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/demo/claim" : {
+      "post" : {
+        "description" : "The signed-in demo account gets the email and password and stops expiring; its data stays. The email is verified through the usual message. Only a demo account can be claimed.",
+        "operationId" : "claimDemo",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ClaimRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "summary" : "Keep the demo sandbox as an account",
+        "tags" : [ "Demo" ]
       }
     },
     "/api/v1/me/export" : {

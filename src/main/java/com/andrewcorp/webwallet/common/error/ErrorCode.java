@@ -32,6 +32,8 @@ public enum ErrorCode {
     INVALID_EXTERNAL_TOKEN(HttpStatus.BAD_REQUEST, "error.import.token"),
     EXTERNAL_SERVICE_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "error.import.unavailable"),
     INVALID_IMPORT_FILE(HttpStatus.BAD_REQUEST, "error.import.file"),
+    /** The action is not available in a demo account: connecting a bank, Telegram, the export. */
+    DEMO_RESTRICTED(HttpStatus.FORBIDDEN, "error.demoRestricted"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "error.internal");
 
     private final HttpStatus status;

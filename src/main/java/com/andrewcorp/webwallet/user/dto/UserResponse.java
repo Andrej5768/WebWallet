@@ -10,6 +10,7 @@ import java.time.Instant;
  * @param recoveryCodesLeft unused recovery codes, 0 while two-factor authentication is off
  * @param hasPassword false for an account created with Google until a password is set
  * @param googleEmail email of the linked Google account, null when none is linked
+ * @param demo a sandbox opened without registration; {@code demoExpiresAt} says when it is deleted
  */
 public record UserResponse(
         Long id,
@@ -24,7 +25,9 @@ public record UserResponse(
         boolean twoFactorEnabled,
         long recoveryCodesLeft,
         boolean hasPassword,
-        @Schema(nullable = true) String googleEmail) {
+        @Schema(nullable = true) String googleEmail,
+        boolean demo,
+        @Schema(nullable = true) Instant demoExpiresAt) {
 
     public static UserResponse from(User user, long recoveryCodesLeft) {
         return new UserResponse(
@@ -40,6 +43,8 @@ public record UserResponse(
                 user.isTwoFactorEnabled(),
                 recoveryCodesLeft,
                 user.hasPassword(),
-                user.getGoogleEmail());
+                user.getGoogleEmail(),
+                user.isDemo(),
+                user.getDemoExpiresAt());
     }
 }

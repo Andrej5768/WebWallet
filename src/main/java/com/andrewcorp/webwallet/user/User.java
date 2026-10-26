@@ -83,6 +83,9 @@ public class User {
     /** Set when the user asked to delete the account: it is deleted at this moment unless the user cancels. */
     private Instant deletionScheduledAt;
 
+    /** Set for a demo account opened without registration: when it is deleted with all its data. */
+    private Instant demoExpiresAt;
+
     protected User() {}
 
     public User(String email, String passwordHash, String firstName, String lastName, String locale) {
@@ -114,6 +117,11 @@ public class User {
 
     public String getEmail() {
         return email;
+    }
+
+    /** Only when a demo sandbox is claimed; the address of an ordinary account never changes. */
+    public void setEmail(String email) {
+        this.email = normalizeEmail(email);
     }
 
     public String getPasswordHash() {
@@ -252,5 +260,18 @@ public class User {
         this.totpSecret = totpSecret;
         this.totpPendingSecret = null;
         this.totpEnabledAt = totpSecret == null ? null : now;
+    }
+
+    public Instant getDemoExpiresAt() {
+        return demoExpiresAt;
+    }
+
+    public void setDemoExpiresAt(Instant demoExpiresAt) {
+        this.demoExpiresAt = demoExpiresAt;
+    }
+
+    /** A sandbox opened without registration; some features that reach outside are off for it. */
+    public boolean isDemo() {
+        return demoExpiresAt != null;
     }
 }

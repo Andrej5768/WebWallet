@@ -7,6 +7,7 @@ import com.andrewcorp.webwallet.auth.dto.LoginResponse;
 import com.andrewcorp.webwallet.auth.twofactor.TrustedDeviceCookie;
 import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.config.AppProperties;
+import com.andrewcorp.webwallet.demo.DemoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,14 +33,17 @@ public class GoogleController {
     private final GoogleSignInService googleSignIn;
     private final GoogleStateCookie stateCookie;
     private final SessionResponse sessionResponse;
+    private final DemoService demo;
     private final String frontendUrl;
 
     public GoogleController(
             GoogleSignInService googleSignIn,
             GoogleStateCookie stateCookie,
             SessionResponse sessionResponse,
+            DemoService demo,
             AppProperties properties) {
         this.googleSignIn = googleSignIn;
+        this.demo = demo;
         this.stateCookie = stateCookie;
         this.sessionResponse = sessionResponse;
         this.frontendUrl = properties.frontendUrl("");
@@ -48,7 +52,7 @@ public class GoogleController {
     @Operation(summary = "Which ways of signing in this server offers besides the password")
     @GetMapping("/options")
     public AuthOptionsResponse options() {
-        return new AuthOptionsResponse(googleSignIn.enabled());
+        return new AuthOptionsResponse(googleSignIn.enabled(), demo.enabled());
     }
 
     @Operation(

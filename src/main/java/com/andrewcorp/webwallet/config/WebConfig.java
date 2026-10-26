@@ -4,6 +4,7 @@ import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.common.web.ClientInfoResolver;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.common.web.CurrentUserIdResolver;
+import com.andrewcorp.webwallet.demo.DemoRestrictions;
 import com.andrewcorp.webwallet.monitoring.ClientInfoFilter;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -21,6 +22,7 @@ import org.springframework.core.Ordered;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.LocaleResolver;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver;
 
@@ -38,6 +40,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     public static final Locale UKRAINIAN = Locale.forLanguageTag("uk");
 
+    private final DemoRestrictions demoRestrictions;
+
+    public WebConfig(DemoRestrictions demoRestrictions) {
+        this.demoRestrictions = demoRestrictions;
+    }
+
     /** Messages are resolved from the Accept-Language header; English is the default. */
     @Bean
     public LocaleResolver localeResolver() {
@@ -45,6 +53,11 @@ public class WebConfig implements WebMvcConfigurer {
         resolver.setSupportedLocales(List.of(Locale.ENGLISH, UKRAINIAN));
         resolver.setDefaultLocale(Locale.ENGLISH);
         return resolver;
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(demoRestrictions).addPathPatterns("/api/v1/**");
     }
 
     @Override
