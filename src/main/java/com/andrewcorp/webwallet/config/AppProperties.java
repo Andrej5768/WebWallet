@@ -4,7 +4,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.time.Duration;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
@@ -90,13 +92,26 @@ public record AppProperties(
      *
      * @param clientId of the web application client in Google Cloud
      * @param clientSecret of that client
+     * @param androidClientIds the Android clients of the same project, whose ID tokens the apps may present too
      */
     public record Google(
             @DefaultValue("") String clientId,
-            @DefaultValue("") String clientSecret) {
+            @DefaultValue("") String clientSecret,
+            @DefaultValue("") List<String> androidClientIds) {
 
         public boolean enabled() {
             return !clientId.isBlank() && !clientSecret.isBlank();
+        }
+
+        /** The audiences an ID token may carry: the web client and the Android clients. */
+        public Set<String> audiences() {
+            Set<String> all = new LinkedHashSet<>();
+            all.add(clientId);
+            androidClientIds.stream()
+                    .map(String::trim)
+                    .filter(id -> !id.isEmpty())
+                    .forEach(all::add);
+            return all;
         }
     }
 

@@ -2,6 +2,7 @@ package com.andrewcorp.webwallet.auth.google;
 
 import com.andrewcorp.webwallet.auth.SessionResponse;
 import com.andrewcorp.webwallet.auth.dto.AuthOptionsResponse;
+import com.andrewcorp.webwallet.auth.dto.GoogleIdTokenRequest;
 import com.andrewcorp.webwallet.auth.dto.GoogleTicketRequest;
 import com.andrewcorp.webwallet.auth.dto.LoginResponse;
 import com.andrewcorp.webwallet.auth.twofactor.TrustedDeviceCookie;
@@ -52,7 +53,22 @@ public class GoogleController {
     @Operation(summary = "Which ways of signing in this server offers besides the password")
     @GetMapping("/options")
     public AuthOptionsResponse options() {
-        return new AuthOptionsResponse(googleSignIn.enabled(), demo.enabled());
+        return new AuthOptionsResponse(googleSignIn.enabled(), demo.enabled(), googleSignIn.webClientId());
+    }
+
+    @Operation(
+            summary = "Sign in with the Google ID token of a native app",
+            description = "The app gets the ID token from Google itself (Credential Manager with the web client id of"
+                    + " GET /auth/options as the server client). Like the browser flow: the account of the Google"
+                    + " account, else the account with the same verified email, else a new account; a two-factor"
+                    + " challenge when it is on. GOOGLE_EMAIL_UNVERIFIED and GOOGLE_EMAIL_TAKEN say why a sign-in"
+                    + " is refused. Native apps get the refresh token in the body.")
+    @PostMapping("/google/native")
+    public ResponseEntity<LoginResponse> nativeSignIn(
+            @Valid @RequestBody GoogleIdTokenRequest request, ClientInfo client, Locale locale) {
+        return sessionResponse.login(
+                googleSignIn.signInNative(request.idToken(), request.trustedDeviceToken(), client.kind(), locale),
+                client);
     }
 
     @Operation(

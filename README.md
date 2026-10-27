@@ -145,6 +145,10 @@ returned by `GET /api/v1/app/config`)
   the web client sends neither. The server logs the client with every line and error alert. Before signing in the
   apps read `GET /api/v1/app/config` (public): the supported versions of the Android app and which optional features
   (Google sign-in, market search, Telegram, push) are on.
+- Google sign-in from the apps: `POST /api/v1/auth/google/native {idToken, trustedDeviceToken?}` takes the ID token
+  the app got from Google with the web client of `GET /api/v1/auth/options` (`googleWebClientId`) as the server
+  client, and answers like the browser flow; `POST /api/v1/me/google/link/native {idToken, password?, code?}` links
+  the account after the identity check. `GOOGLE_ANDROID_CLIENT_IDS` lists extra audiences the tokens may carry.
 - `Idempotency-Key` (a UUID chosen by the client) on a `POST` that creates something (accounts, transactions and their
   batch, investment operations, goals and contributions, recurring payments, categories, tags, payees, rules, import
   confirmations, budget moves): the same request sent again within a day gets the stored response back with

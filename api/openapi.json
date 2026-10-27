@@ -228,9 +228,12 @@
           },
           "googleSignIn" : {
             "type" : "boolean"
+          },
+          "googleWebClientId" : {
+            "type" : [ "string", "null" ]
           }
         },
-        "required" : [ "demo", "googleSignIn" ],
+        "required" : [ "demo", "googleSignIn", "googleWebClientId" ],
         "type" : "object"
       },
       "BenchmarkInfo" : {
@@ -1553,6 +1556,43 @@
           }
         },
         "required" : [ "currency", "goals", "monthlyNeeded", "saved", "target", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "GoogleIdTokenRequest" : {
+        "properties" : {
+          "idToken" : {
+            "maxLength" : 4096,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "trustedDeviceToken" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "idToken" ],
+        "type" : "object"
+      },
+      "GoogleLinkNativeRequest" : {
+        "properties" : {
+          "code" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "idToken" : {
+            "maxLength" : 4096,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "password" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "idToken" ],
         "type" : "object"
       },
       "GoogleTicketRequest" : {
@@ -5320,6 +5360,36 @@
         "tags" : [ "Authentication" ]
       }
     },
+    "/api/v1/auth/google/native" : {
+      "post" : {
+        "description" : "The app gets the ID token from Google itself (Credential Manager with the web client id of GET /auth/options as the server client). Like the browser flow: the account of the Google account, else the account with the same verified email, else a new account; a two-factor challenge when it is on. GOOGLE_EMAIL_UNVERIFIED and GOOGLE_EMAIL_TAKEN say why a sign-in is refused. Native apps get the refresh token in the body.",
+        "operationId" : "nativeSignIn",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GoogleIdTokenRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Sign in with the Google ID token of a native app",
+        "tags" : [ "Authentication" ]
+      }
+    },
     "/api/v1/auth/google/start" : {
       "get" : {
         "description" : "A link for the browser: redirects to Google and sets a cookie that binds the sign-in to this browser. Not found when sign-in with Google is not configured.",
@@ -7791,6 +7861,32 @@
           "bearer" : [ ]
         } ],
         "summary" : "Start linking a Google account",
+        "tags" : [ "Current user" ]
+      }
+    },
+    "/api/v1/me/google/link/native" : {
+      "post" : {
+        "description" : "The ID token the app got from Google, after the same identity check as the browser link. GOOGLE_ACCOUNT_TAKEN when the Google account belongs to another user.",
+        "operationId" : "linkNative",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GoogleLinkNativeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Link the Google account of a native app",
         "tags" : [ "Current user" ]
       }
     },

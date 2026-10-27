@@ -147,6 +147,49 @@ public class GoogleSignInService {
         return authService.startSession(user, trustedDeviceToken, client);
     }
 
+    /**
+     * Signs in with the ID token a native app got from Google (B3): the account of the Google account, else the
+     * account with the same verified email, else a new one; then the session or the second step of two-factor.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
+    public AuthService.LoginResult signInNative(
+            String idToken, String trustedDeviceToken, ClientInfo.Kind client, Locale locale) {
+        GoogleIdentity identity = google.verifyIdToken(idToken);
+        User user = users.findByGoogleSubject(identity.subject()).orElse(null);
+        if (user == null) {
+            if (!identity.emailVerified() || identity.email() == null) {
+                throw new ApiException(ErrorCode.GOOGLE_EMAIL_UNVERIFIED);
+            }
+            Optional<User> existing = users.findByEmail(User.normalizeEmail(identity.email()));
+            if (existing.isPresent() && !existing.get().isEmailVerified()) {
+                throw new ApiException(ErrorCode.GOOGLE_EMAIL_TAKEN);
+            }
+            user = existing.orElseGet(() -> create(identity, locale));
+            user.setGoogleAccount(identity.subject(), identity.email());
+        }
+        if (!user.isEnabled()) {
+            throw new ApiException(ErrorCode.ACCOUNT_DISABLED);
+        }
+        return authService.startSession(user, trustedDeviceToken, client);
+    }
+
+    /** Links the Google account behind the ID token to the signed-in user (B3); the identity was confirmed before. */
+    @Transactional
+    public void linkNative(Long userId, String idToken) {
+        GoogleIdentity identity = google.verifyIdToken(idToken);
+        User user = users.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
+        Optional<User> owner = users.findByGoogleSubject(identity.subject());
+        if (owner.isPresent() && !owner.get().getId().equals(userId)) {
+            throw new ApiException(ErrorCode.GOOGLE_ACCOUNT_TAKEN);
+        }
+        user.setGoogleAccount(identity.subject(), identity.email());
+    }
+
+    /** The client id the apps hand to Google as the server client, so they do not carry it themselves. */
+    public String webClientId() {
+        return enabled() ? properties.google().clientId() : null;
+    }
+
     /** Unlinks the Google account; an account without a password would be left without a way to sign in. */
     @Transactional
     public void unlink(Long userId) {
