@@ -145,6 +145,12 @@ returned by `GET /api/v1/app/config`)
   the web client sends neither. The server logs the client with every line and error alert. Before signing in the
   apps read `GET /api/v1/app/config` (public): the supported versions of the Android app and which optional features
   (Google sign-in, market search, Telegram, push) are on.
+- `Idempotency-Key` (a UUID chosen by the client) on a `POST` that creates something (accounts, transactions and their
+  batch, investment operations, goals and contributions, recurring payments, categories, tags, payees, rules, import
+  confirmations, budget moves): the same request sent again within a day gets the stored response back with
+  `Idempotency-Replayed: true` instead of creating a second resource; the same key with another request is `409`
+  `IDEMPOTENCY_MISMATCH`. Only successful responses are stored, so a request that failed can be corrected and sent
+  again under its key. The header is meant for the apps retrying after a lost response; the web client does not send it.
 - Budget: in `GET /api/v1/budget/{month}` the `assigned`, `activity` and `available` of a parent category row already
   include its subcategories (own + children); `ownAssigned`, `ownActivity` and `ownAvailable` are the values of the
   parent's own envelope (for a subcategory the same as the totals). `POST /api/v1/budget/{month}/move` with

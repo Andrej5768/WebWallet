@@ -34,6 +34,10 @@ public enum ErrorCode {
     INVALID_IMPORT_FILE(HttpStatus.BAD_REQUEST, "error.import.file"),
     /** The action is not available in a demo account: connecting a bank, Telegram, the export. */
     DEMO_RESTRICTED(HttpStatus.FORBIDDEN, "error.demoRestricted"),
+    /** The Idempotency-Key header of a create request is not a UUID. */
+    INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "error.invalidIdempotencyKey"),
+    /** The Idempotency-Key was already used for another request within the day. */
+    IDEMPOTENCY_MISMATCH(HttpStatus.CONFLICT, "error.idempotencyMismatch"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "error.internal");
 
     private final HttpStatus status;

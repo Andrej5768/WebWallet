@@ -4,6 +4,8 @@ import com.andrewcorp.webwallet.auth.google.GoogleSignInService;
 import com.andrewcorp.webwallet.auth.token.RefreshTokenRepository;
 import com.andrewcorp.webwallet.auth.token.UserTokenRepository;
 import com.andrewcorp.webwallet.auth.twofactor.TrustedDeviceRepository;
+import com.andrewcorp.webwallet.idempotency.IdempotencyFilter;
+import com.andrewcorp.webwallet.idempotency.IdempotencyKeyRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -27,6 +29,7 @@ public class TokenCleanupTask {
     private final RefreshTokenRepository refreshTokens;
     private final TrustedDeviceRepository trustedDevices;
     private final GoogleSignInService googleSignIn;
+    private final IdempotencyKeyRepository idempotencyKeys;
     private final Clock clock;
 
     public TokenCleanupTask(
@@ -34,11 +37,13 @@ public class TokenCleanupTask {
             RefreshTokenRepository refreshTokens,
             TrustedDeviceRepository trustedDevices,
             GoogleSignInService googleSignIn,
+            IdempotencyKeyRepository idempotencyKeys,
             Clock clock) {
         this.userTokens = userTokens;
         this.refreshTokens = refreshTokens;
         this.trustedDevices = trustedDevices;
         this.googleSignIn = googleSignIn;
+        this.idempotencyKeys = idempotencyKeys;
         this.clock = clock;
     }
 
@@ -50,10 +55,12 @@ public class TokenCleanupTask {
         int removedRefreshTokens = refreshTokens.deleteExpired(before);
         int removedDevices = trustedDevices.deleteExpired(clock.instant());
         googleSignIn.purgeExpired(clock.instant());
+        int removedKeys = idempotencyKeys.deleteOlderThan(clock.instant().minus(IdempotencyFilter.RETENTION));
         log.info(
-                "Removed {} stale email tokens, {} expired refresh tokens and {} expired trusted devices",
+                "Removed {} stale email tokens, {} expired refresh tokens, {} expired trusted devices and {} idempotency keys",
                 removedUserTokens,
                 removedRefreshTokens,
-                removedDevices);
+                removedDevices,
+                removedKeys);
     }
 }
