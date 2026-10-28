@@ -212,6 +212,20 @@
         "required" : [ "categorized" ],
         "type" : "object"
       },
+      "AssignManyRequest" : {
+        "properties" : {
+          "plans" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PlanEntry"
+            },
+            "maxItems" : 500,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        },
+        "required" : [ "plans" ],
+        "type" : "object"
+      },
       "AssignRequest" : {
         "properties" : {
           "assigned" : {
@@ -356,6 +370,140 @@
           }
         },
         "required" : [ "account", "cash", "expiresAt", "from", "id", "instruments", "merged", "operations", "providerUnavailable", "source", "to" ],
+        "type" : "object"
+      },
+      "BudgetPlanCell" : {
+        "properties" : {
+          "actual" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "ownActual" : {
+            "type" : "number"
+          },
+          "ownPlan" : {
+            "type" : "number"
+          },
+          "plan" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "actual", "month", "ownActual", "ownPlan", "plan" ],
+        "type" : "object"
+      },
+      "BudgetPlanResponse" : {
+        "properties" : {
+          "averageMonths" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "expenses" : {
+            "items" : {
+              "$ref" : "#/components/schemas/BudgetPlanRow"
+            },
+            "type" : "array"
+          },
+          "income" : {
+            "items" : {
+              "$ref" : "#/components/schemas/BudgetPlanRow"
+            },
+            "type" : "array"
+          },
+          "months" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "totals" : {
+            "items" : {
+              "$ref" : "#/components/schemas/BudgetPlanTotals"
+            },
+            "type" : "array"
+          },
+          "unconvertedCurrencies" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "averageMonths", "currency", "expenses", "income", "months", "totals", "unconvertedCurrencies" ],
+        "type" : "object"
+      },
+      "BudgetPlanRow" : {
+        "properties" : {
+          "archived" : {
+            "type" : "boolean"
+          },
+          "average" : {
+            "type" : "number"
+          },
+          "carryOver" : {
+            "type" : "boolean"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "children" : {
+            "items" : {
+              "$ref" : "#/components/schemas/BudgetPlanRow"
+            },
+            "type" : "array"
+          },
+          "months" : {
+            "items" : {
+              "$ref" : "#/components/schemas/BudgetPlanCell"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "ownAverage" : {
+            "type" : "number"
+          },
+          "parentId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          }
+        },
+        "required" : [ "archived", "average", "carryOver", "categoryId", "children", "months", "name", "ownAverage", "parentId" ],
+        "type" : "object"
+      },
+      "BudgetPlanTotals" : {
+        "properties" : {
+          "expenses" : {
+            "type" : "number"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "plannedExpenses" : {
+            "type" : "number"
+          },
+          "plannedIncome" : {
+            "type" : "number"
+          },
+          "uncategorizedExpenses" : {
+            "type" : "number"
+          },
+          "uncategorizedIncome" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "expenses", "income", "month", "plannedExpenses", "plannedIncome", "uncategorizedExpenses", "uncategorizedIncome" ],
         "type" : "object"
       },
       "CalendarEvent" : {
@@ -1880,6 +2028,44 @@
         "required" : [ "currency", "expense", "from", "income", "months", "net", "savingsRate", "to", "unconvertedCurrencies" ],
         "type" : "object"
       },
+      "IncomeRow" : {
+        "properties" : {
+          "archived" : {
+            "type" : "boolean"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "children" : {
+            "items" : {
+              "$ref" : "#/components/schemas/IncomeRow"
+            },
+            "type" : "array"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "ownPlanned" : {
+            "type" : "number"
+          },
+          "ownReceived" : {
+            "type" : "number"
+          },
+          "parentId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "planned" : {
+            "type" : "number"
+          },
+          "received" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "archived", "categoryId", "children", "name", "ownPlanned", "ownReceived", "parentId", "planned", "received" ],
+        "type" : "object"
+      },
       "InstrumentChoice" : {
         "properties" : {
           "currency" : {
@@ -2264,13 +2450,28 @@
           "currency" : {
             "type" : "string"
           },
+          "income" : {
+            "type" : "number"
+          },
+          "incomeCategories" : {
+            "items" : {
+              "$ref" : "#/components/schemas/IncomeRow"
+            },
+            "type" : "array"
+          },
           "inflow" : {
             "type" : "number"
           },
           "month" : {
             "type" : "string"
           },
+          "plannedIncome" : {
+            "type" : "number"
+          },
           "readyToAssign" : {
+            "type" : "number"
+          },
+          "uncategorizedIncome" : {
             "type" : "number"
           },
           "unconvertedCurrencies" : {
@@ -2280,7 +2481,7 @@
             "type" : "array"
           }
         },
-        "required" : [ "activity", "assigned", "available", "categories", "currency", "inflow", "month", "readyToAssign", "unconvertedCurrencies" ],
+        "required" : [ "activity", "assigned", "available", "categories", "currency", "income", "incomeCategories", "inflow", "month", "plannedIncome", "readyToAssign", "uncategorizedIncome", "unconvertedCurrencies" ],
         "type" : "object"
       },
       "MonthSavings" : {
@@ -3037,6 +3238,19 @@
           }
         },
         "required" : [ "balance", "lastDate", "name", "operations", "payeeId" ],
+        "type" : "object"
+      },
+      "PlanEntry" : {
+        "properties" : {
+          "assigned" : {
+            "type" : "number"
+          },
+          "categoryId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "assigned", "categoryId" ],
         "type" : "object"
       },
       "PlanResponse" : {
@@ -5096,7 +5310,7 @@
     "/api/v1/analytics/plan/{month}" : {
       "get" : {
         "description" : "The plan is the money assigned to the envelopes, the actual value the spending in them. For the current month the forecast continues the spending at its pace so far to the end of the month and adds the planned payments still due.",
-        "operationId" : "plan",
+        "operationId" : "plan_1",
         "parameters" : [ {
           "example" : "2026-10",
           "in" : "path",
@@ -5841,6 +6055,46 @@
         "tags" : [ "Monobank" ]
       }
     },
+    "/api/v1/budget" : {
+      "get" : {
+        "description" : "At most 36 months. Each row also carries the average actual value of the three full months before the current one.",
+        "operationId" : "plan",
+        "parameters" : [ {
+          "example" : "2025-10",
+          "in" : "query",
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "example" : "2027-10",
+          "in" : "query",
+          "name" : "to",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BudgetPlanResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Plan and actual income and spending per category for a range of months",
+        "tags" : [ "Budget" ]
+      }
+    },
     "/api/v1/budget/{month}" : {
       "get" : {
         "operationId" : "month",
@@ -5868,12 +6122,54 @@
         "security" : [ {
           "bearer" : [ ]
         } ],
-        "summary" : "Envelopes of the month: assigned, activity and available per expense category, and the money ready to assign",
+        "summary" : "Envelopes of the month: assigned, activity and available per expense category, the money ready to assign, and the planned and received income per income category",
+        "tags" : [ "Budget" ]
+      }
+    },
+    "/api/v1/budget/{month}/categories" : {
+      "put" : {
+        "description" : "All plans are saved or none. Returns the month like GET.",
+        "operationId" : "assignMany",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "month",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignManyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MonthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Set the plans of several categories of the month at once",
         "tags" : [ "Budget" ]
       }
     },
     "/api/v1/budget/{month}/categories/{categoryId}" : {
       "put" : {
+        "description" : "For an expense category the money of its envelope, for an income category the income expected.",
         "operationId" : "assign",
         "parameters" : [ {
           "in" : "path",
@@ -5916,13 +6212,13 @@
         "security" : [ {
           "bearer" : [ ]
         } ],
-        "summary" : "Set the money assigned to an expense category for the month; 0 removes it",
+        "summary" : "Set the plan of a category for the month; 0 removes it",
         "tags" : [ "Budget" ]
       }
     },
     "/api/v1/budget/{month}/copy-previous" : {
       "post" : {
-        "description" : "Every expense category whose own assignment this month is zero gets its own assignment of the previous month; envelopes already assigned and archived categories are left as they are. Returns the month like GET.",
+        "description" : "Every expense or income category whose own plan this month is zero gets its own plan of the previous month; categories already planned and archived categories are left as they are. Returns the month like GET.",
         "operationId" : "copyPrevious",
         "parameters" : [ {
           "in" : "path",
@@ -5947,7 +6243,7 @@
         "security" : [ {
           "bearer" : [ ]
         } ],
-        "summary" : "Copy the assignments of the previous month to the envelopes without one this month",
+        "summary" : "Copy the plans of the previous month to the categories without one this month",
         "tags" : [ "Budget" ]
       }
     },

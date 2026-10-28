@@ -384,6 +384,8 @@ public class DemoData {
                 "clothing", "2000",
                 "health", "1000");
         plan.forEach((key, amount) -> budget.assign(userId, month, names.category(key), new BigDecimal(amount)));
+        // Expected income: the salary comes twice a month
+        budget.assign(userId, month, names.category("salary"), new BigDecimal("64000"));
     }
 
     private Long account(Long userId, String name, AccountType type, String currency, String opening, String limit) {
