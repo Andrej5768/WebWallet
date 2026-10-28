@@ -310,4 +310,79 @@ class GoogleSignInTest extends AbstractIntegrationTest {
                 .andExpect(status().isNoContent());
         assertThat(login("olena@gmail.com", "new-password").accessToken()).isNotBlank();
     }
+
+    @Test
+    void nativeSignInCreatesTheAccountAndReturnsTheRefreshTokenInTheBody() throws Exception {
+        when(google.verifyIdToken("id-token-1"))
+                .thenReturn(new GoogleIdentity("sub-native", "native@gmail.com", true, "Олена", null));
+
+        MockHttpServletResponse response = mockMvc.perform(
+                        asAndroid(postJson("/api/v1/auth/google/native", Map.of("idToken", "id-token-1"))))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Set-Cookie"))
+                .andReturn()
+                .getResponse();
+        TokenResponse session = tokens(response);
+
+        assertThat(session.refreshToken()).isNotBlank();
+        User created = users.findByEmail("native@gmail.com").orElseThrow();
+        assertThat(created.isEmailVerified()).isTrue();
+        assertThat(created.hasPassword()).isFalse();
+        assertThat(created.getGoogleSubject()).isEqualTo("sub-native");
+    }
+
+    @Test
+    void nativeSignInRefusesAnUnverifiedGoogleEmailAndAnUnverifiedAccount() throws Exception {
+        when(google.verifyIdToken("unverified"))
+                .thenReturn(new GoogleIdentity("sub-2", "someone@gmail.com", false, "A", null));
+        Map<String, Object> problem =
+                json(asAndroid(postJson("/api/v1/auth/google/native", Map.of("idToken", "unverified"))), 400);
+        assertThat(problem).containsEntry("code", "GOOGLE_EMAIL_UNVERIFIED");
+
+        User unverified = createUser("typed@gmail.com", false);
+        when(google.verifyIdToken("taken"))
+                .thenReturn(new GoogleIdentity("sub-3", unverified.getEmail(), true, "B", null));
+        problem = json(asAndroid(postJson("/api/v1/auth/google/native", Map.of("idToken", "taken"))), 409);
+        assertThat(problem).containsEntry("code", "GOOGLE_EMAIL_TAKEN");
+    }
+
+    @Test
+    void nativeSignInAsksForTheTwoFactorCodeWhenItIsOn() throws Exception {
+        User user = createVerifiedUser();
+        user.setTotpSecret(cipher.encrypt(Totp.newSecret()), Instant.now());
+        users.save(user);
+        when(google.verifyIdToken("id-token-2"))
+                .thenReturn(new GoogleIdentity("sub-4", user.getEmail(), true, "John", null));
+
+        mockMvc.perform(asAndroid(postJson("/api/v1/auth/google/native", Map.of("idToken", "id-token-2"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.twoFactorChallenge").isNotEmpty())
+                .andExpect(jsonPath("$.accessToken").value(nullValue()));
+    }
+
+    @Test
+    void nativeLinkNeedsThePasswordAndRefusesAGoogleAccountOfAnotherUser() throws Exception {
+        User owner = createVerifiedUser();
+        owner.setGoogleAccount("sub-owner", owner.getEmail());
+        users.save(owner);
+        User user = createVerifiedUser();
+        String auth = bearer(login(user.getEmail(), PASSWORD));
+        when(google.verifyIdToken("mine"))
+                .thenReturn(new GoogleIdentity("sub-mine", "mine@gmail.com", true, "M", null));
+        when(google.verifyIdToken("theirs"))
+                .thenReturn(new GoogleIdentity("sub-owner", owner.getEmail(), true, "O", null));
+
+        json(postJson("/api/v1/me/google/link/native", Map.of("idToken", "mine", "password", "wrong"), auth), 400);
+        Map<String, Object> taken = json(
+                postJson("/api/v1/me/google/link/native", Map.of("idToken", "theirs", "password", PASSWORD), auth),
+                409);
+        assertThat(taken).containsEntry("code", "GOOGLE_ACCOUNT_TAKEN");
+
+        mockMvc.perform(postJson(
+                        "/api/v1/me/google/link/native", Map.of("idToken", "mine", "password", PASSWORD), auth))
+                .andExpect(status().isNoContent());
+        assertThat(users.findById(user.getId()).orElseThrow().getGoogleSubject())
+                .isEqualTo("sub-mine");
+        assertThat(json(get("/api/v1/auth/options"), 200)).containsEntry("googleWebClientId", "test-client");
+    }
 }

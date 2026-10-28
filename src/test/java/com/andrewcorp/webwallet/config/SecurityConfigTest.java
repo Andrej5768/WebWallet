@@ -29,10 +29,11 @@ class SecurityConfigTest {
                         Duration.ofDays(90),
                         "refresh_token",
                         true),
-                new AppProperties.Google("", ""),
+                new AppProperties.Google("", "", java.util.List.of()),
                 new AppProperties.Telegram("", "", ""),
                 new AppProperties.Android(
-                        1, 1, "https://play.google.com/store/apps/details?id=org.andrewdev.webwallet"));
+                        1, 1, "https://play.google.com/store/apps/details?id=org.andrewdev.webwallet"),
+                new AppProperties.Demo(true, Duration.ofHours(24), 5, Duration.ofHours(1)));
     }
 
     @Test

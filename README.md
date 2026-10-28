@@ -91,7 +91,8 @@ Configuration is done with environment variables: `DB_URL`, `DB_USERNAME`, `DB_P
 `APP_FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `TWELVE_DATA_API_KEY` and `ALPHA_VANTAGE_API_KEY` (market data and dividends, see below), `APP_PUBLIC_URL` (makes the Monobank `WEBHOOK` mode available), `TRUSTED_PROXIES`
 (a regular expression of reverse proxy addresses allowed to set `X-Forwarded-For`, loopback by default),
 `API_DOCS_ENABLED`, `REFRESH_COOKIE_SECURE`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` and
-`TELEGRAM_WEBHOOK_SECRET` (the Telegram bot, see below), `APP_ANDROID_MIN_VERSION_CODE`,
+`TELEGRAM_WEBHOOK_SECRET` (the Telegram bot, see below), `APP_DEMO_ENABLED` and `APP_DEMO_TTL` (the demo sandbox
+opened without registration, on by default and deleted after a day), `APP_ANDROID_MIN_VERSION_CODE`,
 `APP_ANDROID_LATEST_VERSION_CODE` and `APP_ANDROID_STORE_URL` (the versions of the Android app the server supports,
 returned by `GET /api/v1/app/config`)
 (see `src/main/resources/application.properties`).
@@ -144,6 +145,16 @@ returned by `GET /api/v1/app/config`)
   the web client sends neither. The server logs the client with every line and error alert. Before signing in the
   apps read `GET /api/v1/app/config` (public): the supported versions of the Android app and which optional features
   (Google sign-in, market search, Telegram, push) are on.
+- Google sign-in from the apps: `POST /api/v1/auth/google/native {idToken, trustedDeviceToken?}` takes the ID token
+  the app got from Google with the web client of `GET /api/v1/auth/options` (`googleWebClientId`) as the server
+  client, and answers like the browser flow; `POST /api/v1/me/google/link/native {idToken, password?, code?}` links
+  the account after the identity check. `GOOGLE_ANDROID_CLIENT_IDS` lists extra audiences the tokens may carry.
+- `Idempotency-Key` (a UUID chosen by the client) on a `POST` that creates something (accounts, transactions and their
+  batch, investment operations, goals and contributions, recurring payments, categories, tags, payees, rules, import
+  confirmations, budget moves): the same request sent again within a day gets the stored response back with
+  `Idempotency-Replayed: true` instead of creating a second resource; the same key with another request is `409`
+  `IDEMPOTENCY_MISMATCH`. Only successful responses are stored, so a request that failed can be corrected and sent
+  again under its key. The header is meant for the apps retrying after a lost response; the web client does not send it.
 - Budget: in `GET /api/v1/budget/{month}` the `assigned`, `activity` and `available` of a parent category row already
   include its subcategories (own + children); `ownAssigned`, `ownActivity` and `ownAvailable` are the values of the
   parent's own envelope (for a subcategory the same as the totals). `POST /api/v1/budget/{month}/move` with

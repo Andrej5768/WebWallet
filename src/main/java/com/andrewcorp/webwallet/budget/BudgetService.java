@@ -1,8 +1,10 @@
 package com.andrewcorp.webwallet.budget;
 
 import com.andrewcorp.webwallet.budget.BudgetDtos.CategoryRow;
+import com.andrewcorp.webwallet.budget.BudgetDtos.IncomeRow;
 import com.andrewcorp.webwallet.budget.BudgetDtos.MonthResponse;
 import com.andrewcorp.webwallet.budget.BudgetDtos.MoveRequest;
+import com.andrewcorp.webwallet.budget.BudgetDtos.PlanEntry;
 import com.andrewcorp.webwallet.budget.BudgetRepository.SplitRow;
 import com.andrewcorp.webwallet.budget.BudgetRepository.TransferRow;
 import com.andrewcorp.webwallet.common.error.ApiException;
@@ -33,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
  * left or overspent expires with the month. A category with carry-over is an envelope as in YNAB: its positive rest
  * moves to the next month and its overspending is taken from the free money of the next month. Credit cards are
  * treated like cash: spending on them uses the plan, and paying the card back is a transfer within the budget.
+ * Income categories have a plan too, the income expected in the month; it is compared with the income received and
+ * does not change the free money, which counts only the income actually received.
  */
 @Service
 public class BudgetService {
@@ -56,10 +60,31 @@ public class BudgetService {
     @Transactional
     public MonthResponse assign(Long userId, YearMonth month, Long categoryId, BigDecimal amount) {
         Category category = categories.findByIdAndUserId(categoryId, userId).orElseThrow(ApiException::notFound);
-        if (category.getKind() != CategoryKind.EXPENSE) {
-            throw ApiException.invalid("categoryId", "error.budget.expenseCategory");
-        }
         setAssigned(userId, month.atDay(1), category, amount);
+        budget.flush();
+        return month(userId, month);
+    }
+
+    /** Sets the plans of several categories of the month; an unknown or repeated category changes nothing. */
+    @Transactional
+    public MonthResponse assignMany(Long userId, YearMonth month, List<PlanEntry> plans) {
+        Map<Long, Category> owned = new HashMap<>();
+        for (int i = 0; i < plans.size(); i++) {
+            Long categoryId = plans.get(i).categoryId();
+            String field = "plans[" + i + "].categoryId";
+            if (owned.containsKey(categoryId)) {
+                throw ApiException.invalid(field, "error.budget.repeatedCategory");
+            }
+            owned.put(
+                    categoryId,
+                    categories
+                            .findByIdAndUserId(categoryId, userId)
+                            .orElseThrow(() -> ApiException.invalid(field, "error.notFound")));
+        }
+        LocalDate first = month.atDay(1);
+        for (PlanEntry plan : plans) {
+            setAssigned(userId, first, owned.get(plan.categoryId()), plan.assigned());
+        }
         budget.flush();
         return month(userId, month);
     }
@@ -80,8 +105,8 @@ public class BudgetService {
     }
 
     /**
-     * Assigns to every envelope without an own assignment this month what it had assigned the previous month.
-     * Envelopes already assigned this month and archived categories are left as they are.
+     * Gives every category without an own plan this month, expense or income, its plan of the previous month.
+     * Categories already planned this month and archived categories are left as they are.
      */
     @Transactional
     public MonthResponse copyPrevious(Long userId, YearMonth month) {
@@ -93,8 +118,7 @@ public class BudgetService {
         for (BudgetAssignment previous :
                 budget.findByMonth(userId, month.minusMonths(1).atDay(1))) {
             Category category = previous.getCategory();
-            if (category.getKind() == CategoryKind.EXPENSE
-                    && !category.isArchived()
+            if (!category.isArchived()
                     && current.getOrDefault(category.getId(), BigDecimal.ZERO).signum() == 0) {
                 setAssigned(userId, first, category, previous.getAmount());
             }
@@ -149,6 +173,12 @@ public class BudgetService {
         private final Map<YearMonth, BigDecimal> inflowByMonth = new HashMap<>();
         /** Spending without a category, by month: taken directly from the free money of the month. */
         private final Map<YearMonth, BigDecimal> uncategorizedByMonth = new HashMap<>();
+        /** Plan of each income category in the requested month. */
+        private final Map<Long, BigDecimal> plannedIncome = new HashMap<>();
+        /** Income received in each income category in the requested month. */
+        private final Map<Long, BigDecimal> receivedIncome = new HashMap<>();
+        /** Income without a category in the requested month. */
+        private BigDecimal uncategorizedIncome = BigDecimal.ZERO;
 
         Calculation(Long userId, YearMonth month, CurrencyConverter converter) {
             this.userId = userId;
@@ -214,6 +244,12 @@ public class BudgetService {
 
         private void loadAssignments() {
             for (BudgetAssignment assignment : budget.findUpTo(userId, month.atDay(1))) {
+                if (assignment.getCategory().getKind() == CategoryKind.INCOME) {
+                    if (YearMonth.from(assignment.getMonth()).equals(month)) {
+                        plannedIncome.merge(assignment.getCategory().getId(), assignment.getAmount(), BigDecimal::add);
+                    }
+                    continue;
+                }
                 assignedByMonth
                         .computeIfAbsent(YearMonth.from(assignment.getMonth()), m -> new HashMap<>())
                         .merge(assignment.getCategory().getId(), assignment.getAmount(), BigDecimal::add);
@@ -230,6 +266,13 @@ public class BudgetService {
                             .merge(row.getCategoryId(), income ? amount : amount.negate(), BigDecimal::add);
                 } else if (income) {
                     inflowByMonth.merge(YearMonth.from(row.getDate()), amount, BigDecimal::add);
+                    if (YearMonth.from(row.getDate()).equals(month)) {
+                        if (row.getCategoryId() == null) {
+                            uncategorizedIncome = uncategorizedIncome.add(amount);
+                        } else {
+                            receivedIncome.merge(row.getCategoryId(), amount, BigDecimal::add);
+                        }
+                    }
                 } else {
                     uncategorizedByMonth.merge(YearMonth.from(row.getDate()), amount.negate(), BigDecimal::add);
                 }
@@ -262,6 +305,7 @@ public class BudgetService {
                     rows.add(row);
                 }
             }
+            List<IncomeRow> incomeRows = incomeRows(tree);
             return new MonthResponse(
                     month,
                     converter.target(),
@@ -271,7 +315,41 @@ public class BudgetService {
                     sum(rows, CategoryRow::activity),
                     sum(rows, CategoryRow::available),
                     rows,
+                    sum(incomeRows, IncomeRow::planned),
+                    sum(incomeRows, IncomeRow::received).add(uncategorizedIncome),
+                    uncategorizedIncome,
+                    incomeRows,
                     converter.unconverted());
+        }
+
+        private List<IncomeRow> incomeRows(CategoryTree tree) {
+            List<IncomeRow> rows = new ArrayList<>();
+            for (Category parent : tree.topLevel(CategoryKind.INCOME)) {
+                List<IncomeRow> children = tree.children(parent.getId()).stream()
+                        .map(child -> incomeRow(child, List.of()))
+                        .filter(row -> !row.archived() || hasMoney(row))
+                        .toList();
+                IncomeRow row = incomeRow(parent, children);
+                if (!row.archived() || hasMoney(row)) {
+                    rows.add(row);
+                }
+            }
+            return rows;
+        }
+
+        private IncomeRow incomeRow(Category category, List<IncomeRow> children) {
+            BigDecimal ownPlanned = plannedIncome.getOrDefault(category.getId(), BigDecimal.ZERO);
+            BigDecimal ownReceived = receivedIncome.getOrDefault(category.getId(), BigDecimal.ZERO);
+            return new IncomeRow(
+                    category.getId(),
+                    category.getName(),
+                    category.getParentId(),
+                    category.isArchived(),
+                    ownPlanned.add(sum(children, IncomeRow::planned)),
+                    ownReceived.add(sum(children, IncomeRow::received)),
+                    ownPlanned,
+                    ownReceived,
+                    children);
         }
 
         private CategoryRow row(
@@ -304,11 +382,15 @@ public class BudgetService {
                 || row.available().signum() != 0;
     }
 
+    private static boolean hasMoney(IncomeRow row) {
+        return row.planned().signum() != 0 || row.received().signum() != 0;
+    }
+
     private static BigDecimal sum(Map<Long, BigDecimal> amounts) {
         return amounts.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private static BigDecimal sum(List<CategoryRow> rows, Function<CategoryRow, BigDecimal> field) {
+    private static <T> BigDecimal sum(List<T> rows, Function<T, BigDecimal> field) {
         return rows.stream().map(field).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

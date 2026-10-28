@@ -53,6 +53,17 @@ public class GoogleAccountController {
     }
 
     @Operation(
+            summary = "Link the Google account of a native app",
+            description = "The ID token the app got from Google, after the same identity check as the browser link."
+                    + " GOOGLE_ACCOUNT_TAKEN when the Google account belongs to another user.")
+    @PostMapping("/link/native")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void linkNative(@CurrentUserId Long userId, @Valid @RequestBody GoogleLinkNativeRequest request) {
+        twoFactor.confirmIdentity(userId, request.password(), request.code());
+        googleSignIn.linkNative(userId, request.idToken());
+    }
+
+    @Operation(
             summary = "Unlink the Google account",
             description = "CONFLICT for an account without a password, which could not sign in otherwise")
     @PostMapping("/unlink")

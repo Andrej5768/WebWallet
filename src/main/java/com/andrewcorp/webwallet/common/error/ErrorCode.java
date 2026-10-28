@@ -32,6 +32,18 @@ public enum ErrorCode {
     INVALID_EXTERNAL_TOKEN(HttpStatus.BAD_REQUEST, "error.import.token"),
     EXTERNAL_SERVICE_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "error.import.unavailable"),
     INVALID_IMPORT_FILE(HttpStatus.BAD_REQUEST, "error.import.file"),
+    /** The action is not available in a demo account: connecting a bank, Telegram, the export. */
+    DEMO_RESTRICTED(HttpStatus.FORBIDDEN, "error.demoRestricted"),
+    /** The Google account has no verified email, so it cannot open or join an account. */
+    GOOGLE_EMAIL_UNVERIFIED(HttpStatus.BAD_REQUEST, "error.googleEmailUnverified"),
+    /** An account with the Google email exists but its email is not verified; sign in with the password instead. */
+    GOOGLE_EMAIL_TAKEN(HttpStatus.CONFLICT, "error.googleEmailTaken"),
+    /** The Google account is linked to another user. */
+    GOOGLE_ACCOUNT_TAKEN(HttpStatus.CONFLICT, "error.googleAccountTaken"),
+    /** The Idempotency-Key header of a create request is not a UUID. */
+    INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "error.invalidIdempotencyKey"),
+    /** The Idempotency-Key was already used for another request within the day. */
+    IDEMPOTENCY_MISMATCH(HttpStatus.CONFLICT, "error.idempotencyMismatch"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "error.internal");
 
     private final HttpStatus status;

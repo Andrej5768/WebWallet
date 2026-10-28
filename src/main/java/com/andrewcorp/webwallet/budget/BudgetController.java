@@ -1,5 +1,6 @@
 package com.andrewcorp.webwallet.budget;
 
+import com.andrewcorp.webwallet.budget.BudgetDtos.AssignManyRequest;
 import com.andrewcorp.webwallet.budget.BudgetDtos.AssignRequest;
 import com.andrewcorp.webwallet.budget.BudgetDtos.MonthResponse;
 import com.andrewcorp.webwallet.budget.BudgetDtos.MoveRequest;
@@ -32,8 +33,8 @@ public class BudgetController {
     }
 
     @Operation(
-            summary = "Envelopes of the month: assigned, activity and available per expense category, and the money "
-                    + "ready to assign")
+            summary = "Envelopes of the month: assigned, activity and available per expense category, the money "
+                    + "ready to assign, and the planned and received income per income category")
     @GetMapping
     public MonthResponse month(
             @CurrentUserId Long userId,
@@ -41,7 +42,10 @@ public class BudgetController {
         return budgetService.month(userId, month);
     }
 
-    @Operation(summary = "Set the money assigned to an expense category for the month; 0 removes it")
+    @Operation(
+            summary = "Set the plan of a category for the month; 0 removes it",
+            description = "For an expense category the money of its envelope, for an income category the income"
+                    + " expected.")
     @PutMapping("/categories/{categoryId}")
     public MonthResponse assign(
             @CurrentUserId Long userId,
@@ -49,6 +53,17 @@ public class BudgetController {
             @PathVariable Long categoryId,
             @Valid @RequestBody AssignRequest request) {
         return budgetService.assign(userId, month, categoryId, request.assigned());
+    }
+
+    @Operation(
+            summary = "Set the plans of several categories of the month at once",
+            description = "All plans are saved or none. Returns the month like GET.")
+    @PutMapping("/categories")
+    public MonthResponse assignMany(
+            @CurrentUserId Long userId,
+            @PathVariable @DateTimeFormat(pattern = "yyyy-MM") YearMonth month,
+            @Valid @RequestBody AssignManyRequest request) {
+        return budgetService.assignMany(userId, month, request.plans());
     }
 
     @Operation(
@@ -64,9 +79,9 @@ public class BudgetController {
     }
 
     @Operation(
-            summary = "Copy the assignments of the previous month to the envelopes without one this month",
-            description = "Every expense category whose own assignment this month is zero gets its own assignment of"
-                    + " the previous month; envelopes already assigned and archived categories are left as they are."
+            summary = "Copy the plans of the previous month to the categories without one this month",
+            description = "Every expense or income category whose own plan this month is zero gets its own plan of"
+                    + " the previous month; categories already planned and archived categories are left as they are."
                     + " Returns the month like GET.")
     @PostMapping("/copy-previous")
     public MonthResponse copyPrevious(

@@ -4,10 +4,14 @@ import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.common.web.ClientInfoResolver;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.andrewcorp.webwallet.common.web.CurrentUserIdResolver;
+import com.andrewcorp.webwallet.demo.DemoRestrictions;
+import com.andrewcorp.webwallet.idempotency.IdempotencyFilter;
 import com.andrewcorp.webwallet.monitoring.ClientInfoFilter;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.media.StringSchema;
+import io.swagger.v3.oas.models.parameters.HeaderParameter;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import java.util.List;
 import java.util.Locale;
@@ -21,6 +25,7 @@ import org.springframework.core.Ordered;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.LocaleResolver;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver;
 
@@ -38,6 +43,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     public static final Locale UKRAINIAN = Locale.forLanguageTag("uk");
 
+    private final DemoRestrictions demoRestrictions;
+
+    public WebConfig(DemoRestrictions demoRestrictions) {
+        this.demoRestrictions = demoRestrictions;
+    }
+
     /** Messages are resolved from the Accept-Language header; English is the default. */
     @Bean
     public LocaleResolver localeResolver() {
@@ -45,6 +56,11 @@ public class WebConfig implements WebMvcConfigurer {
         resolver.setSupportedLocales(List.of(Locale.ENGLISH, UKRAINIAN));
         resolver.setDefaultLocale(Locale.ENGLISH);
         return resolver;
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(demoRestrictions).addPathPatterns("/api/v1/**");
     }
 
     @Override
@@ -78,5 +94,24 @@ public class WebConfig implements WebMvcConfigurer {
     @Bean
     public OpenApiCustomizer openApiTypingCustomizer() {
         return new OpenApiTypingCustomizer();
+    }
+
+    /**
+     * Documents the optional {@code Idempotency-Key} header on the create endpoints, so that the generated clients of
+     * the apps can pass it (see {@link IdempotencyFilter}).
+     */
+    @Bean
+    public OpenApiCustomizer idempotencyKeyCustomizer() {
+        return openApi -> openApi.getPaths().forEach((path, item) -> {
+            if (item.getPost() != null && IdempotencyFilter.isCreateRequest("POST", path)) {
+                item.getPost()
+                        .addParametersItem(new HeaderParameter()
+                                .name(IdempotencyFilter.HEADER)
+                                .required(false)
+                                .description("A UUID chosen by the client: the same request sent again within a day"
+                                        + " gets the first response back instead of creating a second resource")
+                                .schema(new StringSchema().format("uuid")));
+            }
+        });
     }
 }

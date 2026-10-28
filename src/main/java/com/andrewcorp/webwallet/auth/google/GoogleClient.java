@@ -44,10 +44,23 @@ public class GoogleClient {
         this.keys.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
                 JwtValidators.createDefault(),
                 jwt -> ISSUERS.contains(String.valueOf(jwt.getClaims().get("iss")))
-                                && jwt.getAudience().contains(this.properties.clientId())
+                                && jwt.getAudience().stream().anyMatch(this.properties.audiences()::contains)
                         ? OAuth2TokenValidatorResult.success()
                         : OAuth2TokenValidatorResult.failure(
                                 new OAuth2Error("invalid_token", "Not an ID token for this client", null))));
+    }
+
+    /**
+     * The identity behind an ID token a native app got from Google (B3): the signature, issuer, audience and expiry
+     * are checked like those of the browser flow; the nonce is not, since the app had no way to set one.
+     */
+    public GoogleIdentity verifyIdToken(String idToken) {
+        try {
+            return identity(keys.decode(idToken));
+        } catch (JwtException e) {
+            log.warn("Google ID token rejected: {}", e.getMessage());
+            throw new ApiException(ErrorCode.INVALID_TOKEN);
+        }
     }
 
     /** The Google page that asks the user to choose an account and come back to {@code redirectUri}. */

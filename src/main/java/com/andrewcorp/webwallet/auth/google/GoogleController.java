@@ -2,11 +2,13 @@ package com.andrewcorp.webwallet.auth.google;
 
 import com.andrewcorp.webwallet.auth.SessionResponse;
 import com.andrewcorp.webwallet.auth.dto.AuthOptionsResponse;
+import com.andrewcorp.webwallet.auth.dto.GoogleIdTokenRequest;
 import com.andrewcorp.webwallet.auth.dto.GoogleTicketRequest;
 import com.andrewcorp.webwallet.auth.dto.LoginResponse;
 import com.andrewcorp.webwallet.auth.twofactor.TrustedDeviceCookie;
 import com.andrewcorp.webwallet.common.web.ClientInfo;
 import com.andrewcorp.webwallet.config.AppProperties;
+import com.andrewcorp.webwallet.demo.DemoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,14 +34,17 @@ public class GoogleController {
     private final GoogleSignInService googleSignIn;
     private final GoogleStateCookie stateCookie;
     private final SessionResponse sessionResponse;
+    private final DemoService demo;
     private final String frontendUrl;
 
     public GoogleController(
             GoogleSignInService googleSignIn,
             GoogleStateCookie stateCookie,
             SessionResponse sessionResponse,
+            DemoService demo,
             AppProperties properties) {
         this.googleSignIn = googleSignIn;
+        this.demo = demo;
         this.stateCookie = stateCookie;
         this.sessionResponse = sessionResponse;
         this.frontendUrl = properties.frontendUrl("");
@@ -48,7 +53,22 @@ public class GoogleController {
     @Operation(summary = "Which ways of signing in this server offers besides the password")
     @GetMapping("/options")
     public AuthOptionsResponse options() {
-        return new AuthOptionsResponse(googleSignIn.enabled());
+        return new AuthOptionsResponse(googleSignIn.enabled(), demo.enabled(), googleSignIn.webClientId());
+    }
+
+    @Operation(
+            summary = "Sign in with the Google ID token of a native app",
+            description = "The app gets the ID token from Google itself (Credential Manager with the web client id of"
+                    + " GET /auth/options as the server client). Like the browser flow: the account of the Google"
+                    + " account, else the account with the same verified email, else a new account; a two-factor"
+                    + " challenge when it is on. GOOGLE_EMAIL_UNVERIFIED and GOOGLE_EMAIL_TAKEN say why a sign-in"
+                    + " is refused. Native apps get the refresh token in the body.")
+    @PostMapping("/google/native")
+    public ResponseEntity<LoginResponse> nativeSignIn(
+            @Valid @RequestBody GoogleIdTokenRequest request, ClientInfo client, Locale locale) {
+        return sessionResponse.login(
+                googleSignIn.signInNative(request.idToken(), request.trustedDeviceToken(), client.kind(), locale),
+                client);
     }
 
     @Operation(

@@ -32,6 +32,7 @@ public class AppConfigService {
                         listingSearch.enabled(),
                         properties.telegram().enabled(),
                         // B4: becomes "FCM configured" once push delivery exists
-                        false));
+                        false,
+                        properties.demo().enabled()));
     }
 }

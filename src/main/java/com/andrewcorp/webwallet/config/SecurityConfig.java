@@ -4,9 +4,12 @@ import com.andrewcorp.webwallet.auth.AccessTokenValidator;
 import com.andrewcorp.webwallet.auth.TokenService;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import com.andrewcorp.webwallet.common.error.ProblemDetails;
+import com.andrewcorp.webwallet.idempotency.IdempotencyFilter;
+import com.andrewcorp.webwallet.idempotency.IdempotencyKeyRepository;
 import com.andrewcorp.webwallet.monitoring.RequestRateLimitFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Clock;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,6 +44,7 @@ import org.springframework.security.oauth2.server.resource.web.authentication.Be
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
@@ -66,7 +70,8 @@ public class SecurityConfig {
             ProblemDetails problemDetails,
             LocaleResolver localeResolver,
             JsonMapper jsonMapper,
-            RequestRateLimitFilter rateLimitFilter) {
+            RequestRateLimitFilter rateLimitFilter,
+            IdempotencyFilter idempotencyFilter) {
         AuthenticationEntryPoint unauthorized = (request, response, ex) -> writeProblem(
                 response,
                 problemDetails.of(ErrorCode.UNAUTHORIZED, localeResolver.resolveLocale(request)),
@@ -113,7 +118,9 @@ public class SecurityConfig {
                 .exceptionHandling(exceptions ->
                         exceptions.authenticationEntryPoint(unauthorized).accessDeniedHandler(forbidden))
                 // Before the token is checked, so that a flood of requests costs as little as possible
-                .addFilterBefore(rateLimitFilter, BearerTokenAuthenticationFilter.class);
+                .addFilterBefore(rateLimitFilter, BearerTokenAuthenticationFilter.class)
+                // After the user is known, so that a key belongs to its user
+                .addFilterAfter(idempotencyFilter, AuthorizationFilter.class);
         // @formatter:on
         return http.build();
     }
@@ -138,6 +145,29 @@ public class SecurityConfig {
     @Bean
     public FilterRegistrationBean<RequestRateLimitFilter> requestRateLimitRegistration(RequestRateLimitFilter filter) {
         FilterRegistrationBean<RequestRateLimitFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    /** Replays the response of a create request sent again with the same key, see {@link IdempotencyFilter}. */
+    @Bean
+    public IdempotencyFilter idempotencyFilter(
+            IdempotencyKeyRepository keys,
+            Clock clock,
+            ProblemDetails problemDetails,
+            LocaleResolver localeResolver,
+            JsonMapper jsonMapper) {
+        return new IdempotencyFilter(
+                keys,
+                clock,
+                (request, response, code) -> writeProblem(
+                        response, problemDetails.of(code, localeResolver.resolveLocale(request)), jsonMapper, false));
+    }
+
+    /** The filter runs in the security chain only, not a second time as a servlet filter. */
+    @Bean
+    public FilterRegistrationBean<IdempotencyFilter> idempotencyRegistration(IdempotencyFilter filter) {
+        FilterRegistrationBean<IdempotencyFilter> registration = new FilterRegistrationBean<>(filter);
         registration.setEnabled(false);
         return registration;
     }

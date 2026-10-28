@@ -20,6 +20,8 @@ public record AppConfigResponse(AndroidVersions android, AppFeatures features) {
      * @param marketSearch whether the market data provider is configured, so that instruments can be searched
      * @param telegram whether the Telegram bot is configured
      * @param push whether push notifications can be delivered to the apps
+     * @param demo whether a demo sandbox can be opened without registration
      */
-    public record AppFeatures(boolean googleSignIn, boolean marketSearch, boolean telegram, boolean push) {}
+    public record AppFeatures(
+            boolean googleSignIn, boolean marketSearch, boolean telegram, boolean push, boolean demo) {}
 }
