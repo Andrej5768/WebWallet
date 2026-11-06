@@ -41,6 +41,42 @@ public final class MonobankDtos {
             LocalTime dailyAt) {}
 
     /**
+     * The settings of a connection made through the bank app; as for {@link ConnectRequest}, without the token.
+     *
+     * @param since date to import the history from; 31 days ago by default
+     */
+    public record ProviderConnectRequest(
+            @PastOrPresent LocalDate since,
+            SyncMode syncMode,
+
+            @Schema(type = "string", format = "time", example = "08:00")
+            LocalTime windowStart,
+
+            @Schema(type = "string", format = "time", example = "23:00")
+            LocalTime windowEnd,
+
+            @Schema(type = "string", format = "time", example = "06:00")
+            LocalTime dailyAt) {}
+
+    /** PENDING until the user approves the access in the bank app; EXPIRED after a day without it. */
+    public enum ProviderAuthStatus {
+        PENDING,
+        APPROVED,
+        EXPIRED
+    }
+
+    /**
+     * @param acceptUrl  opens the bank app to approve the access: a link on a phone, a QR code on a computer
+     * @param connection the new connection, once approved
+     */
+    public record ProviderAuthResponse(
+            Long id,
+            ProviderAuthStatus status,
+            String acceptUrl,
+            Instant expiresAt,
+            @Schema(nullable = true) ConnectionResponse connection) {}
+
+    /**
      * Times are local times of Kyiv, to the minute; omitted ones are kept. The window must start before it ends.
      *
      * @param windowStart first synchronization of the day in the INTERVAL mode

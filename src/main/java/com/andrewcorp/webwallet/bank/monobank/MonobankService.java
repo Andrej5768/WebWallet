@@ -3,10 +3,12 @@ package com.andrewcorp.webwallet.bank.monobank;
 import com.andrewcorp.webwallet.auth.token.TokenHasher;
 import com.andrewcorp.webwallet.bank.BankAccountLink;
 import com.andrewcorp.webwallet.bank.BankAccountLinkRepository;
+import com.andrewcorp.webwallet.bank.BankAuthMode;
 import com.andrewcorp.webwallet.bank.BankConnection;
 import com.andrewcorp.webwallet.bank.BankConnectionRepository;
 import com.andrewcorp.webwallet.bank.BankProvider;
 import com.andrewcorp.webwallet.bank.SyncMode;
+import com.andrewcorp.webwallet.bank.monobank.MonobankClient.AccessRequest;
 import com.andrewcorp.webwallet.bank.monobank.MonobankClient.BankAccount;
 import com.andrewcorp.webwallet.bank.monobank.MonobankClient.ClientInfo;
 import com.andrewcorp.webwallet.bank.monobank.MonobankClient.Jar;
@@ -14,6 +16,9 @@ import com.andrewcorp.webwallet.bank.monobank.MonobankClient.StatementItem;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ConnectRequest;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ConnectionResponse;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.LinkResponse;
+import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ProviderAuthResponse;
+import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ProviderAuthStatus;
+import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ProviderConnectRequest;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ScheduleRequest;
 import com.andrewcorp.webwallet.common.crypto.SecretCipher;
 import com.andrewcorp.webwallet.common.error.ApiException;
@@ -25,6 +30,8 @@ import com.andrewcorp.webwallet.ledger.account.AccountType;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionRepository;
 import com.andrewcorp.webwallet.ledger.transaction.TransactionSource;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -36,6 +43,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -48,9 +57,14 @@ import org.springframework.transaction.support.TransactionTemplate;
  * synchronization is due at the {@link BankConnection#getNextSyncAt() next sync time} of the connection, set by its
  * {@link SyncSchedule schedule}; it then requests every linked account once (and the history of new ones in monthly
  * periods) and sets the next time.
+ *
+ * <p>A connection reaches the bank with the personal token of the user, or, when WebWallet is registered as a
+ * service provider, with an access request the user approved in the bank app ({@link #startProviderAuth}).
  */
 @Service
 public class MonobankService {
+
+    private static final Logger log = LoggerFactory.getLogger(MonobankService.class);
 
     /** How often the accounts of the bank are read again. */
     private static final Duration INFO_REFRESH = Duration.ofDays(1);
@@ -70,6 +84,12 @@ public class MonobankService {
     private static final int MAX_HISTORY_YEARS = 3;
 
     private static final String WEBHOOK_PATH = "/api/v1/banks/monobank/webhook/";
+    static final String PROVIDER_WEBHOOK_PATH = "/api/v1/banks/monobank/webhook/provider/";
+    static final String AUTH_CALLBACK_PATH = "/api/v1/banks/monobank/auth/callback/";
+    /** The bank keeps an access request open for a day. */
+    static final Duration ACCESS_REQUEST_TTL = Duration.ofHours(24);
+    /** While the app polls, the bank is asked about an access request at most this often. */
+    static final Duration ACCESS_CHECK_INTERVAL = Duration.ofSeconds(10);
 
     private final BankConnectionRepository connections;
     private final BankAccountLinkRepository links;
@@ -82,6 +102,9 @@ public class MonobankService {
     private final TransactionTemplate tx;
     private final Clock clock;
     private final String publicUrl;
+    private final MonobankSigner signer;
+    private final MonobankAuthRequestRepository authRequests;
+    private final String providerWebhookSecret;
 
     public MonobankService(
             BankConnectionRepository connections,
@@ -94,7 +117,10 @@ public class MonobankService {
             TransactionRepository transactions,
             PlatformTransactionManager transactionManager,
             Clock clock,
-            @Value("${app.public-url:}") String publicUrl) {
+            @Value("${app.public-url:}") String publicUrl,
+            MonobankSigner signer,
+            MonobankAuthRequestRepository authRequests,
+            @Value("${app.monobank.provider.webhook-secret:}") String providerWebhookSecret) {
         this.connections = connections;
         this.links = links;
         this.accounts = accounts;
@@ -106,7 +132,24 @@ public class MonobankService {
         this.tx = new TransactionTemplate(transactionManager);
         this.clock = clock;
         this.publicUrl = publicUrl == null ? "" : publicUrl.replaceAll("/+$", "");
+        this.signer = signer;
+        this.authRequests = authRequests;
+        this.providerWebhookSecret = providerWebhookSecret == null ? "" : providerWebhookSecret.trim();
     }
+
+    /** Whether Monobank can be connected through the bank app, as a service provider. */
+    public boolean providerAvailable() {
+        return signer.enabled();
+    }
+
+    /** Whether the bank pushes the operations of provider connections: one webhook for the whole service. */
+    boolean providerWebhooks() {
+        return signer.enabled() && !publicUrl.isEmpty() && !providerWebhookSecret.isEmpty();
+    }
+
+    /** The settings a connection is created with, from the token form or from an approved access request. */
+    private record Settings(
+            LocalDate since, SyncMode syncMode, LocalTime windowStart, LocalTime windowEnd, LocalTime dailyAt) {}
 
     /**
      * Connects (or reconnects with a new token) and links every card and jar to an account: an existing account
@@ -114,46 +157,184 @@ public class MonobankService {
      * response does not hold a database connection.
      */
     public ConnectionResponse connect(Long userId, ConnectRequest request) {
-        // Checked before the bank is asked as far as possible without the saved schedule
-        checkWebhookMode(request.syncMode());
-        if (request.windowStart() != null
-                && request.windowEnd() != null
-                && !minutes(request.windowStart()).isBefore(minutes(request.windowEnd()))) {
+        Settings settings = new Settings(
+                request.since(), request.syncMode(), request.windowStart(), request.windowEnd(), request.dailyAt());
+        validate(settings, BankAuthMode.TOKEN);
+        ClientInfo info = client.clientInfo(request.token());
+        return tx.execute(status -> saveConnection(userId, settings, request.token(), BankAuthMode.TOKEN, info));
+    }
+
+    /** Checked before the bank is asked, as far as possible without the saved schedule. */
+    private void validate(Settings settings, BankAuthMode authMode) {
+        checkWebhookMode(settings.syncMode(), authMode);
+        if (settings.windowStart() != null
+                && settings.windowEnd() != null
+                && !minutes(settings.windowStart()).isBefore(minutes(settings.windowEnd()))) {
             throw ApiException.invalid("windowEnd", "error.bank.window");
         }
-        if (request.since() != null
-                && request.since()
+        if (settings.since() != null
+                && settings.since()
                         .isBefore(LocalDate.now(clock.withZone(MonobankStatementImporter.BANK_ZONE))
                                 .minusYears(MAX_HISTORY_YEARS))) {
             throw ApiException.invalid("since", "error.bank.since");
         }
-        ClientInfo info = client.clientInfo(request.token());
-        return tx.execute(status -> saveConnection(userId, request, info));
     }
 
-    private ConnectionResponse saveConnection(Long userId, ConnectRequest request, ClientInfo info) {
+    /**
+     * Asks the bank for access to the data of the user. The user approves it in the bank app by opening the accept
+     * URL or scanning it as a QR code; the connection is then created with the given settings, when the bank calls
+     * back or when the app asks for the {@link #providerAuthStatus status}, whichever comes first.
+     */
+    public ProviderAuthResponse startProviderAuth(Long userId, ProviderConnectRequest request) {
+        if (!providerAvailable()) {
+            throw ApiException.notFound();
+        }
+        Settings settings = new Settings(
+                request.since(), request.syncMode(), request.windowStart(), request.windowEnd(), request.dailyAt());
+        validate(settings, BankAuthMode.PROVIDER);
+        String secret = TokenHasher.newToken();
+        AccessRequest access =
+                client.requestAccess(publicUrl.isEmpty() ? null : publicUrl + AUTH_CALLBACK_PATH + secret);
+        Instant now = clock.instant();
+        return tx.execute(status -> {
+            authRequests.deleteExpired(now);
+            MonobankAuthRequest auth = new MonobankAuthRequest(
+                    userId,
+                    cipher.encrypt(access.tokenRequestId()),
+                    TokenHasher.hash(secret),
+                    access.acceptUrl(),
+                    now,
+                    now.plus(ACCESS_REQUEST_TTL));
+            auth.setSettings(
+                    settings.since(),
+                    settings.syncMode(),
+                    settings.windowStart(),
+                    settings.windowEnd(),
+                    settings.dailyAt());
+            authRequests.save(auth);
+            return authResponse(auth, ProviderAuthStatus.PENDING, null);
+        });
+    }
+
+    /**
+     * Where the access request stands. While it waits, the bank is asked (at most every few seconds), in case its
+     * callback does not reach the server; once approved, the connection is created.
+     */
+    public ProviderAuthResponse providerAuthStatus(Long userId, Long id) {
+        Instant now = clock.instant();
+        MonobankAuthRequest auth = tx.execute(status -> {
+            MonobankAuthRequest found = authRequests
+                    .findByIdAndUserId(id, userId)
+                    .flatMap(candidate -> authRequests.findLockedById(candidate.getId()))
+                    .orElseThrow(ApiException::notFound);
+            boolean check = found.getStatus() == MonobankAuthRequest.Status.PENDING
+                    && now.isBefore(found.getExpiresAt())
+                    && (found.getCheckedAt() == null
+                            || !found.getCheckedAt().isAfter(now.minus(ACCESS_CHECK_INTERVAL)));
+            if (check) {
+                found.setCheckedAt(now);
+            }
+            return found;
+        });
+        if (auth.getStatus() == MonobankAuthRequest.Status.APPROVED) {
+            return tx.execute(status -> authResponse(auth, ProviderAuthStatus.APPROVED, status(connection(userId))));
+        }
+        if (!now.isBefore(auth.getExpiresAt())) {
+            return authResponse(auth, ProviderAuthStatus.EXPIRED, null);
+        }
+        if (now.equals(auth.getCheckedAt())) {
+            String requestId = cipher.decrypt(auth.getEncryptedRequestId());
+            if (client.accessGranted(requestId)) {
+                return completeProviderAuth(auth.getId(), requestId);
+            }
+        }
+        return authResponse(auth, ProviderAuthStatus.PENDING, null);
+    }
+
+    /**
+     * The bank calls back once the user approved the access, with the request id in a header. A callback that does
+     * not match its request is ignored.
+     */
+    public void providerAuthCallback(String secret, String requestId) {
+        if (requestId == null || requestId.isBlank()) {
+            return;
+        }
+        Instant now = clock.instant();
+        Long authId = tx.execute(status -> authRequests
+                .findByCallbackSecret(TokenHasher.hash(secret))
+                .filter(auth -> auth.getStatus() == MonobankAuthRequest.Status.PENDING)
+                .filter(auth -> now.isBefore(auth.getExpiresAt()))
+                .filter(auth -> sameText(cipher.decrypt(auth.getEncryptedRequestId()), requestId))
+                .map(MonobankAuthRequest::getId)
+                .orElse(null));
+        if (authId != null) {
+            completeProviderAuth(authId, requestId);
+        }
+    }
+
+    /** Creates the connection of an approved access request, once, whether the callback or the app comes first. */
+    private ProviderAuthResponse completeProviderAuth(Long authId, String requestId) {
+        ClientInfo info = client.clientInfoAsProvider(requestId);
+        return tx.execute(status -> {
+            MonobankAuthRequest auth = authRequests.findLockedById(authId).orElseThrow(ApiException::notFound);
+            if (auth.getStatus() == MonobankAuthRequest.Status.PENDING) {
+                Settings settings = new Settings(
+                        auth.getSince(),
+                        auth.getSyncMode(),
+                        auth.getWindowStart(),
+                        auth.getWindowEnd(),
+                        auth.getDailyAt());
+                saveConnection(auth.getUserId(), settings, requestId, BankAuthMode.PROVIDER, info);
+                auth.setStatus(MonobankAuthRequest.Status.APPROVED);
+            }
+            return authResponse(auth, ProviderAuthStatus.APPROVED, status(connection(auth.getUserId())));
+        });
+    }
+
+    private static ProviderAuthResponse authResponse(
+            MonobankAuthRequest auth, ProviderAuthStatus status, ConnectionResponse connection) {
+        return new ProviderAuthResponse(auth.getId(), status, auth.getAcceptUrl(), auth.getExpiresAt(), connection);
+    }
+
+    private static boolean sameText(String a, String b) {
+        return MessageDigest.isEqual(a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Creates the connection, or replaces the token of the existing one, and links every card and jar to an
+     * account: an existing account with the same card number, or a new one.
+     *
+     * @param secret the personal token, or the id of the approved access request
+     */
+    private ConnectionResponse saveConnection(
+            Long userId, Settings settings, String secret, BankAuthMode authMode, ClientInfo info) {
         Instant now = clock.instant();
         BankConnection connection = connections
                 .findByUserIdAndProvider(userId, BankProvider.MONOBANK)
                 .orElseGet(() -> new BankConnection(userId, BankProvider.MONOBANK, "", unusedSecret()));
-        connection.setEncryptedToken(cipher.encrypt(request.token()));
+        connection.setEncryptedToken(cipher.encrypt(secret));
+        connection.setAuthMode(authMode);
         // A new webhook URL on every connect: the old one stops working
         connection.setWebhookSecret(unusedSecret());
         connection.setClientName(info.name());
         connection.setLastRequestAt(now);
         connection.setInfoRefreshedAt(now);
         connection.setLastError(null);
-        applySchedule(connection, request.syncMode(), request.windowStart(), request.windowEnd(), request.dailyAt());
-        // The webhook is registered again with the new URL; a webhook of another mode is removed
-        if (connection.getSyncMode() == SyncMode.WEBHOOK) {
+        applySchedule(
+                connection, settings.syncMode(), settings.windowStart(), settings.windowEnd(), settings.dailyAt());
+        if (authMode == BankAuthMode.PROVIDER) {
+            // The webhook of the service is set once for all users
+            connection.setWebhookRegistered(connection.getSyncMode() == SyncMode.WEBHOOK);
+        } else if (connection.getSyncMode() == SyncMode.WEBHOOK) {
+            // The webhook is registered again with the new URL; a webhook of another mode is removed
             connection.setWebhookRegistered(false);
         }
         // The history is loaded right away
         connection.setNextSyncAt(now);
         connections.save(connection);
 
-        LocalDate since = request.since() != null
-                ? request.since()
+        LocalDate since = settings.since() != null
+                ? settings.since()
                 : LocalDate.now(clock.withZone(MonobankStatementImporter.BANK_ZONE))
                         .minusDays(DEFAULT_HISTORY_DAYS);
         Instant syncFrom =
@@ -179,8 +360,11 @@ public class MonobankService {
     @Transactional
     public ConnectionResponse schedule(Long userId, ScheduleRequest request) {
         BankConnection connection = connection(userId);
-        checkWebhookMode(request.syncMode());
+        checkWebhookMode(request.syncMode(), connection.getAuthMode());
         applySchedule(connection, request.syncMode(), request.windowStart(), request.windowEnd(), request.dailyAt());
+        if (connection.getAuthMode() == BankAuthMode.PROVIDER) {
+            connection.setWebhookRegistered(connection.getSyncMode() == SyncMode.WEBHOOK);
+        }
         Instant now = clock.instant();
         if (connection.getNextSyncAt() == null || connection.getNextSyncAt().isAfter(now)) {
             connection.setNextSyncAt(SyncSchedule.next(connection, now));
@@ -202,8 +386,9 @@ public class MonobankService {
         return status(connection);
     }
 
-    private void checkWebhookMode(SyncMode mode) {
-        if (mode == SyncMode.WEBHOOK && publicUrl.isEmpty()) {
+    private void checkWebhookMode(SyncMode mode, BankAuthMode authMode) {
+        boolean available = authMode == BankAuthMode.PROVIDER ? providerWebhooks() : !publicUrl.isEmpty();
+        if (mode == SyncMode.WEBHOOK && !available) {
             throw ApiException.invalid("syncMode", "error.bank.webhookUnavailable");
         }
     }
@@ -275,7 +460,9 @@ public class MonobankService {
             return false;
         }
         if (request.info()) {
-            ClientInfo info = client.clientInfo(request.token());
+            ClientInfo info = request.provider()
+                    ? client.clientInfoAsProvider(request.token())
+                    : client.clientInfo(request.token());
             tx.executeWithoutResult(status -> applyInfo(connectionId, info, request.requestedAt()));
             return true;
         }
@@ -287,18 +474,20 @@ public class MonobankService {
             }));
             return true;
         }
-        List<StatementItem> items =
-                client.statement(request.token(), request.externalAccountId(), request.from(), request.to());
+        List<StatementItem> items = request.provider()
+                ? client.statementAsProvider(request.token(), request.externalAccountId(), request.from(), request.to())
+                : client.statement(request.token(), request.externalAccountId(), request.from(), request.to());
         tx.executeWithoutResult(status -> applyStatement(connectionId, request, items));
         return true;
     }
 
     /**
      * What to ask the bank for: the webhook registration (an empty URL removes the webhook) or a statement period of
-     * one account.
+     * one account. The token is the id of the access request for a {@link BankAuthMode#PROVIDER provider} connection.
      */
     private record SyncRequest(
             String token,
+            boolean provider,
             String webhookUrl,
             Long linkId,
             String externalAccountId,
@@ -316,14 +505,19 @@ public class MonobankService {
         }
         Instant now = clock.instant();
         String token = cipher.decrypt(connection.getEncryptedToken());
+        boolean provider = connection.getAuthMode() == BankAuthMode.PROVIDER;
         boolean webhook = connection.getSyncMode() == SyncMode.WEBHOOK && !publicUrl.isEmpty();
-        if (webhook != connection.isWebhookRegistered()) {
+        if (provider) {
+            // Nothing to register per user: the webhook of the service covers every provider connection
+            connection.setWebhookRegistered(connection.getSyncMode() == SyncMode.WEBHOOK && providerWebhooks());
+        } else if (webhook != connection.isWebhookRegistered()) {
             connection.setLastRequestAt(now);
             // Only the hash of the secret is kept: the URL is known to Monobank alone
             String secret = TokenHasher.newToken();
             connection.setWebhookSecret(TokenHasher.hash(secret));
             return new SyncRequest(
                     token,
+                    false,
                     webhook ? publicUrl + WEBHOOK_PATH + secret : "",
                     null,
                     null,
@@ -342,7 +536,7 @@ public class MonobankService {
         if (connection.getInfoRefreshedAt() == null
                 || connection.getInfoRefreshedAt().isBefore(now.minus(INFO_REFRESH))) {
             connection.setLastRequestAt(now);
-            return new SyncRequest(token, null, null, null, null, null, null, null, now, true);
+            return new SyncRequest(token, provider, null, null, null, null, null, null, null, now, true);
         }
         Optional<BankAccountLink> next = links.findByConnectionOrderByIdAsc(connection).stream()
                 .filter(link -> link.getAccount() != null)
@@ -365,6 +559,7 @@ public class MonobankService {
         connection.setLastRequestAt(now);
         return new SyncRequest(
                 token,
+                provider,
                 null,
                 link.getId(),
                 link.getExternalAccountId(),
@@ -448,6 +643,46 @@ public class MonobankService {
                     importer.importItems(link.getAccount(), List.of(item), null);
                     link.setBankBalance(ownFunds(link, item.balance()));
                 });
+    }
+
+    /**
+     * Imports an operation pushed to the webhook of the service, into every provider connection in the webhook mode
+     * that synchronizes the account. A wrong secret and unknown accounts are ignored.
+     */
+    @Transactional
+    public void handleProviderWebhook(String secret, String externalAccountId, StatementItem item) {
+        if (!providerWebhooks() || !sameText(providerWebhookSecret, secret)) {
+            return;
+        }
+        for (BankAccountLink found :
+                links.findByExternalAccountIdAndConnectionAuthMode(externalAccountId, BankAuthMode.PROVIDER)) {
+            connections
+                    .findLockedById(found.getConnection().getId())
+                    .filter(connection -> connection.getSyncMode() == SyncMode.WEBHOOK)
+                    .flatMap(connection -> links.findByConnectionAndExternalAccountId(connection, externalAccountId))
+                    .filter(link -> link.getAccount() != null)
+                    .ifPresent(link -> {
+                        importer.importItems(link.getAccount(), List.of(item), null);
+                        link.setBankBalance(ownFunds(link, item.balance()));
+                    });
+        }
+    }
+
+    /**
+     * Sets the webhook of the service at the bank, when the bank can reach the server; the bank then pushes the
+     * operations of every provider connection. Called on start, as the URL depends on the configuration.
+     */
+    public void registerProviderWebhook() {
+        if (!providerWebhooks()) {
+            return;
+        }
+        try {
+            client.setProviderWebhook(publicUrl + PROVIDER_WEBHOOK_PATH + providerWebhookSecret);
+            log.info("Monobank provider webhook is set");
+        } catch (ApiException e) {
+            // The daily synchronization still brings the operations
+            log.warn("Monobank provider webhook was not set: {}", e.code());
+        }
     }
 
     /**

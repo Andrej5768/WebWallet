@@ -4,7 +4,10 @@ import com.andrewcorp.webwallet.bank.monobank.MonobankClient.StatementItem;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ConnectRequest;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ConnectionResponse;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.LinkRequest;
+import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ProviderAuthResponse;
+import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ProviderConnectRequest;
 import com.andrewcorp.webwallet.bank.monobank.dto.MonobankDtos.ScheduleRequest;
+import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.web.CurrentUserId;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.Hidden;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,6 +48,39 @@ public class MonobankController {
     @PostMapping
     public ConnectionResponse connect(@CurrentUserId Long userId, @Valid @RequestBody ConnectRequest request) {
         return monobank.connect(userId, request);
+    }
+
+    @Operation(
+            summary = "Connect Monobank through the bank app",
+            description =
+                    "Available when the server is a registered Monobank service provider (features.monobankProvider"
+                            + " of the app configuration), otherwise 404. Show acceptUrl as a QR code, or open it on a phone;"
+                            + " then poll the status until the user approves the access in the bank app (within 24 hours).")
+    @SecurityRequirement(name = "bearer")
+    @PostMapping("/auth")
+    public ProviderAuthResponse startProviderAuth(
+            @CurrentUserId Long userId, @Valid @RequestBody ProviderConnectRequest request) {
+        return monobank.startProviderAuth(userId, request);
+    }
+
+    @Operation(summary = "Status of a connection through the bank app; APPROVED carries the new connection")
+    @SecurityRequirement(name = "bearer")
+    @GetMapping("/auth/{id}")
+    public ProviderAuthResponse providerAuthStatus(@CurrentUserId Long userId, @PathVariable Long id) {
+        return monobank.providerAuthStatus(userId, id);
+    }
+
+    /** The bank calls this once the user approved the access, with the id of the access request in a header. */
+    @Hidden
+    @GetMapping("/auth/callback/{secret}")
+    public void providerAuthCallback(
+            @PathVariable String secret, @RequestHeader(name = "X-Request-Id", required = false) String requestId) {
+        try {
+            monobank.providerAuthCallback(secret, requestId);
+        } catch (ApiException e) {
+            // The app asks the bank itself while it waits
+            log.warn("Monobank access callback failed: {}", e.code());
+        }
     }
 
     @Operation(summary = "Connection status, linked accounts and synchronization progress")
@@ -111,6 +148,33 @@ public class MonobankController {
             monobank.handleWebhook(secret, event.data().account(), event.data().statementItem());
         } catch (DataIntegrityViolationException e) {
             // The operation was imported concurrently; the synchronization picks up anything missed
+            log.warn(
+                    "Monobank webhook operation was not imported: {}",
+                    e.getMostSpecificCause().getClass().getSimpleName());
+        }
+    }
+
+    /** The bank checks the webhook of the service with a test call before using it. */
+    @Hidden
+    @GetMapping("/webhook/provider/{secret}")
+    public void verifyProviderWebhook(@PathVariable String secret) {
+        // Nothing to do: the bank only expects 200
+    }
+
+    /** Operations of every user who gave the service access; answered with 200 for the same reason as above. */
+    @Hidden
+    @PostMapping("/webhook/provider/{secret}")
+    public void providerWebhook(@PathVariable String secret, @RequestBody(required = false) WebhookEvent event) {
+        if (event == null
+                || !"StatementItem".equals(event.type())
+                || event.data() == null
+                || event.data().statementItem() == null) {
+            return;
+        }
+        try {
+            monobank.handleProviderWebhook(
+                    secret, event.data().account(), event.data().statementItem());
+        } catch (DataIntegrityViolationException e) {
             log.warn(
                     "Monobank webhook operation was not imported: {}",
                     e.getMostSpecificCause().getClass().getSimpleName());

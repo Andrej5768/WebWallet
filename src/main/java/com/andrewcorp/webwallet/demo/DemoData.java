@@ -152,6 +152,11 @@ public class DemoData {
         if (dom == 12) {
             list.add(expense(day, card, "350", names.category("utilities"), "Київстар", null));
         }
+        // Cash is taken out of the card every month: groceries are sometimes paid in cash and a lent debt comes from
+        // it, and a wallet below zero would look like a mistake.
+        if (dom == 3) {
+            list.add(transfer(day, card, cash, "4000", null));
+        }
         if (dom == 6) {
             list.add(transfer(day, card, deposit, "5000", null));
         }

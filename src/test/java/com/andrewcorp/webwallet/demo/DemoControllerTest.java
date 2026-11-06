@@ -41,6 +41,10 @@ class DemoControllerTest extends AbstractIntegrationTest {
 
         List<Map<String, Object>> accounts = jsonList(get("/api/v1/accounts").header("Authorization", authorization));
         assertThat(accounts).extracting(account -> account.get("name")).contains("Чорна картка", "Готівка", "Депозит");
+        assertThat(accounts)
+                .as("no demo account is below zero")
+                .allSatisfy(
+                        account -> assertThat(number(account.get("balance"))).isNotNegative());
 
         Map<String, Object> page =
                 json(get("/api/v1/transactions").param("size", "1").header("Authorization", authorization), 200);

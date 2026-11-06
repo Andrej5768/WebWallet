@@ -38,6 +38,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -base64 32)}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env (openssl rand -base64 32)}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-}
+      # Monobank through the bank app as a registered service provider; off without the key
+      MONOBANK_PROVIDER_KEY_ID: ${MONOBANK_PROVIDER_KEY_ID:-}
+      MONOBANK_PROVIDER_PRIVATE_KEY: ${MONOBANK_PROVIDER_PRIVATE_KEY:-}
+      MONOBANK_PROVIDER_WEBHOOK_SECRET: ${MONOBANK_PROVIDER_WEBHOOK_SECRET:-}
       # Mailpit by default; set a real SMTP server for production
       MAIL_HOST: ${MAIL_HOST:-mailpit}
       MAIL_PORT: ${MAIL_PORT:-1025}

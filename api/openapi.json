@@ -192,6 +192,9 @@
           "marketSearch" : {
             "type" : "boolean"
           },
+          "monobankProvider" : {
+            "type" : "boolean"
+          },
           "push" : {
             "type" : "boolean"
           },
@@ -199,7 +202,7 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "demo", "googleSignIn", "marketSearch", "push", "telegram" ],
+        "required" : [ "demo", "googleSignIn", "marketSearch", "monobankProvider", "push", "telegram" ],
         "type" : "object"
       },
       "ApplyResponse" : {
@@ -3538,6 +3541,62 @@
         "required" : [ "close", "date" ],
         "type" : "object"
       },
+      "ProviderAuthResponse" : {
+        "properties" : {
+          "acceptUrl" : {
+            "type" : "string"
+          },
+          "connection" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/ConnectionResponse"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "status" : {
+            "enum" : [ "PENDING", "APPROVED", "EXPIRED" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "acceptUrl", "connection", "expiresAt", "id", "status" ],
+        "type" : "object"
+      },
+      "ProviderConnectRequest" : {
+        "properties" : {
+          "dailyAt" : {
+            "example" : "06:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "since" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "syncMode" : {
+            "enum" : [ "INTERVAL", "DAILY", "WEBHOOK", "MANUAL" ],
+            "type" : "string"
+          },
+          "windowEnd" : {
+            "example" : "23:00",
+            "format" : "time",
+            "type" : "string"
+          },
+          "windowStart" : {
+            "example" : "08:00",
+            "format" : "time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "QuarterPaymentRequest" : {
         "properties" : {
           "paid" : {
@@ -5996,6 +6055,70 @@
           "bearer" : [ ]
         } ],
         "summary" : "Link a Monobank card or jar to another account, or stop synchronizing it with a null account",
+        "tags" : [ "Monobank" ]
+      }
+    },
+    "/api/v1/banks/monobank/auth" : {
+      "post" : {
+        "description" : "Available when the server is a registered Monobank service provider (features.monobankProvider of the app configuration), otherwise 404. Show acceptUrl as a QR code, or open it on a phone; then poll the status until the user approves the access in the bank app (within 24 hours).",
+        "operationId" : "startProviderAuth",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProviderConnectRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderAuthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Connect Monobank through the bank app",
+        "tags" : [ "Monobank" ]
+      }
+    },
+    "/api/v1/banks/monobank/auth/{id}" : {
+      "get" : {
+        "operationId" : "providerAuthStatus",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderAuthResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Status of a connection through the bank app; APPROVED carries the new connection",
         "tags" : [ "Monobank" ]
       }
     },
