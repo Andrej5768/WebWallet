@@ -86,6 +86,25 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     List<Transaction> findMatchCandidates(
             Long userId, Account account, TransactionType type, BigDecimal amount, LocalDate from, LocalDate to);
 
+    /**
+     * Bank operations of the account on the day with this amount, also as a half of a transfer: what a statement of
+     * the same bank already brought in, e.g. through the API, has a bank id of its own and no statement key.
+     *
+     * @param outgoing money leaving the account (an expense or the source of a transfer)
+     */
+    @Query("""
+            select t from Transaction t
+            where t.userId = :userId and t.date = :date
+              and ((t.account = :account and t.amount = :amount and t.bankId is not null
+                    and (t.type = (case when :outgoing = true
+                                   then com.andrewcorp.webwallet.ledger.transaction.TransactionType.EXPENSE
+                                   else com.andrewcorp.webwallet.ledger.transaction.TransactionType.INCOME end)
+                         or (:outgoing = true
+                             and t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.TRANSFER)))
+                or (:outgoing = false and t.type = com.andrewcorp.webwallet.ledger.transaction.TransactionType.TRANSFER
+                    and t.toAccount = :account and t.toAmount = :amount and t.toBankId is not null))""")
+    List<Transaction> findBankTwins(Long userId, Account account, boolean outgoing, BigDecimal amount, LocalDate date);
+
     /** Transfers from the account with this amount around the date whose outgoing half is not matched yet. */
     @Query("""
             select t from Transaction t

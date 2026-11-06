@@ -364,7 +364,7 @@
             "type" : "boolean"
           },
           "source" : {
-            "enum" : [ "PRIVATBANK", "ZENMONEY", "FREEDOM" ],
+            "enum" : [ "PRIVATBANK", "MONOBANK", "ZENMONEY", "FREEDOM" ],
             "type" : "string"
           },
           "to" : {
@@ -1839,6 +1839,16 @@
         "required" : [ "created", "currency", "id", "name" ],
         "type" : "object"
       },
+      "ImportDetectResponse" : {
+        "properties" : {
+          "source" : {
+            "enum" : [ "PRIVATBANK", "MONOBANK", "ZENMONEY", "FREEDOM", "UNKNOWN" ],
+            "type" : "string"
+          }
+        },
+        "required" : [ "source" ],
+        "type" : "object"
+      },
       "ImportOperation" : {
         "properties" : {
           "account" : {
@@ -1921,7 +1931,7 @@
             "$ref" : "#/components/schemas/PageResponseImportOperation"
           },
           "source" : {
-            "enum" : [ "PRIVATBANK", "ZENMONEY", "FREEDOM" ],
+            "enum" : [ "PRIVATBANK", "MONOBANK", "ZENMONEY", "FREEDOM" ],
             "type" : "string"
           },
           "summary" : {
@@ -6991,10 +7001,49 @@
         "tags" : [ "Goals" ]
       }
     },
+    "/api/v1/imports/detect" : {
+      "post" : {
+        "description" : "For a file shared into the app: a PrivatBank or Monobank statement by the bank named in the PDF, a Zen Money export by its header, a spreadsheet as Freedom Finance reports; UNKNOWN otherwise. The file is not stored.",
+        "operationId" : "detect",
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "file" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportDetectResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Tell which import a file belongs to",
+        "tags" : [ "Imports" ]
+      }
+    },
     "/api/v1/imports/freedom/preview" : {
       "post" : {
         "description" : "The trades report and the cash flows report, in any order; the cash flows give the currency of the fees, so both are needed for exact money. Without accountId the operations go to the brokerage account named Freedom Finance, created when there is none. Confirm with POST /previews/{id}/confirm within an hour, discard with DELETE /api/v1/imports/previews/{id}. Only the parsed reports are kept, not the files.",
-        "operationId" : "preview_1",
+        "operationId" : "preview_2",
         "parameters" : [ {
           "in" : "query",
           "name" : "accountId",
@@ -7090,6 +7139,54 @@
           "bearer" : [ ]
         } ],
         "summary" : "Import the previewed reports",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/imports/monobank/preview" : {
+      "post" : {
+        "description" : "Without accountId the account with the card number of the statement is used, e.g. the one of a Monobank connection, or created. Operations already brought in through the connection are shown as duplicates. Confirm with POST /api/v1/imports/previews/{id}/confirm within an hour; the file is not stored.",
+        "operationId" : "preview_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "accountId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "file" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportPreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer" : [ ]
+        } ],
+        "summary" : "Preview a Monobank card statement (signed PDF from the Monobank app) without saving anything",
         "tags" : [ "Imports" ]
       }
     },

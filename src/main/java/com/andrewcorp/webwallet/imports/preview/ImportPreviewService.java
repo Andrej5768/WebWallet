@@ -8,6 +8,8 @@ import com.andrewcorp.webwallet.imports.ImportOperation;
 import com.andrewcorp.webwallet.imports.ImportPreviewCollector;
 import com.andrewcorp.webwallet.imports.ImportResult;
 import com.andrewcorp.webwallet.imports.ImportReview;
+import com.andrewcorp.webwallet.imports.monobank.MonobankPdfImporter;
+import com.andrewcorp.webwallet.imports.monobank.MonobankPdfStatement;
 import com.andrewcorp.webwallet.imports.preview.ImportPreviewDtos.ConfirmRequest;
 import com.andrewcorp.webwallet.imports.preview.ImportPreviewDtos.ImportPreviewResponse;
 import com.andrewcorp.webwallet.imports.preview.ImportPreviewDtos.OperationEdit;
@@ -64,6 +66,7 @@ public class ImportPreviewService {
 
     private final ImportPreviewRepository previews;
     private final PrivatBankImporter privatBank;
+    private final MonobankPdfImporter monobank;
     private final ZenMoneyImporter zenMoney;
     private final LedgerLookups lookups;
     private final CategoryRepository categories;
@@ -80,6 +83,7 @@ public class ImportPreviewService {
     public ImportPreviewService(
             ImportPreviewRepository previews,
             PrivatBankImporter privatBank,
+            MonobankPdfImporter monobank,
             ZenMoneyImporter zenMoney,
             LedgerLookups lookups,
             CategoryRepository categories,
@@ -94,6 +98,7 @@ public class ImportPreviewService {
             Clock clock) {
         this.previews = previews;
         this.privatBank = privatBank;
+        this.monobank = monobank;
         this.zenMoney = zenMoney;
         this.lookups = lookups;
         this.categories = categories;
@@ -111,6 +116,9 @@ public class ImportPreviewService {
     /** The parsed input of a PrivatBank preview. */
     record PrivatInput(Long accountId, PrivatStatement statement) {}
 
+    /** The parsed input of a Monobank statement preview. */
+    record MonobankInput(Long accountId, MonobankPdfStatement statement) {}
+
     /** What the preview shows, stored with it. */
     record StoredPreview(ImportResult summary, List<ImportOperation> operations) {}
 
@@ -120,6 +128,14 @@ public class ImportPreviewService {
                 ImportSource.PRIVATBANK,
                 new PrivatInput(accountId, statement),
                 collector -> privatBank.importStatement(userId, accountId, statement, ImportReview.NONE, collector));
+    }
+
+    public ImportPreviewResponse previewMonobank(Long userId, Long accountId, MonobankPdfStatement statement) {
+        return create(
+                userId,
+                ImportSource.MONOBANK,
+                new MonobankInput(accountId, statement),
+                collector -> monobank.importStatement(userId, accountId, statement, ImportReview.NONE, collector));
     }
 
     public ImportPreviewResponse previewZenMoney(Long userId, ZenMoneyDump dump) {
@@ -236,6 +252,10 @@ public class ImportPreviewService {
             case PRIVATBANK -> {
                 PrivatInput input = jsonMapper.readValue(preview.getInput(), PrivatInput.class);
                 yield privatBank.importStatement(userId, input.accountId(), input.statement(), review, null);
+            }
+            case MONOBANK -> {
+                MonobankInput input = jsonMapper.readValue(preview.getInput(), MonobankInput.class);
+                yield monobank.importStatement(userId, input.accountId(), input.statement(), review, null);
             }
             case ZENMONEY ->
                 zenMoney.importDump(userId, jsonMapper.readValue(preview.getInput(), ZenMoneyDump.class), review, null);
