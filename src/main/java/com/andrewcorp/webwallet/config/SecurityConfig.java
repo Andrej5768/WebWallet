@@ -97,6 +97,10 @@ public class SecurityConfig {
                         // Called by Monobank; the URL contains a secret of the connection
                         .requestMatchers("/api/v1/banks/monobank/webhook/**")
                         .permitAll()
+                        // Called by Monobank once the user approved the access; the URL contains a secret of the
+                        // request
+                        .requestMatchers("/api/v1/banks/monobank/auth/callback/**")
+                        .permitAll()
                         // Called by Telegram with the secret of the webhook in a header
                         .requestMatchers("/api/v1/telegram/webhook")
                         .permitAll()

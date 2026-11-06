@@ -11,7 +11,10 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
+import java.security.KeyPair;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,14 +26,104 @@ import org.springframework.web.client.RestClient;
 
 class MonobankClientTest {
 
+    private static final Instant NOW = Instant.ofEpochSecond(1790000000);
+
     private MockRestServiceServer server;
     private MonobankClient client;
+    private KeyPair keys;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new MonobankClient(builder, "https://mono.test");
+        keys = MonobankSignerTest.keyPair();
+        client = new MonobankClient(
+                builder,
+                "https://mono.test",
+                new MonobankSigner("key-1", MonobankSignerTest.pem(keys)),
+                Clock.fixed(NOW, ZoneOffset.UTC));
+    }
+
+    /** The signature header verifies with the public key against the time, the request id and the path. */
+    private org.springframework.test.web.client.RequestMatcher signed(String requestId, String path) {
+        return request -> {
+            String signature = request.getHeaders().getFirst("X-Sign");
+            String text = NOW.getEpochSecond() + (requestId == null ? "" : requestId) + path;
+            try {
+                assertThat(MonobankSignerTest.verifies(keys, text, signature))
+                        .as("signature of " + text)
+                        .isTrue();
+            } catch (AssertionError e) {
+                throw e;
+            } catch (Exception e) {
+                throw new AssertionError(e);
+            }
+        };
+    }
+
+    @Test
+    void providerRequestsAreSignedInsteadOfCarryingAToken() {
+        server.expect(requestTo("https://mono.test/personal/client-info"))
+                .andExpect(header("X-Key-Id", "key-1"))
+                .andExpect(header("X-Time", "1790000000"))
+                .andExpect(header("X-Request-Id", "req-1"))
+                .andExpect(signed("req-1", "/personal/client-info"))
+                .andExpect(request -> assertThat(request.getHeaders().containsHeader("X-Token"))
+                        .isFalse())
+                .andRespond(withSuccess("{\"name\": \"Test User\", \"accounts\": []}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://mono.test/personal/statement/acc1/1790000000/1790086400"))
+                .andExpect(header("X-Request-Id", "req-1"))
+                .andExpect(signed("req-1", "/personal/statement/acc1/1790000000/1790086400"))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        assertThat(client.clientInfoAsProvider("req-1").name()).isEqualTo("Test User");
+        assertThat(client.statementAsProvider(
+                        "req-1", "acc1", Instant.ofEpochSecond(1790000000), Instant.ofEpochSecond(1790086400)))
+                .isEmpty();
+        server.verify();
+    }
+
+    @Test
+    void accessRequestAndItsCheck() {
+        server.expect(requestTo("https://mono.test/personal/auth/request"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("X-Key-Id", "key-1"))
+                .andExpect(header("X-Callback", "https://app.test/callback/s"))
+                .andExpect(signed(null, "/personal/auth/request"))
+                .andRespond(withSuccess(
+                        "{\"tokenRequestId\": \"req-1\", \"acceptUrl\": \"https://mbnk.app/auth/req-1\"}",
+                        MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://mono.test/personal/auth/request"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(signed("req-1", "/personal/auth/request"))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+        server.expect(requestTo("https://mono.test/personal/auth/request"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        MonobankClient.AccessRequest access = client.requestAccess("https://app.test/callback/s");
+
+        assertThat(access.tokenRequestId()).isEqualTo("req-1");
+        assertThat(access.acceptUrl()).isEqualTo("https://mbnk.app/auth/req-1");
+        assertThat(client.accessGranted("req-1")).isFalse();
+        assertThat(client.accessGranted("req-1")).isTrue();
+        server.verify();
+    }
+
+    @Test
+    void providerWebhook() {
+        server.expect(requestTo("https://mono.test/personal/corp/webhook"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("X-Key-Id", "key-1"))
+                .andExpect(request -> assertThat(request.getHeaders().getFirst("X-Request-Id"))
+                        .isNotBlank())
+                .andExpect(signed(null, "/personal/corp/webhook"))
+                .andExpect(content().json("{\"webHookUrl\": \"https://app.test/hook\"}"))
+                .andRespond(withSuccess());
+
+        client.setProviderWebhook("https://app.test/hook");
+
+        server.verify();
     }
 
     @Test

@@ -21,7 +21,13 @@ public record AppConfigResponse(AndroidVersions android, AppFeatures features) {
      * @param telegram whether the Telegram bot is configured
      * @param push whether push notifications can be delivered to the apps
      * @param demo whether a demo sandbox can be opened without registration
+     * @param monobankProvider whether Monobank can be connected through the bank app instead of a personal token
      */
     public record AppFeatures(
-            boolean googleSignIn, boolean marketSearch, boolean telegram, boolean push, boolean demo) {}
+            boolean googleSignIn,
+            boolean marketSearch,
+            boolean telegram,
+            boolean push,
+            boolean demo,
+            boolean monobankProvider) {}
 }

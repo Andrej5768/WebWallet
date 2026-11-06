@@ -1,6 +1,7 @@
 package com.andrewcorp.webwallet.app;
 
 import com.andrewcorp.webwallet.auth.google.GoogleSignInService;
+import com.andrewcorp.webwallet.bank.monobank.MonobankService;
 import com.andrewcorp.webwallet.config.AppProperties;
 import com.andrewcorp.webwallet.investment.market.ListingSearch;
 import org.springframework.stereotype.Service;
@@ -15,11 +16,17 @@ public class AppConfigService {
     private final AppProperties properties;
     private final GoogleSignInService googleSignIn;
     private final ListingSearch listingSearch;
+    private final MonobankService monobank;
 
-    public AppConfigService(AppProperties properties, GoogleSignInService googleSignIn, ListingSearch listingSearch) {
+    public AppConfigService(
+            AppProperties properties,
+            GoogleSignInService googleSignIn,
+            ListingSearch listingSearch,
+            MonobankService monobank) {
         this.properties = properties;
         this.googleSignIn = googleSignIn;
         this.listingSearch = listingSearch;
+        this.monobank = monobank;
     }
 
     public AppConfigResponse config() {
@@ -33,6 +40,7 @@ public class AppConfigService {
                         properties.telegram().enabled(),
                         // B4: becomes "FCM configured" once push delivery exists
                         false,
-                        properties.demo().enabled()));
+                        properties.demo().enabled(),
+                        monobank.providerAvailable()));
     }
 }

@@ -9,4 +9,7 @@ public interface BankAccountLinkRepository extends JpaRepository<BankAccountLink
     List<BankAccountLink> findByConnectionOrderByIdAsc(BankConnection connection);
 
     Optional<BankAccountLink> findByConnectionAndExternalAccountId(BankConnection connection, String externalAccountId);
+
+    /** The links of a bank account in every connection of the mode; several users may share an account. */
+    List<BankAccountLink> findByExternalAccountIdAndConnectionAuthMode(String externalAccountId, BankAuthMode authMode);
 }

@@ -30,8 +30,13 @@ public class BankConnection {
     @Column(nullable = false, updatable = false)
     private BankProvider provider;
 
+    /** The personal token, or for {@link BankAuthMode#PROVIDER} the id of the approved access request. */
     @Column(nullable = false)
     private String encryptedToken;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private BankAuthMode authMode = BankAuthMode.TOKEN;
 
     private String clientName;
 
@@ -107,6 +112,14 @@ public class BankConnection {
 
     public void setEncryptedToken(String encryptedToken) {
         this.encryptedToken = encryptedToken;
+    }
+
+    public BankAuthMode getAuthMode() {
+        return authMode;
+    }
+
+    public void setAuthMode(BankAuthMode authMode) {
+        this.authMode = authMode;
     }
 
     public String getClientName() {

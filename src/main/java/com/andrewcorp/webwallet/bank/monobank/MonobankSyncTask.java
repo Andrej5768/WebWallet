@@ -4,6 +4,8 @@ import com.andrewcorp.webwallet.common.error.ApiException;
 import com.andrewcorp.webwallet.common.error.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.dao.DataAccessException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -21,6 +23,12 @@ public class MonobankSyncTask {
 
     public MonobankSyncTask(MonobankService monobank) {
         this.monobank = monobank;
+    }
+
+    /** The webhook of the service is set on every start: its URL comes from the configuration. */
+    @EventListener(ApplicationReadyEvent.class)
+    public void registerProviderWebhook() {
+        monobank.registerProviderWebhook();
     }
 
     @Scheduled(
